@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{fs, path::PathBuf};
+use std::{path::PathBuf};
 
 /// CLI tool to load the data from a JSON database into a SQL database
 #[derive(Parser, Debug)]
