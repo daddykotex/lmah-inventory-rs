@@ -2,6 +2,7 @@ name: Release
 
 on:
   push:
+    branches: ["**"]
     
 
 permissions:
@@ -9,10 +10,7 @@ permissions:
 
 jobs:
   tests:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: {{ '${{ matrix.os }}' }}
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v5
