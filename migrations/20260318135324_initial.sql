@@ -46,7 +46,7 @@ CREATE TABLE clients (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     street TEXT,
-    city TEXT NOT NULL,
+    city TEXT,
     phone1 TEXT NOT NULL,
     phone2 TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand, Parser};
-use lmah_inventory_rs::cli::migration::load_config_from_json;
+use lmah_inventory_rs::cli::migration::{load_config_from_json, load_clients_from_json};
+use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 use std::path::{Path, PathBuf};
@@ -82,8 +83,6 @@ async fn connect_to_database(db_path: &Path) -> Result<SqlitePool> {
         .context("Failed to connect to SQLite database")?;
 
     println!("Connected to database: {}", db_path.display());
-
-    verify_config_table_exists(&pool).await?;
 
     Ok(pool)
 }
@@ -175,26 +174,123 @@ async fn verify_import(pool: &SqlitePool) -> Result<()> {
     Ok(())
 }
 
+async fn verify_clients_table_exists(pool: &SqlitePool) -> Result<()> {
+    let result: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='clients'")
+            .fetch_one(pool)
+            .await
+            .context("Failed to verify clients table")?;
+
+    if result.0 == 0 {
+        anyhow::bail!("clients table does not exist. Run migration.sql first.");
+    }
+    Ok(())
+}
+
+async fn check_existing_clients(pool: &SqlitePool) -> Result<i64> {
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM clients")
+        .fetch_one(pool)
+        .await?;
+    Ok(count)
+}
+
+async fn insert_client_records(
+    pool: &SqlitePool,
+    records: Vec<ClientRow>,
+    clear_existing: bool,
+) -> Result<()> {
+    let existing_count = check_existing_clients(pool).await?;
+
+    if existing_count > 0 && !clear_existing {
+        anyhow::bail!(
+            "Clients table already contains {} records. Use --clear-existing flag to clear and reload.",
+            existing_count
+        );
+    }
+
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    if clear_existing && existing_count > 0 {
+        sqlx::query("DELETE FROM clients")
+            .execute(&mut *tx)
+            .await
+            .context("Failed to clear clients table")?;
+        println!("Cleared {} existing client records", existing_count);
+    }
+
+    let record_count = records.len();
+    for record in records {
+        sqlx::query(
+            "INSERT INTO clients (airtable_id, first_name, last_name, street, city, phone1, phone2, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&record.airtable_id)
+        .bind(&record.first_name)
+        .bind(&record.last_name)
+        .bind(&record.street)
+        .bind(&record.city)
+        .bind(&record.phone1)
+        .bind(&record.phone2)
+        .bind(&record.created_at)
+        .bind(&record.updated_at)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("Failed to insert client: {} {}", record.first_name, record.last_name))?;
+    }
+
+    tx.commit().await.context("Failed to commit transaction")?;
+    println!("Inserted {} new client records", record_count);
+    Ok(())
+}
+
+async fn verify_clients_import(pool: &SqlitePool) -> Result<()> {
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM clients")
+        .fetch_one(pool)
+        .await?;
+
+    println!("Total client records in database: {}", count);
+
+    Ok(())
+}
+
 async fn load(args: &LoadArgs) -> Result<()> {
     assert_args(&args);
 
-    println!("LMAH Inventory -Data Loader");
-    println!("===================================");
+    println!("LMAH Inventory - Data Loader");
+    println!("===========================");
     println!("Source: {}", args.src.display());
     println!("Target: {}", args.target.display());
     println!();
 
-    println!("Step 1: Loading JSON...");
-    let records = load_config_from_json(&args.src).await?;
+    // ===== LOAD CONFIG =====
+    println!("Step 1: Loading config from JSON...");
+    let config_records = load_config_from_json(&args.src).await?;
 
-    println!("\nStep 2: Connecting to database...");
+    // ===== LOAD CLIENTS =====
+    println!("\nStep 2: Loading clients from JSON...");
+    let client_records = load_clients_from_json(&args.src).await?;
+
+    println!("\nStep 3: Connecting to database...");
     let pool = connect_to_database(&args.target).await?;
 
-    println!("\nStep 3: Inserting records...");
-    insert_config_records(&pool, records, args.clear_existing).await?;
+    // ===== INSERT CONFIG =====
+    println!("\nStep 4: Inserting config records...");
 
-    println!("\nStep 4: Verifying import...");
+    verify_config_table_exists(&pool).await?;
+    insert_config_records(&pool, config_records, args.clear_existing).await?;
+
+    // ===== INSERT CLIENTS =====
+    println!("\nStep 5: Inserting client records...");
+    verify_clients_table_exists(&pool).await?;
+    insert_client_records(&pool, client_records, args.clear_existing).await?;
+
+    // ===== VERIFY BOTH =====
+    println!("\nStep 6: Verifying imports...");
+    println!("\nConfig verification:");
     verify_import(&pool).await?;
+
+    println!("\nClients verification:");
+    verify_clients_import(&pool).await?;
 
     println!("\n✓ Import completed successfully!");
 
