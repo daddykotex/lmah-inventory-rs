@@ -1,15 +1,39 @@
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Args, Subcommand, Parser};
 use lmah_inventory_rs::cli::migration::load_config_from_json;
 use lmah_inventory_rs::server::models::config::ConfigRow;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 /// CLI tool to load the data from a JSON database into a SQL database
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct Args {
+#[command(propagate_version = true)]
+struct Cli {
+    /// Command to run
+    #[command(subcommand)]
+    command: Commands
+}
+
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Load the data from the JSON file into the SQLite database
+    Load(LoadArgs)
+
+}
+/// Options for the load command
+#[derive(Args, Debug)]
+struct MigrateArgs {
+    /// Location of the SQLite database
+    #[arg(short, long)]
+    target: PathBuf,
+}
+
+/// Options for the load command
+#[derive(Args, Debug)]
+struct LoadArgs {
     /// Location of the JSON file
     #[arg(short, long)]
     src: PathBuf,
@@ -23,7 +47,7 @@ struct Args {
     clear_existing: bool,
 }
 
-fn assert_args(args: &Args) {
+fn assert_args(args: &LoadArgs) {
     assert!(args.src.exists(), "The source JSON file does not exist.");
     assert!(
         args.src
@@ -46,7 +70,7 @@ fn assert_args(args: &Args) {
     );
 }
 
-async fn connect_to_database(db_path: &std::path::Path) -> Result<SqlitePool> {
+async fn connect_to_database(db_path: &Path) -> Result<SqlitePool> {
     let connection_string = format!("sqlite://{}", db_path.display());
 
     let options = SqliteConnectOptions::from_str(&connection_string)?
@@ -151,12 +175,10 @@ async fn verify_import(pool: &SqlitePool) -> Result<()> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let args = Args::parse();
+async fn load(args: &LoadArgs) -> Result<()> {
     assert_args(&args);
 
-    println!("LMAH Inventory - Config Data Loader");
+    println!("LMAH Inventory -Data Loader");
     println!("===================================");
     println!("Source: {}", args.src.display());
     println!("Target: {}", args.target.display());
@@ -175,6 +197,20 @@ async fn main() -> Result<()> {
     verify_import(&pool).await?;
 
     println!("\n✓ Import completed successfully!");
+
+    Ok(())
+}
+
+
+#[tokio::main]
+async fn main() -> Result<()> { 
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Commands::Load(load_args) => {
+            load(load_args).await?
+        }
+    }
 
     Ok(())
 }
