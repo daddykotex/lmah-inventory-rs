@@ -1,5 +1,5 @@
+use crate::server::models::clients::ClientRow;
 use crate::server::models::config::ConfigRow;
-use crate::{server::models::clients::ClientRow};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::fs;
@@ -75,9 +75,7 @@ pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
 }
 
 /// Load config records
-async fn load_config_from_export(
-    data: AirtableRecords<ConfigFields>,
-) -> Result<Vec<ConfigRow>> {
+async fn load_config_from_export(data: AirtableRecords<ConfigFields>) -> Result<Vec<ConfigRow>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_config_type(&record.fields.config_type).with_context(|| {
@@ -147,9 +145,7 @@ impl From<AirtableRecord<ClientFields>> for ClientRow {
 }
 
 /// Load client records from Airtable JSON export
-async fn load_clients_from_export(
-    data: AirtableRecords<ClientFields>,
-) -> Result<Vec<ClientRow>> {
+async fn load_clients_from_export(data: AirtableRecords<ClientFields>) -> Result<Vec<ClientRow>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_client_fields(&record.fields).with_context(|| {
