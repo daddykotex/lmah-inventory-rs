@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
-use lmah_inventory_rs::cli::migration::{
-    load_data, load_from_export,
-};
+use lmah_inventory_rs::cli::migration::{load_data, load_from_export};
+use lmah_inventory_rs::server::database::insert::Insertable;
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
@@ -122,7 +121,8 @@ async fn insert_config_records(
         );
     }
 
-    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+    let mut tx: sqlx::Transaction<'_, sqlx::Sqlite> =
+        pool.begin().await.context("Failed to begin transaction")?;
 
     if clear_existing && existing_count > 0 {
         sqlx::query("DELETE FROM config")
@@ -134,18 +134,7 @@ async fn insert_config_records(
 
     let record_count = records.len();
     for record in records {
-        sqlx::query(
-            "INSERT INTO config (key, value, type, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?)",
-        )
-        .bind(&record.key)
-        .bind(&record.value)
-        .bind(&record.config_type)
-        .bind(&record.created_at)
-        .bind(&record.updated_at)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| format!("Failed to insert config key: {}", record.key))?;
+        record.insert_one(&mut tx).await?;
     }
 
     tx.commit().await.context("Failed to commit transaction")?;
@@ -220,22 +209,7 @@ async fn insert_client_records(
 
     let record_count = records.len();
     for record in records {
-        sqlx::query(
-            "INSERT INTO clients (airtable_id, first_name, last_name, street, city, phone1, phone2, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(&record.airtable_id)
-        .bind(&record.first_name)
-        .bind(&record.last_name)
-        .bind(&record.street)
-        .bind(&record.city)
-        .bind(&record.phone1)
-        .bind(&record.phone2)
-        .bind(&record.created_at)
-        .bind(&record.updated_at)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| format!("Failed to insert client: {} {}", record.first_name, record.last_name))?;
+        record.insert_one(&mut tx).await?;
     }
 
     tx.commit().await.context("Failed to commit transaction")?;
