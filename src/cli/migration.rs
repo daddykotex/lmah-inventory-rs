@@ -6,8 +6,15 @@ use std::fs;
 
 /// Root JSON structure matching Airtable export format
 #[derive(Debug, Deserialize)]
-pub struct AirtableConfigExport {
-    records: Vec<AirtableConfigRecord>,
+pub struct AirtableExport {
+    pub config: AirtableConfigTable,
+    pub clients: AirtableClientsTable,
+}
+
+/// Table in the JSON
+#[derive(Debug, Deserialize)]
+pub struct AirtableConfigTable {
+    pub records: Vec<AirtableConfigRecord>,
 }
 
 /// Individual Airtable record
@@ -42,22 +49,21 @@ impl From<AirtableConfigRecord> for ConfigRow {
     }
 }
 
-/// Load config records from Airtable JSON export
-pub async fn load_config_from_json(json_path: &std::path::Path) -> Result<Vec<ConfigRow>> {
+/// Load data from JSON file
+pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
     let json_content = fs::read_to_string(json_path)
         .with_context(|| format!("Failed to read JSON file: {}", json_path.display()))?;
 
-    let parsed: serde_json::Value = serde_json::from_str(&json_content)
-        .context("Failed to parse JSON")?;
+    let export: AirtableExport =
+        serde_json::from_str(&json_content).context("Failed to parse JSON")?;
 
-    let config_section = parsed.get("config")
-        .context("Missing 'config' key in JSON")?;
-    
-    let export: AirtableConfigExport = serde_json::from_value(config_section.clone())
-        .context("Failed to parse config section")?;
+    Ok(export)
+}
 
+/// Load config records
+pub async fn load_config_from_export(data: Vec<AirtableConfigRecord>) -> Result<Vec<ConfigRow>> {
     let mut rows = Vec::new();
-    for (idx, record) in export.records.into_iter().enumerate() {
+    for (idx, record) in data.into_iter().enumerate() {
         validate_config_type(&record.fields.config_type).with_context(|| {
             format!("Invalid config type in record {} (id: {})", idx, record.id)
         })?;
@@ -121,8 +127,8 @@ pub struct AirtableClientRecord {
 
 /// Root JSON structure for clients export
 #[derive(Debug, Deserialize)]
-pub struct AirtableClientsExport {
-    records: Vec<AirtableClientRecord>,
+pub struct AirtableClientsTable {
+    pub records: Vec<AirtableClientRecord>,
 }
 
 impl From<AirtableClientRecord> for ClientRow {
@@ -142,21 +148,9 @@ impl From<AirtableClientRecord> for ClientRow {
 }
 
 /// Load client records from Airtable JSON export
-pub async fn load_clients_from_json(json_path: &std::path::Path) -> Result<Vec<ClientRow>> {
-    let json_content = fs::read_to_string(json_path)
-        .with_context(|| format!("Failed to read JSON file: {}", json_path.display()))?;
-
-    let parsed: serde_json::Value = serde_json::from_str(&json_content)
-        .context("Failed to parse JSON")?;
-
-    let clients_section = parsed.get("clients")
-        .context("Missing 'clients' key in JSON")?;
-
-    let export: AirtableClientsExport = serde_json::from_value(clients_section.clone())
-        .context("Failed to parse clients section")?;
-
+pub async fn load_clients_from_export(data: Vec<AirtableClientRecord>) -> Result<Vec<ClientRow>> {
     let mut rows = Vec::new();
-    for (idx, record) in export.records.into_iter().enumerate() {
+    for (idx, record) in data.into_iter().enumerate() {
         validate_client_fields(&record.fields).with_context(|| {
             format!("Invalid client data in record {} (id: {})", idx, record.id)
         })?;
