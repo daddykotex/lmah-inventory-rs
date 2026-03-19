@@ -7,23 +7,23 @@ use std::fs;
 /// Root JSON structure matching Airtable export format
 #[derive(Debug, Deserialize)]
 pub struct AirtableExport {
-    pub config: AirtableConfigTable,
-    pub clients: AirtableClientsTable,
+    pub config: AirtableRecords<ConfigFields>,
+    pub clients: AirtableRecords<ClientFields>,
 }
 
 /// Table in the JSON
 #[derive(Debug, Deserialize)]
-pub struct AirtableConfigTable {
-    pub records: Vec<AirtableConfigRecord>,
+pub struct AirtableRecords<T> {
+    pub records: Vec<AirtableRecord<T>>,
 }
 
 /// Individual Airtable record
 #[derive(Debug, Deserialize)]
-pub struct AirtableConfigRecord {
+pub struct AirtableRecord<T> {
     id: String,
     #[serde(rename = "createdTime")]
     created_time: String,
-    fields: ConfigFields,
+    fields: T,
 }
 
 /// Config fields from Airtable
@@ -37,8 +37,8 @@ pub struct ConfigFields {
     config_type: String,
 }
 
-impl From<AirtableConfigRecord> for ConfigRow {
-    fn from(record: AirtableConfigRecord) -> Self {
+impl From<AirtableRecord<ConfigFields>> for ConfigRow {
+    fn from(record: AirtableRecord<ConfigFields>) -> Self {
         ConfigRow {
             key: record.fields.key,
             value: record.fields.value,
@@ -61,7 +61,7 @@ pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
 }
 
 /// Load config records
-pub async fn load_config_from_export(data: Vec<AirtableConfigRecord>) -> Result<Vec<ConfigRow>> {
+pub async fn load_config_from_export(data: Vec<AirtableRecord<ConfigFields>>) -> Result<Vec<ConfigRow>> {
     let mut rows = Vec::new();
     for (idx, record) in data.into_iter().enumerate() {
         validate_config_type(&record.fields.config_type).with_context(|| {
@@ -116,23 +116,8 @@ pub struct ClientFields {
     phone2: Option<String>,
 }
 
-/// Individual Airtable client record
-#[derive(Debug, Deserialize)]
-pub struct AirtableClientRecord {
-    id: String,
-    #[serde(rename = "createdTime")]
-    created_time: String,
-    fields: ClientFields,
-}
-
-/// Root JSON structure for clients export
-#[derive(Debug, Deserialize)]
-pub struct AirtableClientsTable {
-    pub records: Vec<AirtableClientRecord>,
-}
-
-impl From<AirtableClientRecord> for ClientRow {
-    fn from(record: AirtableClientRecord) -> Self {
+impl From<AirtableRecord<ClientFields>> for ClientRow {
+    fn from(record: AirtableRecord<ClientFields>) -> Self {
         ClientRow {
             airtable_id: record.id,
             first_name: record.fields.first_name,
@@ -148,7 +133,7 @@ impl From<AirtableClientRecord> for ClientRow {
 }
 
 /// Load client records from Airtable JSON export
-pub async fn load_clients_from_export(data: Vec<AirtableClientRecord>) -> Result<Vec<ClientRow>> {
+pub async fn load_clients_from_export(data: Vec<AirtableRecord<ClientFields>>) -> Result<Vec<ClientRow>> {
     let mut rows = Vec::new();
     for (idx, record) in data.into_iter().enumerate() {
         validate_client_fields(&record.fields).with_context(|| {
