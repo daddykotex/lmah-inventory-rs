@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
-use clap::{Args, Subcommand, Parser};
-use lmah_inventory_rs::cli::migration::{load_config_from_json, load_clients_from_json};
+use clap::{Args, Parser, Subcommand};
+use lmah_inventory_rs::cli::migration::{
+    load_clients_from_export, load_config_from_export, load_data,
+};
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
@@ -14,15 +16,13 @@ use std::str::FromStr;
 struct Cli {
     /// Command to run
     #[command(subcommand)]
-    command: Commands
+    command: Commands,
 }
-
 
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Load the data from the JSON file into the SQLite database
-    Load(LoadArgs)
-
+    Load(LoadArgs),
 }
 /// Options for the load command
 #[derive(Args, Debug)]
@@ -263,19 +263,19 @@ async fn load(args: &LoadArgs) -> Result<()> {
     println!();
 
     // ===== LOAD CONFIG =====
-    println!("Step 1: Loading config from JSON...");
-    let config_records = load_config_from_json(&args.src).await?;
+    println!("Step 1: Loading JSON...");
+    let export = load_data(&args.src).await?;
+    let config_records = load_config_from_export(export.config.records).await?;
 
     // ===== LOAD CLIENTS =====
     println!("\nStep 2: Loading clients from JSON...");
-    let client_records = load_clients_from_json(&args.src).await?;
+    let client_records = load_clients_from_export(export.clients.records).await?;
 
     println!("\nStep 3: Connecting to database...");
     let pool = connect_to_database(&args.target).await?;
 
     // ===== INSERT CONFIG =====
     println!("\nStep 4: Inserting config records...");
-
     verify_config_table_exists(&pool).await?;
     insert_config_records(&pool, config_records, args.clear_existing).await?;
 
@@ -297,15 +297,12 @@ async fn load(args: &LoadArgs) -> Result<()> {
     Ok(())
 }
 
-
 #[tokio::main]
-async fn main() -> Result<()> { 
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Load(load_args) => {
-            load(load_args).await?
-        }
+        Commands::Load(load_args) => load(load_args).await?,
     }
 
     Ok(())
