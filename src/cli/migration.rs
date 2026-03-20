@@ -1,6 +1,9 @@
 use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
-use crate::server::{database::insert::Insertable, models::clients::ClientRow};
+use crate::server::{
+    database::insert::Insertable,
+    models::clients::{ClientRow, ClientRowWithId},
+};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -64,7 +67,7 @@ pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
 
 pub struct ToInsert {
     pub config: Vec<ConfigRow>,
-    pub clients: Vec<ClientRow>,
+    pub clients: Vec<ClientRowWithId>,
 }
 
 pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
@@ -130,31 +133,35 @@ pub struct ClientFields {
     phone2: Option<String>,
 }
 
-impl From<AirtableRecord<ClientFields>> for ClientRow {
+impl From<AirtableRecord<ClientFields>> for ClientRowWithId {
     fn from(record: AirtableRecord<ClientFields>) -> Self {
-        ClientRow {
+        ClientRowWithId {
             airtable_id: record.id,
-            first_name: record.fields.first_name,
-            last_name: record.fields.last_name,
-            street: record.fields.street,
-            city: record.fields.city,
-            phone1: record.fields.phone1,
-            phone2: record.fields.phone2,
-            created_at: record.created_time.clone(),
-            updated_at: record.created_time,
+            row: ClientRow {
+                first_name: record.fields.first_name,
+                last_name: record.fields.last_name,
+                street: record.fields.street,
+                city: record.fields.city,
+                phone1: record.fields.phone1,
+                phone2: record.fields.phone2,
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
         }
     }
 }
 
 /// Load client records from Airtable JSON export
-async fn load_clients_from_export(data: AirtableRecords<ClientFields>) -> Result<Vec<ClientRow>> {
+async fn load_clients_from_export(
+    data: AirtableRecords<ClientFields>,
+) -> Result<Vec<ClientRowWithId>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_client_fields(&record.fields).with_context(|| {
             format!("Invalid client data in record {} (id: {})", idx, record.id)
         })?;
 
-        rows.push(ClientRow::from(record));
+        rows.push(ClientRowWithId::from(record));
     }
 
     println!("Loaded {} client records from JSON", rows.len());

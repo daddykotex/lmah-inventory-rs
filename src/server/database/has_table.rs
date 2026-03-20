@@ -1,10 +1,10 @@
-use crate::server::models::{clients::ClientRow, config::ConfigRow};
+use crate::server::models::{clients::ClientRowWithId, config::ConfigRow};
 
 pub trait HasTable {
     fn table_name() -> &'static str;
 }
 
-impl HasTable for ClientRow {
+impl HasTable for ClientRowWithId {
     fn table_name() -> &'static str {
         "clients"
     }
