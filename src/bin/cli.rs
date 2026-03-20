@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{
-    load_clients_from_export, load_config_from_export, load_data,
+    load_data, load_from_export,
 };
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
@@ -265,11 +265,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
     // ===== LOAD CONFIG =====
     println!("Step 1: Loading JSON...");
     let export = load_data(&args.src).await?;
-    let config_records = load_config_from_export(export.config.records).await?;
-
-    // ===== LOAD CLIENTS =====
-    println!("\nStep 2: Loading clients from JSON...");
-    let client_records = load_clients_from_export(export.clients.records).await?;
+    let to_insert = load_from_export(export).await?;
 
     println!("\nStep 3: Connecting to database...");
     let pool = connect_to_database(&args.target).await?;
@@ -277,12 +273,12 @@ async fn load(args: &LoadArgs) -> Result<()> {
     // ===== INSERT CONFIG =====
     println!("\nStep 4: Inserting config records...");
     verify_config_table_exists(&pool).await?;
-    insert_config_records(&pool, config_records, args.clear_existing).await?;
+    insert_config_records(&pool, to_insert.config, args.clear_existing).await?;
 
     // ===== INSERT CLIENTS =====
     println!("\nStep 5: Inserting client records...");
     verify_clients_table_exists(&pool).await?;
-    insert_client_records(&pool, client_records, args.clear_existing).await?;
+    insert_client_records(&pool, to_insert.clients, args.clear_existing).await?;
 
     // ===== VERIFY BOTH =====
     println!("\nStep 6: Verifying imports...");
