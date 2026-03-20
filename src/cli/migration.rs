@@ -1,11 +1,8 @@
 use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
-use crate::server::models::events::EventRowWithId;
+use crate::server::models::events::EventRow;
 use crate::server::models::product_types::ProductTypeRow;
-use crate::server::{
-    database::insert::Insertable,
-    models::clients::{ClientRow, ClientRowWithId},
-};
+use crate::server::{database::insert::Insertable, models::clients::ClientRow};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -46,16 +43,27 @@ pub struct ConfigFields {
     config_type: String,
 }
 
-impl From<AirtableRecord<ConfigFields>> for ConfigRow {
+/// Unnecessary WithId but kept because most other tabs have one
+impl From<AirtableRecord<ConfigFields>> for WithId<ConfigRow> {
     fn from(record: AirtableRecord<ConfigFields>) -> Self {
-        ConfigRow {
-            key: record.fields.key,
-            value: record.fields.value,
-            config_type: record.fields.config_type,
-            created_at: record.created_time.clone(),
-            updated_at: record.created_time,
+        WithId {
+            airtable_id: String::from("_N/A_"),
+            row: ConfigRow {
+                key: record.fields.key,
+                value: record.fields.value,
+                config_type: record.fields.config_type,
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
         }
     }
+}
+
+/// Wrapper for rows that need Airtable ID mapping
+#[derive(Debug)]
+pub struct WithId<T> {
+    pub row: T,
+    pub airtable_id: String,
 }
 
 /// Load data from JSON file
@@ -71,9 +79,9 @@ pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
 
 pub struct ToInsert {
     pub config: Vec<ConfigRow>,
-    pub clients: Vec<ClientRowWithId>,
+    pub clients: Vec<WithId<ClientRow>>,
     pub product_types: Vec<ProductTypeRow>,
-    pub events: Vec<EventRowWithId>,
+    pub events: Vec<WithId<EventRow>>,
 }
 
 pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
@@ -97,7 +105,9 @@ async fn load_config_from_export(data: AirtableRecords<ConfigFields>) -> Result<
             format!("Invalid config type in record {} (id: {})", idx, record.id)
         })?;
 
-        rows.push(ConfigRow::from(record));
+        let row = WithId::<ConfigRow>::from(record).row;
+
+        rows.push(row);
     }
     Ok(rows)
 }
@@ -143,9 +153,9 @@ pub struct ClientFields {
     phone2: Option<String>,
 }
 
-impl From<AirtableRecord<ClientFields>> for ClientRowWithId {
+impl From<AirtableRecord<ClientFields>> for WithId<ClientRow> {
     fn from(record: AirtableRecord<ClientFields>) -> Self {
-        ClientRowWithId {
+        WithId {
             airtable_id: record.id,
             row: ClientRow {
                 first_name: record.fields.first_name,
@@ -164,14 +174,14 @@ impl From<AirtableRecord<ClientFields>> for ClientRowWithId {
 /// Load client records from Airtable JSON export
 async fn load_clients_from_export(
     data: AirtableRecords<ClientFields>,
-) -> Result<Vec<ClientRowWithId>> {
+) -> Result<Vec<WithId<ClientRow>>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_client_fields(&record.fields).with_context(|| {
             format!("Invalid client data in record {} (id: {})", idx, record.id)
         })?;
 
-        rows.push(ClientRowWithId::from(record));
+        rows.push(WithId::<ClientRow>::from(record));
     }
 
     println!("Loaded {} client records from JSON", rows.len());
@@ -198,10 +208,14 @@ pub struct ProductTypeFields {
     name: String,
 }
 
-impl From<AirtableRecord<ProductTypeFields>> for ProductTypeRow {
+/// Unnecessary WithId but kept because most other tabs have one
+impl From<AirtableRecord<ProductTypeFields>> for WithId<ProductTypeRow> {
     fn from(record: AirtableRecord<ProductTypeFields>) -> Self {
-        ProductTypeRow {
-            name: record.fields.name,
+        WithId {
+            airtable_id: String::from("_N/A_"),
+            row: ProductTypeRow {
+                name: record.fields.name,
+            },
         }
     }
 }
@@ -219,7 +233,9 @@ async fn load_product_types_from_export(
             )
         })?;
 
-        rows.push(ProductTypeRow::from(record));
+        let row = WithId::<ProductTypeRow>::from(record).row;
+
+        rows.push(row);
     }
 
     println!("Loaded {} product_type records from JSON", rows.len());
@@ -244,11 +260,11 @@ pub struct EventFields {
     event_type: String,
 }
 
-impl From<AirtableRecord<EventFields>> for EventRowWithId {
+impl From<AirtableRecord<EventFields>> for WithId<EventRow> {
     fn from(record: AirtableRecord<EventFields>) -> Self {
-        EventRowWithId {
+        WithId {
             airtable_id: record.id,
-            row: crate::server::models::events::EventRow {
+            row: EventRow {
                 name: record.fields.name,
                 event_type: record.fields.event_type,
                 date: record.fields.date,
@@ -260,14 +276,15 @@ impl From<AirtableRecord<EventFields>> for EventRowWithId {
 }
 
 /// Load event records from Airtable JSON export
-async fn load_events_from_export(data: AirtableRecords<EventFields>) -> Result<Vec<EventRowWithId>> {
+async fn load_events_from_export(
+    data: AirtableRecords<EventFields>,
+) -> Result<Vec<WithId<EventRow>>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
-        validate_event_fields(&record.fields).with_context(|| {
-            format!("Invalid event data in record {} (id: {})", idx, record.id)
-        })?;
+        validate_event_fields(&record.fields)
+            .with_context(|| format!("Invalid event data in record {} (id: {})", idx, record.id))?;
 
-        rows.push(EventRowWithId::from(record));
+        rows.push(WithId::<EventRow>::from(record));
     }
 
     println!("Loaded {} event records from JSON", rows.len());
@@ -293,13 +310,13 @@ pub async fn load_records<R, T>(
     clear_existing: bool,
 ) -> Result<()>
 where
-    T: From<AirtableRecord<R>>,
+    WithId<T>: From<AirtableRecord<R>>,
     T: HasTable,
     T: Insertable,
 {
     let mut converted = Vec::new();
     for r in data.records {
-        converted.push(T::from(r));
+        converted.push(WithId::<T>::from(r));
     }
 
     let count_records = count_records(pool, &T::table_name()).await?;
@@ -315,8 +332,14 @@ where
 
             let mut tx: sqlx::Transaction<'_, sqlx::Sqlite> =
                 pool.begin().await.context("Failed to begin transaction")?;
-            for row in converted {
-                row.insert_one(&mut tx).await?;
+            for with_id in converted {
+                let maybe_id = with_id.row.insert_one(&mut tx).await?;
+                match maybe_id {
+                    Some(id) => {
+                        insert_airtable_id(&mut tx, T::table_name(), id, with_id.airtable_id).await?;
+                    }
+                    None => {}
+                }
             }
             tx.commit().await.context("Failed to commit transaction")?;
             Ok(())
@@ -348,5 +371,30 @@ async fn clear_table(pool: &SqlitePool, table_name: &'static str) -> Result<()> 
         .execute(pool)
         .await
         .context("Failed to clear clients table")?;
+    Ok(())
+}
+
+async fn insert_airtable_id(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    table_name: &'static str,
+    id: i64,
+    airtable_id: String,
+) -> Result<()> {
+    // Insert mapping into airtable_mapping table
+    sqlx::query(
+        "INSERT INTO airtable_mapping (table_name, airtable_id, db_id)
+             VALUES (?, ?, ?)",
+    )
+    .bind(table_name)
+    .bind(&airtable_id)
+    .bind(id)
+    .execute(&mut **tx)
+    .await
+    .with_context(|| {
+        format!(
+            "Failed to insert airtable mapping for {}: id = {}, airtable_id = {}",
+            table_name, id, airtable_id
+        )
+    })?;
     Ok(())
 }

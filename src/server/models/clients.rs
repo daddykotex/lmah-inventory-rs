@@ -1,5 +1,4 @@
 /// Database row structure for clients table
-/// Note: Airtable ID mapping is stored in the airtable_mapping table
 #[derive(Debug)]
 pub struct ClientRow {
     pub first_name: String,
@@ -10,11 +9,4 @@ pub struct ClientRow {
     pub phone2: Option<String>,
     pub created_at: String,
     pub updated_at: String,
-}
-
-/// Wrapper for rows that need Airtable ID mapping
-#[derive(Debug)]
-pub struct ClientRowWithId {
-    pub row: ClientRow,
-    pub airtable_id: String,
 }
