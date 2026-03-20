@@ -1,5 +1,6 @@
 use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
+use crate::server::models::product_types::ProductTypeRow;
 use crate::server::{
     database::insert::Insertable,
     models::clients::{ClientRow, ClientRowWithId},
@@ -14,6 +15,7 @@ use std::fs;
 pub struct AirtableExport {
     pub config: AirtableRecords<ConfigFields>,
     pub clients: AirtableRecords<ClientFields>,
+    pub product_types: AirtableRecords<ProductTypeFields>,
 }
 
 /// Table in the JSON
@@ -68,14 +70,17 @@ pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
 pub struct ToInsert {
     pub config: Vec<ConfigRow>,
     pub clients: Vec<ClientRowWithId>,
+    pub product_types: Vec<ProductTypeRow>,
 }
 
 pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
     let config = load_config_from_export(data.config).await?;
     let clients = load_clients_from_export(data.clients).await?;
+    let product_types = load_product_types_from_export(data.product_types).await?;
     return Ok(ToInsert {
-        config: config,
-        clients: clients,
+        config,
+        clients,
+        product_types,
     });
 }
 
@@ -177,6 +182,48 @@ fn validate_client_fields(fields: &ClientFields) -> Result<()> {
     }
     if fields.phone1.trim().is_empty() {
         anyhow::bail!("phone1 cannot be empty");
+    }
+    Ok(())
+}
+
+/// Product type fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct ProductTypeFields {
+    #[serde(rename = "Name")]
+    name: String,
+}
+
+impl From<AirtableRecord<ProductTypeFields>> for ProductTypeRow {
+    fn from(record: AirtableRecord<ProductTypeFields>) -> Self {
+        ProductTypeRow {
+            name: record.fields.name,
+        }
+    }
+}
+
+/// Load product_types records from Airtable JSON export
+async fn load_product_types_from_export(
+    data: AirtableRecords<ProductTypeFields>,
+) -> Result<Vec<ProductTypeRow>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_product_type_fields(&record.fields).with_context(|| {
+            format!(
+                "Invalid product_type data in record {} (id: {})",
+                idx, record.id
+            )
+        })?;
+
+        rows.push(ProductTypeRow::from(record));
+    }
+
+    println!("Loaded {} product_type records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_product_type_fields(fields: &ProductTypeFields) -> Result<()> {
+    if fields.name.trim().is_empty() {
+        anyhow::bail!("product_type name cannot be empty");
     }
     Ok(())
 }
