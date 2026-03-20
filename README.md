@@ -28,6 +28,24 @@ Initialize with `sqlx database create"`.
 
 Apply migrations with: `sqlx migrate run`.
 
+## Development
+
+### Server
+
+We use `watchexec` (installed through `devenv`) along with `systemfd` to have hot reload.
+
+> Shamelessly borrowed from [blog post](https://lucumr.pocoo.org/2025/1/19/what-is-systemfd/)
+
+```
+cargo install systemfd
+```
+
+Run the server in development mode with:
+
+```bash
+systemfd --no-pid -s http::3000 -- watchexec -r -- cargo run --bin server
+```
+
 
 ## Notes
 
