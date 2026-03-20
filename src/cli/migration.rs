@@ -1,5 +1,6 @@
 use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
+use crate::server::models::events::EventRowWithId;
 use crate::server::models::product_types::ProductTypeRow;
 use crate::server::{
     database::insert::Insertable,
@@ -16,6 +17,7 @@ pub struct AirtableExport {
     pub config: AirtableRecords<ConfigFields>,
     pub clients: AirtableRecords<ClientFields>,
     pub product_types: AirtableRecords<ProductTypeFields>,
+    pub events: AirtableRecords<EventFields>,
 }
 
 /// Table in the JSON
@@ -71,16 +73,19 @@ pub struct ToInsert {
     pub config: Vec<ConfigRow>,
     pub clients: Vec<ClientRowWithId>,
     pub product_types: Vec<ProductTypeRow>,
+    pub events: Vec<EventRowWithId>,
 }
 
 pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
     let config = load_config_from_export(data.config).await?;
     let clients = load_clients_from_export(data.clients).await?;
     let product_types = load_product_types_from_export(data.product_types).await?;
+    let events = load_events_from_export(data.events).await?;
     return Ok(ToInsert {
         config,
         clients,
         product_types,
+        events,
     });
 }
 
@@ -224,6 +229,60 @@ async fn load_product_types_from_export(
 fn validate_product_type_fields(fields: &ProductTypeFields) -> Result<()> {
     if fields.name.trim().is_empty() {
         anyhow::bail!("product_type name cannot be empty");
+    }
+    Ok(())
+}
+
+/// Event fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct EventFields {
+    #[serde(rename = "Nom")]
+    name: String,
+    #[serde(rename = "Date")]
+    date: String,
+    #[serde(rename = "Type")]
+    event_type: String,
+}
+
+impl From<AirtableRecord<EventFields>> for EventRowWithId {
+    fn from(record: AirtableRecord<EventFields>) -> Self {
+        EventRowWithId {
+            airtable_id: record.id,
+            row: crate::server::models::events::EventRow {
+                name: record.fields.name,
+                event_type: record.fields.event_type,
+                date: record.fields.date,
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
+        }
+    }
+}
+
+/// Load event records from Airtable JSON export
+async fn load_events_from_export(data: AirtableRecords<EventFields>) -> Result<Vec<EventRowWithId>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_event_fields(&record.fields).with_context(|| {
+            format!("Invalid event data in record {} (id: {})", idx, record.id)
+        })?;
+
+        rows.push(EventRowWithId::from(record));
+    }
+
+    println!("Loaded {} event records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_event_fields(fields: &EventFields) -> Result<()> {
+    if fields.name.trim().is_empty() {
+        anyhow::bail!("event name cannot be empty");
+    }
+    if fields.date.trim().is_empty() {
+        anyhow::bail!("event date cannot be empty");
+    }
+    if fields.event_type.trim().is_empty() {
+        anyhow::bail!("event type cannot be empty");
     }
     Ok(())
 }
