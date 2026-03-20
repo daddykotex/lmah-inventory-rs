@@ -1,13 +1,12 @@
 use crate::server::models::{
-    clients::ClientRowWithId, config::ConfigRow, events::EventRowWithId,
-    product_types::ProductTypeRow,
+    clients::ClientRow, config::ConfigRow, events::EventRow, product_types::ProductTypeRow,
 };
 
 pub trait HasTable {
     fn table_name() -> &'static str;
 }
 
-impl HasTable for ClientRowWithId {
+impl HasTable for ClientRow {
     fn table_name() -> &'static str {
         "clients"
     }
@@ -19,7 +18,7 @@ impl HasTable for ConfigRow {
     }
 }
 
-impl HasTable for EventRowWithId {
+impl HasTable for EventRow {
     fn table_name() -> &'static str {
         "events"
     }
