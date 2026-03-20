@@ -1,5 +1,5 @@
-use crate::server::models::clients::ClientRow;
 use crate::server::models::config::ConfigRow;
+use crate::{server::models::clients::ClientRow};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::fs;
@@ -60,18 +60,32 @@ pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
     Ok(export)
 }
 
+pub struct ToInsert {
+    pub config: Vec<ConfigRow>,
+    pub clients: Vec<ClientRow>,
+}
+
+pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
+    let config = load_config_from_export(data.config).await?;
+    let clients = load_clients_from_export(data.clients).await?;
+    return Ok(ToInsert {
+        config: config,
+        clients: clients,
+    });
+}
+
 /// Load config records
-pub async fn load_config_from_export(data: Vec<AirtableRecord<ConfigFields>>) -> Result<Vec<ConfigRow>> {
+async fn load_config_from_export(
+    data: AirtableRecords<ConfigFields>,
+) -> Result<Vec<ConfigRow>> {
     let mut rows = Vec::new();
-    for (idx, record) in data.into_iter().enumerate() {
+    for (idx, record) in data.records.into_iter().enumerate() {
         validate_config_type(&record.fields.config_type).with_context(|| {
             format!("Invalid config type in record {} (id: {})", idx, record.id)
         })?;
 
         rows.push(ConfigRow::from(record));
     }
-
-    println!("Loaded {} config records from JSON", rows.len());
     Ok(rows)
 }
 
@@ -133,9 +147,11 @@ impl From<AirtableRecord<ClientFields>> for ClientRow {
 }
 
 /// Load client records from Airtable JSON export
-pub async fn load_clients_from_export(data: Vec<AirtableRecord<ClientFields>>) -> Result<Vec<ClientRow>> {
+async fn load_clients_from_export(
+    data: AirtableRecords<ClientFields>,
+) -> Result<Vec<ClientRow>> {
     let mut rows = Vec::new();
-    for (idx, record) in data.into_iter().enumerate() {
+    for (idx, record) in data.records.into_iter().enumerate() {
         validate_client_fields(&record.fields).with_context(|| {
             format!("Invalid client data in record {} (id: {})", idx, record.id)
         })?;
