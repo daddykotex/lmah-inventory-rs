@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{ClientFields, ConfigFields, load_data, load_records};
-use lmah_inventory_rs::server::models::clients::ClientRow;
+use lmah_inventory_rs::server::models::clients::ClientRowWithId;
 use lmah_inventory_rs::server::models::config::ConfigRow;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 use std::path::{Path, PathBuf};
@@ -133,11 +133,16 @@ async fn load(args: &LoadArgs) -> Result<()> {
 
     // ===== INSERT CONFIG =====
     println!("\nStep 4: Inserting config records...");
-    load_records::<ClientFields, ClientRow>(&pool, export.clients, args.clear_existing).await?;
+    load_records::<ConfigFields, ConfigRow>(&pool, export.config, args.clear_existing).await?;
 
     // ===== INSERT CLIENTS =====
     println!("\nStep 5: Inserting client records...");
-    load_records::<ConfigFields, ConfigRow>(&pool, export.config, args.clear_existing).await?;
+    load_records::<ClientFields, ClientRowWithId>(
+        &pool,
+        export.clients,
+        args.clear_existing,
+    )
+    .await?;
 
     // ===== VERIFY BOTH =====
     println!("\nStep 6: Verifying imports...");
