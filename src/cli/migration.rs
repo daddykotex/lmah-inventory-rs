@@ -1,7 +1,9 @@
-use crate::server::models::clients::ClientRow;
+use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
+use crate::server::{database::insert::Insertable, models::clients::ClientRow};
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use sqlx::SqlitePool;
 use std::fs;
 
 /// Root JSON structure matching Airtable export format
@@ -169,5 +171,69 @@ fn validate_client_fields(fields: &ClientFields) -> Result<()> {
     if fields.phone1.trim().is_empty() {
         anyhow::bail!("phone1 cannot be empty");
     }
+    Ok(())
+}
+
+pub async fn load_records<R, T>(
+    pool: &SqlitePool,
+    data: AirtableRecords<R>,
+    clear_existing: bool,
+) -> Result<()>
+where
+    T: From<AirtableRecord<R>>,
+    T: HasTable,
+    T: Insertable,
+{
+    let mut converted = Vec::new();
+    for r in data.records {
+        converted.push(T::from(r));
+    }
+
+    let count_records = count_records(pool, &T::table_name()).await?;
+    match count_records {
+        Some(count) => {
+            if !clear_existing {
+                anyhow::bail!("There");
+            }
+
+            if count > 0 {
+                clear_table(pool, T::table_name()).await?;
+            }
+
+            let mut tx: sqlx::Transaction<'_, sqlx::Sqlite> =
+                pool.begin().await.context("Failed to begin transaction")?;
+            for row in converted {
+                row.insert_one(&mut tx).await?;
+            }
+            tx.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        None => todo!(),
+    }
+}
+
+async fn count_records(pool: &SqlitePool, table_name: &'static str) -> Result<Option<i64>> {
+    let result: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?")
+            .bind(table_name)
+            .fetch_one(pool)
+            .await
+            .context("Failed to verify config table")?;
+
+    if result.0 == 0 {
+        return Ok(None);
+    }
+
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM config")
+        .fetch_one(pool)
+        .await?;
+    Ok(Some(count))
+}
+
+async fn clear_table(pool: &SqlitePool, table_name: &'static str) -> Result<()> {
+    sqlx::query(&format!("DELETE FROM {}", table_name))
+        .execute(pool)
+        .await
+        .context("Failed to clear clients table")?;
     Ok(())
 }
