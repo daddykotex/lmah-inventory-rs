@@ -18,7 +18,28 @@ PRAGMA journal_mode=WAL;
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1. CONFIG - Application configuration
+-- 1. AIRTABLE_MAPPING - Central mapping table for Airtable IDs
+-- ----------------------------------------------------------------------------
+-- Purpose: Map Airtable record IDs to internal database IDs
+-- Design: Single source of truth for all Airtable ID mappings
+-- Usage: During migration, insert mappings here; use for foreign key resolution
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE airtable_mapping (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_name TEXT NOT NULL,
+    airtable_id TEXT NOT NULL,
+    db_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(table_name, airtable_id)
+);
+
+-- Index for fast lookups during migration
+CREATE INDEX idx_airtable_mapping_lookup ON airtable_mapping(table_name, airtable_id);
+CREATE INDEX idx_airtable_mapping_reverse ON airtable_mapping(table_name, db_id);
+
+-- ----------------------------------------------------------------------------
+-- 2. CONFIG - Application configuration
 -- ----------------------------------------------------------------------------
 -- Purpose: Store configuration values (clauses, signatures, event types, etc.)
 -- Maps to: Site model (site.scala:51-58)
@@ -34,15 +55,15 @@ CREATE TABLE config (
 );
 
 -- ----------------------------------------------------------------------------
--- 2. CLIENTS - Customer information
+-- 3. CLIENTS - Customer information
 -- ----------------------------------------------------------------------------
 -- Purpose: Store customer/client data
 -- Maps to: LMAHClient model (clients.scala:7-20)
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE clients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     street TEXT,
@@ -54,15 +75,15 @@ CREATE TABLE clients (
 );
 
 -- ----------------------------------------------------------------------------
--- 3. EVENTS - Events (weddings, proms, etc.)
+-- 4. EVENTS - Events (weddings, proms, etc.)
 -- ----------------------------------------------------------------------------
 -- Purpose: Store event information
 -- Maps to: LMAHEvent model (events.scala:11)
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     date TEXT NOT NULL,
@@ -71,30 +92,28 @@ CREATE TABLE events (
 );
 
 -- ----------------------------------------------------------------------------
--- 4. PRODUCT_TYPES - Product type catalog
+-- 5. PRODUCT_TYPES - Product type catalog
 -- ----------------------------------------------------------------------------
 -- Purpose: Store available product types (from product_types.json)
 -- Valid types: See produits.scala:94-118
+-- Note: Primary key is name; Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE product_types (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    name TEXT NOT NULL PRIMARY KEY
 );
 
 -- ----------------------------------------------------------------------------
--- 5. PRODUCTS - Product/service catalog
+-- 6. PRODUCTS - Product/service catalog
 -- ----------------------------------------------------------------------------
 -- Purpose: Store products (dresses, alterations, accessories)
 -- Maps to: LMAHProduit model (produits.scala:23-31)
--- Note: Types and images are in separate tables
+-- Note: Types and images are in separate tables (many-to-many relationship)
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
-    product_type_id INTEGER NOT NULL REFERENCES product_types(id) ON DELETE RESTRICT,
     name TEXT NOT NULL,
     price INTEGER NOT NULL,
     liquidation INTEGER,
@@ -104,7 +123,21 @@ CREATE TABLE products (
 );
 
 -- ----------------------------------------------------------------------------
--- 6. PRODUCT_IMAGES - Product image attachments
+-- 7. PRODUCT_PRODUCT_TYPES - Many-to-many junction table
+-- ----------------------------------------------------------------------------
+-- Purpose: Link products to their types (many-to-many relationship)
+-- A product can have multiple types, and a type can apply to multiple products
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE product_product_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    product_type_name TEXT NOT NULL REFERENCES product_types(name) ON DELETE RESTRICT,
+    UNIQUE(product_id, product_type_name)
+);
+
+-- ----------------------------------------------------------------------------
+-- 8. PRODUCT_IMAGES - Product image attachments
 -- ----------------------------------------------------------------------------
 -- Purpose: Store product images (front/back)
 -- Maps to: LinkedAirtableRecordData[AirtableAttachment]
@@ -120,16 +153,16 @@ CREATE TABLE product_images (
 );
 
 -- ----------------------------------------------------------------------------
--- 7. FACTURES - Invoices
+-- 9. FACTURES - Invoices
 -- ----------------------------------------------------------------------------
 -- Purpose: Store invoices (factures) for products, location, alteration
 -- Maps to: LMAHFacture model (factures.scala:231-250)
 -- Note: Computed fields (total, balance, TVQ, TPS) are calculated in Scala
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE factures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
     client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
     type TEXT CHECK(type IN ('Produits', 'Location', 'Altération')),
     date TEXT,
@@ -142,16 +175,16 @@ CREATE TABLE factures (
 );
 
 -- ----------------------------------------------------------------------------
--- 8. FACTURE_ITEMS - Invoice line items (polymorphic)
+-- 10. FACTURE_ITEMS - Invoice line items (polymorphic)
 -- ----------------------------------------------------------------------------
 -- Purpose: Line items on factures (3 types: Produit, Location, Alteration)
 -- Maps to: LMAHItemProduit, LMAHItemLocation, LMAHItemAlteration (items.scala)
 -- Design: Single table with type discriminator + nullable type-specific columns
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE facture_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     item_type TEXT NOT NULL CHECK(item_type IN ('Produit', 'Location', 'Alteration')),
@@ -185,16 +218,16 @@ CREATE TABLE facture_items (
 );
 
 -- ----------------------------------------------------------------------------
--- 9. PAYMENTS - Payment transactions
+-- 11. PAYMENTS - Payment transactions
 -- ----------------------------------------------------------------------------
 -- Purpose: Store payment records for factures
 -- Maps to: LMAHPayment model (transactions.scala:28-33)
 -- Valid types: Mastercard, Visa, American Express, Interac, Argent comptant
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
     date TEXT NOT NULL,
@@ -205,16 +238,16 @@ CREATE TABLE payments (
 );
 
 -- ----------------------------------------------------------------------------
--- 10. REFUNDS - Refund transactions
+-- 12. REFUNDS - Refund transactions
 -- ----------------------------------------------------------------------------
 -- Purpose: Store refund records for factures
 -- Maps to: LMAHRefund model (transactions.scala:148-154)
 -- Valid types: Mastercard, Visa, American Express, Interac, Argent comptant, Chèque
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE refunds (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
     date TEXT NOT NULL,
@@ -225,17 +258,17 @@ CREATE TABLE refunds (
 );
 
 -- ----------------------------------------------------------------------------
--- 11. STATUTS - State machine history
+-- 13. STATUTS - State machine history
 -- ----------------------------------------------------------------------------
 -- Purpose: Track state transitions for facture items (workflow tracking)
 -- Maps to: LMAHStatus model (state.scala:546-552)
 -- Design: Append-only history, current state = most recent status by date
 -- Valid types: See state.scala:70-544 (4 state machines)
+-- Note: Airtable ID mapping stored in airtable_mapping table
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE statuts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    airtable_id TEXT NOT NULL UNIQUE,
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     facture_item_id INTEGER NOT NULL REFERENCES facture_items(id) ON DELETE CASCADE,
     type TEXT NOT NULL,
@@ -251,19 +284,19 @@ CREATE TABLE statuts (
 
 -- Clients indexes
 CREATE INDEX idx_clients_name ON clients(last_name, first_name);
-CREATE INDEX idx_clients_airtable_id ON clients(airtable_id);
 
 -- Events indexes
 CREATE INDEX idx_events_date ON events(date DESC);
 CREATE INDEX idx_events_type ON events(type);
-CREATE INDEX idx_events_airtable_id ON events(airtable_id);
 
 -- Products indexes
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_products_price ON products(price);
 CREATE INDEX idx_products_visible ON products(visible_on_site);
-CREATE INDEX idx_products_airtable_id ON products(airtable_id);
 
+-- Product-ProductTypes junction table indexes
+CREATE INDEX idx_product_product_types_product ON product_product_types(product_id);
+CREATE INDEX idx_product_product_types_type ON product_product_types(product_type_name);
 
 -- Product images indexes
 CREATE INDEX idx_product_images_product ON product_images(product_id);
@@ -275,24 +308,20 @@ CREATE INDEX idx_factures_event ON factures(event_id);
 CREATE INDEX idx_factures_date ON factures(date DESC);
 CREATE INDEX idx_factures_type ON factures(type);
 CREATE INDEX idx_factures_cancelled ON factures(cancelled);
-CREATE INDEX idx_factures_airtable_id ON factures(airtable_id);
 
 -- Facture items indexes
 CREATE INDEX idx_facture_items_facture ON facture_items(facture_id);
 CREATE INDEX idx_facture_items_product ON facture_items(product_id);
 CREATE INDEX idx_facture_items_type ON facture_items(item_type);
-CREATE INDEX idx_facture_items_airtable_id ON facture_items(airtable_id);
 
 -- Payments indexes
 CREATE INDEX idx_payments_facture ON payments(facture_id);
 CREATE INDEX idx_payments_date ON payments(date DESC);
 CREATE INDEX idx_payments_type ON payments(type);
-CREATE INDEX idx_payments_airtable_id ON payments(airtable_id);
 
 -- Refunds indexes
 CREATE INDEX idx_refunds_facture ON refunds(facture_id);
 CREATE INDEX idx_refunds_date ON refunds(date DESC);
-CREATE INDEX idx_refunds_airtable_id ON refunds(airtable_id);
 
 -- Statuts indexes (critical for current state queries)
 CREATE INDEX idx_statuts_facture ON statuts(facture_id);
@@ -300,7 +329,6 @@ CREATE INDEX idx_statuts_item ON statuts(facture_item_id);
 CREATE INDEX idx_statuts_date ON statuts(date DESC);
 CREATE INDEX idx_statuts_type ON statuts(type);
 CREATE INDEX idx_statuts_item_date ON statuts(facture_item_id, date DESC);
-CREATE INDEX idx_statuts_airtable_id ON statuts(airtable_id);
 
 -- ============================================================================
 -- TRIGGERS (for auto-updating updated_at timestamps)
