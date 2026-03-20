@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::server::models::{clients::ClientRowWithId, config::ConfigRow};
+use crate::server::models::{clients::ClientRowWithId, config::ConfigRow, product_types::ProductTypeRow};
 
 pub trait Insertable {
     fn insert_one(
@@ -76,6 +76,18 @@ impl Insertable for ClientRowWithId {
                 self.row.first_name, self.row.last_name, self.airtable_id
             )
         })?;
+
+        return Ok(());
+    }
+}
+
+impl Insertable for ProductTypeRow {
+    async fn insert_one(&self, tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<()> {
+        sqlx::query("INSERT INTO product_types (name) VALUES (?)")
+            .bind(&self.name)
+            .execute(&mut **tx)
+            .await
+            .with_context(|| format!("Failed to insert product_type: {}", self.name))?;
 
         return Ok(());
     }
