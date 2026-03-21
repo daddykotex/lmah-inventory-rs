@@ -187,7 +187,7 @@ CREATE TABLE facture_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-    item_type TEXT NOT NULL CHECK(item_type IN ('Produit', 'Location', 'Alteration')),
+    item_type TEXT NOT NULL CHECK(item_type IN ('Product', 'Location', 'Alteration')),
 
     -- Common fields (all types)
     price INTEGER,
@@ -208,7 +208,6 @@ CREATE TABLE facture_items (
     -- Location-specific fields (items.scala:208-222)
     insurance INTEGER,
     other_costs INTEGER,
-    files TEXT,
 
     -- Alteration-specific fields (items.scala:298-310)
     rebate_dollar INTEGER,
