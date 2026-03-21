@@ -4,6 +4,7 @@ use crate::server::models::{
     clients::ClientRow,
     config::ConfigRow,
     events::EventRow,
+    factures::FactureRow,
     product_types::ProductTypeRow,
     products::{ProductImageRow, ProductRow},
 };
@@ -165,5 +166,40 @@ impl Insertable for ProductImageRow {
         })?;
 
         Ok(None)
+    }
+}
+
+impl Insertable for FactureRow {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        // Insert facture row
+        let result = sqlx::query(
+            "INSERT INTO factures (client_id, type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&self.client_id)
+        .bind(&self.facture_type)
+        .bind(&self.date)
+        .bind(&self.event_id)
+        .bind(&self.fixed_total)
+        .bind(if self.cancelled { 1 } else { 0 })
+        .bind(&self.paper_ref)
+        .bind(&self.created_at)
+        .bind(&self.updated_at)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert facture for client_id={}",
+                self.client_id
+            )
+        })?;
+
+        // Get the database ID
+        let db_id = result.last_insert_rowid();
+
+        return Ok(Some(db_id));
     }
 }

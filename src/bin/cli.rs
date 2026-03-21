@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{
-    clear_airtable_mapping, load_and_insert_products, load_data, load_records, ClientFields,
-    ConfigFields, EventFields, ProductTypeFields,
+    ClientFields, ConfigFields, EventFields, ProductTypeFields, clear_airtable_mapping,
+    load_and_insert_factures, load_and_insert_products, load_data, load_records,
 };
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
@@ -170,8 +170,12 @@ async fn load(args: &LoadArgs) -> Result<()> {
     println!("\nStep 8: Inserting products with related data...");
     load_and_insert_products(&pool, export.products, args.clear_existing).await?;
 
+    // ===== INSERT FACTURES (with FK resolution) =====
+    println!("\nStep 9: Inserting factures with foreign key resolution...");
+    load_and_insert_factures(&pool, export.factures, args.clear_existing).await?;
+
     // ===== VERIFY IMPORTS =====
-    println!("\nStep 9: Verifying imports...");
+    println!("\nStep 10: Verifying imports...");
     println!("\nConfig verification:");
     verify_import(&pool).await?;
 

@@ -1,6 +1,7 @@
 use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventRow;
+use crate::server::models::factures::FactureRow;
 use crate::server::models::product_types::ProductTypeRow;
 use crate::server::models::products::{ProductImageRow, ProductRow};
 use crate::server::{database::insert::Insertable, models::clients::ClientRow};
@@ -24,7 +25,7 @@ pub struct ProductImage {
 pub struct ProductRowWithRelated {
     pub row: ProductRow,
     pub airtable_id: String,
-    pub product_types: Vec<String>,       // Product type names
+    pub product_types: Vec<String>,        // Product type names
     pub image_front: Option<ProductImage>, // Optional front image
     pub image_back: Option<ProductImage>,  // Optional back image
 }
@@ -37,6 +38,7 @@ pub struct AirtableExport {
     pub product_types: AirtableRecords<ProductTypeFields>,
     pub events: AirtableRecords<EventFields>,
     pub products: AirtableRecords<ProductFields>,
+    pub factures: AirtableRecords<FactureFields>,
 }
 
 /// Table in the JSON
@@ -371,20 +373,18 @@ impl From<AirtableRecord<ProductFields>> for ProductRowWithRelated {
                 updated_at: record.created_time,
             },
             product_types: record.fields.product_types.unwrap_or_default(),
-            image_front: record
-                .fields
-                .image_front
-                .and_then(|imgs| imgs.first().map(|img| ProductImage {
+            image_front: record.fields.image_front.and_then(|imgs| {
+                imgs.first().map(|img| ProductImage {
                     url: img.url.clone(),
                     filename: img.filename.clone(),
-                })),
-            image_back: record
-                .fields
-                .image_back
-                .and_then(|imgs| imgs.first().map(|img| ProductImage {
+                })
+            }),
+            image_back: record.fields.image_back.and_then(|imgs| {
+                imgs.first().map(|img| ProductImage {
                     url: img.url.clone(),
                     filename: img.filename.clone(),
-                })),
+                })
+            }),
         }
     }
 }
@@ -413,9 +413,190 @@ fn validate_product_fields(fields: &ProductFields) -> Result<()> {
     if let Some(price) = fields.price {
         if price < 0.0 {
             anyhow::bail!("product price cannot be negative");
-        } 
+        }
     }
     Ok(())
+}
+
+/// Facture fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct FactureFields {
+    #[serde(rename = "Client")]
+    client: Vec<String>, // Airtable linked field (required)
+    #[serde(rename = "Type")]
+    facture_type: Option<String>,
+    #[serde(rename = "Date")]
+    date: Option<String>,
+    #[serde(rename = "Événements")]
+    event: Option<Vec<String>>, // Airtable linked field (optional)
+    #[serde(rename = "Total fixe")]
+    fixed_total: Option<f64>, // Will convert to cents
+    #[serde(rename = "Annulée")]
+    cancelled: Option<bool>, // Default to false
+    #[serde(rename = "Réf. Ancienne")]
+    paper_ref: Option<String>,
+}
+
+/// Migration-specific: Facture with unresolved foreign keys
+/// This struct holds airtable IDs that need to be resolved before insertion
+#[derive(Debug)]
+pub struct FactureRowWithFKs {
+    pub row: FactureRow,
+    pub airtable_id: String,
+    pub client_airtable_id: String,        // Required FK to resolve
+    pub event_airtable_id: Option<String>, // Optional FK to resolve
+}
+
+impl From<AirtableRecord<FactureFields>> for FactureRowWithFKs {
+    fn from(record: AirtableRecord<FactureFields>) -> Self {
+        // Extract client airtable ID (required - take first element)
+        let client_airtable_id = record.fields.client.first().cloned().unwrap_or_default();
+
+        let facture_type = match record.fields.facture_type.as_deref() {
+            Some("Produits") => "Product",
+            Some("Altération") => "Alteration",
+            Some("Location") => "Location",
+            None | Some(_) => "Product",
+        };
+
+        // Extract event airtable ID if present (optional - take first element)
+        let event_airtable_id = record
+            .fields
+            .event
+            .and_then(|events| events.first().cloned());
+
+        FactureRowWithFKs {
+            airtable_id: record.id,
+            client_airtable_id,
+            event_airtable_id,
+            row: FactureRow {
+                client_id: 0, // Will be resolved from airtable_mapping
+                facture_type: Some(String::from(facture_type)),
+                date: record.fields.date,
+                event_id: None, // Will be resolved from airtable_mapping
+                fixed_total: record.fields.fixed_total.map(dollars_to_cents),
+                cancelled: record.fields.cancelled.unwrap_or(false),
+                paper_ref: record.fields.paper_ref,
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
+        }
+    }
+}
+
+/// Load facture records from Airtable JSON export
+async fn load_factures_from_export(
+    data: AirtableRecords<FactureFields>,
+) -> Result<Vec<FactureRowWithFKs>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_facture_fields(&record.fields).with_context(|| {
+            format!("Invalid facture data in record {} (id: {})", idx, record.id)
+        })?;
+
+        rows.push(FactureRowWithFKs::from(record));
+    }
+
+    println!("Loaded {} facture records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_facture_fields(fields: &FactureFields) -> Result<()> {
+    // Client is required
+    if fields.client.is_empty() {
+        anyhow::bail!("facture must have a client");
+    }
+
+    // Validate facture type if present
+    if let Some(ref facture_type) = fields.facture_type {
+        const VALID_TYPES: &[&str] = &["Produits", "Location", "Altération"];
+        if !VALID_TYPES.contains(&facture_type.as_str()) {
+            anyhow::bail!(
+                "Invalid facture type: '{}'. Must be one of: {:?}",
+                facture_type,
+                VALID_TYPES
+            );
+        }
+    }
+
+    // Validate fixed_total if present
+    if let Some(total) = fields.fixed_total {
+        if total < 0.0 {
+            anyhow::bail!("facture fixed_total cannot be negative");
+        }
+    }
+
+    Ok(())
+}
+
+/// Load and insert factures with foreign key resolution
+pub async fn load_and_insert_factures(
+    pool: &SqlitePool,
+    data: AirtableRecords<FactureFields>,
+    clear_existing: bool,
+) -> Result<()> {
+    let factures = load_factures_from_export(data).await?;
+
+    let count_records = count_records(pool, "factures").await?;
+    match count_records {
+        Some(count) => {
+            if !clear_existing {
+                anyhow::bail!(
+                    "Factures table already has records. Use --clear-existing to replace them."
+                );
+            }
+
+            if count > 0 {
+                clear_table(pool, "factures").await?;
+            }
+
+            let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+            for mut facture in factures {
+                // Resolve client_id (required - will abort if not found)
+                let client_id = resolve_airtable_id(pool, "clients", &facture.client_airtable_id)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Failed to resolve client for facture (airtable_id: {})",
+                            facture.airtable_id
+                        )
+                    })?;
+                facture.row.client_id = client_id;
+
+                // Resolve event_id (optional - if can't resolve, just set to None)
+                if let Some(ref event_airtable_id) = facture.event_airtable_id {
+                    match resolve_airtable_id(pool, "events", event_airtable_id).await {
+                        Ok(event_id) => {
+                            facture.row.event_id = Some(event_id);
+                        }
+                        Err(_) => {
+                            // Event not found - this is okay for optional FKs
+                            println!(
+                                "Warning: Event '{}' not found for facture '{}', setting to None",
+                                event_airtable_id, facture.airtable_id
+                            );
+                            facture.row.event_id = None;
+                        }
+                    }
+                }
+
+                // Insert facture and get db_id
+                let facture_id = facture
+                    .row
+                    .insert_one(&mut tx)
+                    .await?
+                    .context("Facture insertion must return an id")?;
+
+                // Insert airtable mapping
+                insert_airtable_id(&mut tx, "factures", facture_id, facture.airtable_id).await?;
+            }
+
+            tx.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        None => anyhow::bail!("Factures table does not exist"),
+    }
 }
 
 pub async fn load_records<R, T>(
@@ -481,7 +662,7 @@ async fn clear_table(pool: &SqlitePool, table_name: &'static str) -> Result<()> 
     sqlx::query(&format!("DELETE FROM {}", table_name))
         .execute(pool)
         .await
-        .context("Failed to clear clients table")?;
+        .context(format!("Failed to clear {} table", table_name))?;
     Ok(())
 }
 
@@ -519,6 +700,37 @@ async fn insert_airtable_id(
         )
     })?;
     Ok(())
+}
+
+/// Resolve an airtable_id to a database ID using the airtable_mapping table
+/// Returns an error if the mapping is not found
+async fn resolve_airtable_id(
+    pool: &SqlitePool,
+    table_name: &str,
+    airtable_id: &str,
+) -> Result<i64> {
+    let result: Option<(i64,)> = sqlx::query_as(
+        "SELECT db_id FROM airtable_mapping WHERE table_name = ? AND airtable_id = ?",
+    )
+    .bind(table_name)
+    .bind(airtable_id)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| {
+        format!(
+            "Failed to query airtable_mapping for table={}, airtable_id={}",
+            table_name, airtable_id
+        )
+    })?;
+
+    match result {
+        Some((db_id,)) => Ok(db_id),
+        None => anyhow::bail!(
+            "Cannot resolve airtable_id '{}' in table '{}'. The referenced record must be imported first.",
+            airtable_id,
+            table_name
+        ),
+    }
 }
 
 /// Insert a product with all its related data (types and images)
@@ -596,7 +808,9 @@ pub async fn load_and_insert_products(
     match count_records {
         Some(count) => {
             if !clear_existing {
-                anyhow::bail!("Products table already has records. Use --clear-existing to replace them.");
+                anyhow::bail!(
+                    "Products table already has records. Use --clear-existing to replace them."
+                );
             }
 
             if count > 0 {
@@ -606,10 +820,7 @@ pub async fn load_and_insert_products(
                 clear_table(pool, "products").await?;
             }
 
-            let mut tx = pool
-                .begin()
-                .await
-                .context("Failed to begin transaction")?;
+            let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
             for product in products {
                 insert_product_with_related(&mut tx, product).await?;
