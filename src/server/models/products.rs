@@ -3,7 +3,7 @@
 #[derive(Debug)]
 pub struct ProductRow {
     pub name: String,
-    pub price: Option<i64>,              // Price in cents
+    pub price: Option<i64>, // Price in cents
     pub liquidation: bool,
     pub visible_on_site: bool,
     pub created_at: String,

@@ -164,7 +164,7 @@ CREATE TABLE product_images (
 CREATE TABLE factures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
-    type TEXT CHECK(type IN ('Produits', 'Location', 'Altération')),
+    type TEXT CHECK(type IN ('Product', 'Location', 'Alteration')),
     date TEXT,
     event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
     fixed_total INTEGER,
