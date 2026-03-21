@@ -2,11 +2,32 @@ use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventRow;
 use crate::server::models::product_types::ProductTypeRow;
+use crate::server::models::products::{ProductImageRow, ProductRow};
 use crate::server::{database::insert::Insertable, models::clients::ClientRow};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
 use std::fs;
+
+/// Migration-specific: Image data extracted from Airtable attachment
+/// This struct is used during migration and will be removed after migration is complete
+#[derive(Debug)]
+pub struct ProductImage {
+    pub url: String,
+    pub filename: String,
+}
+
+/// Migration-specific: Product with related data (types and images) for insertion
+/// This struct carries all the data needed to insert a product and its related records
+/// It will be removed after migration is complete
+#[derive(Debug)]
+pub struct ProductRowWithRelated {
+    pub row: ProductRow,
+    pub airtable_id: String,
+    pub product_types: Vec<String>,       // Product type names
+    pub image_front: Option<ProductImage>, // Optional front image
+    pub image_back: Option<ProductImage>,  // Optional back image
+}
 
 /// Root JSON structure matching Airtable export format
 #[derive(Debug, Deserialize)]
@@ -15,6 +36,7 @@ pub struct AirtableExport {
     pub clients: AirtableRecords<ClientFields>,
     pub product_types: AirtableRecords<ProductTypeFields>,
     pub events: AirtableRecords<EventFields>,
+    pub products: AirtableRecords<ProductFields>,
 }
 
 /// Table in the JSON
@@ -304,6 +326,98 @@ fn validate_event_fields(fields: &EventFields) -> Result<()> {
     Ok(())
 }
 
+/// Airtable attachment structure
+#[derive(Debug, Deserialize)]
+pub struct AirtableAttachment {
+    pub id: String,
+    pub url: String,
+    pub filename: String,
+}
+
+/// Product fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct ProductFields {
+    #[serde(rename = "Nom")]
+    name: String,
+    #[serde(rename = "Type")]
+    product_types: Option<Vec<String>>, // Array of product type names
+    #[serde(rename = "Prix")]
+    price: Option<f64>, // Will convert to cents
+    #[serde(rename = "Liquidation")]
+    liquidation: Option<bool>,
+    #[serde(rename = "Visible sur le site")]
+    visible_on_site: Option<bool>, // Default to false if missing
+    #[serde(rename = "imageSrc")]
+    image_front: Option<Vec<AirtableAttachment>>,
+    #[serde(rename = "imageSrc2")]
+    image_back: Option<Vec<AirtableAttachment>>,
+}
+
+/// Convert dollars to cents
+fn dollars_to_cents(amount: f64) -> i64 {
+    (amount * 100.0).round() as i64
+}
+
+impl From<AirtableRecord<ProductFields>> for ProductRowWithRelated {
+    fn from(record: AirtableRecord<ProductFields>) -> Self {
+        ProductRowWithRelated {
+            airtable_id: record.id,
+            row: ProductRow {
+                name: record.fields.name,
+                price: record.fields.price.map(dollars_to_cents),
+                liquidation: record.fields.liquidation.unwrap_or(false),
+                visible_on_site: record.fields.visible_on_site.unwrap_or(false),
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
+            product_types: record.fields.product_types.unwrap_or_default(),
+            image_front: record
+                .fields
+                .image_front
+                .and_then(|imgs| imgs.first().map(|img| ProductImage {
+                    url: img.url.clone(),
+                    filename: img.filename.clone(),
+                })),
+            image_back: record
+                .fields
+                .image_back
+                .and_then(|imgs| imgs.first().map(|img| ProductImage {
+                    url: img.url.clone(),
+                    filename: img.filename.clone(),
+                })),
+        }
+    }
+}
+
+/// Load product records from Airtable JSON export
+pub async fn load_products_from_export(
+    data: AirtableRecords<ProductFields>,
+) -> Result<Vec<ProductRowWithRelated>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_product_fields(&record.fields).with_context(|| {
+            format!("Invalid product data in record {} (id: {})", idx, record.id)
+        })?;
+
+        rows.push(ProductRowWithRelated::from(record));
+    }
+
+    println!("Loaded {} product records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_product_fields(fields: &ProductFields) -> Result<()> {
+    if fields.name.trim().is_empty() {
+        anyhow::bail!("product name cannot be empty");
+    }
+    if let Some(price) = fields.price {
+        if price < 0.0 {
+            anyhow::bail!("product price cannot be negative");
+        } 
+    }
+    Ok(())
+}
+
 pub async fn load_records<R, T>(
     pool: &SqlitePool,
     data: AirtableRecords<R>,
@@ -334,11 +448,8 @@ where
                 pool.begin().await.context("Failed to begin transaction")?;
             for with_id in converted {
                 let maybe_id = with_id.row.insert_one(&mut tx).await?;
-                match maybe_id {
-                    Some(id) => {
-                        insert_airtable_id(&mut tx, T::table_name(), id, with_id.airtable_id).await?;
-                    }
-                    None => {}
+                if let Some(id) = maybe_id {
+                    insert_airtable_id(&mut tx, T::table_name(), id, with_id.airtable_id).await?;
                 }
             }
             tx.commit().await.context("Failed to commit transaction")?;
@@ -374,6 +485,17 @@ async fn clear_table(pool: &SqlitePool, table_name: &'static str) -> Result<()> 
     Ok(())
 }
 
+/// Clear the airtable_mapping table
+/// This should be called after JSON parsing succeeds but before any migrations run
+pub async fn clear_airtable_mapping(pool: &SqlitePool) -> Result<()> {
+    sqlx::query("DELETE FROM airtable_mapping")
+        .execute(pool)
+        .await
+        .context("Failed to clear airtable_mapping table")?;
+    println!("Cleared airtable_mapping table");
+    Ok(())
+}
+
 async fn insert_airtable_id(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     table_name: &'static str,
@@ -397,4 +519,105 @@ async fn insert_airtable_id(
         )
     })?;
     Ok(())
+}
+
+/// Insert a product with all its related data (types and images)
+async fn insert_product_with_related(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    product: ProductRowWithRelated,
+) -> Result<()> {
+    // Save the created_at timestamp before moving product.row
+    let created_at = product.row.created_at.clone();
+
+    // 1. Insert product row and get database ID
+    let product_id = product
+        .row
+        .insert_one(tx)
+        .await?
+        .context("Product insertion must return an id")?;
+
+    // 2. Insert airtable mapping
+    insert_airtable_id(tx, "products", product_id, product.airtable_id).await?;
+
+    // 3. Insert product_product_types records
+    for product_type_name in product.product_types {
+        sqlx::query(
+            "INSERT INTO product_product_types (product_id, product_type_name)
+             VALUES (?, ?)",
+        )
+        .bind(product_id)
+        .bind(&product_type_name)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert product_product_type for product_id={}, type={}",
+                product_id, product_type_name
+            )
+        })?;
+    }
+
+    // 4. Insert front image if present (use product's created_at timestamp)
+    if let Some(image) = product.image_front {
+        let image_row = ProductImageRow {
+            product_id,
+            url: image.url,
+            filename: image.filename,
+            position: "front".to_string(),
+            created_at: created_at.clone(),
+        };
+        image_row.insert_one(tx).await?;
+    }
+
+    // 5. Insert back image if present (use product's created_at timestamp)
+    if let Some(image) = product.image_back {
+        let image_row = ProductImageRow {
+            product_id,
+            url: image.url,
+            filename: image.filename,
+            position: "back".to_string(),
+            created_at,
+        };
+        image_row.insert_one(tx).await?;
+    }
+
+    Ok(())
+}
+
+/// Load and insert products with related data
+pub async fn load_and_insert_products(
+    pool: &SqlitePool,
+    data: AirtableRecords<ProductFields>,
+    clear_existing: bool,
+) -> Result<()> {
+    let products = load_products_from_export(data).await?;
+
+    let count_records = count_records(pool, "products").await?;
+    match count_records {
+        Some(count) => {
+            if !clear_existing {
+                anyhow::bail!("Products table already has records. Use --clear-existing to replace them.");
+            }
+
+            if count > 0 {
+                // Clear related tables first (due to foreign keys)
+                clear_table(pool, "product_images").await?;
+                clear_table(pool, "product_product_types").await?;
+                clear_table(pool, "products").await?;
+            }
+
+            let mut tx = pool
+                .begin()
+                .await
+                .context("Failed to begin transaction")?;
+
+            for product in products {
+                insert_product_with_related(&mut tx, product).await?;
+            }
+
+            tx.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        None => anyhow::bail!("Products table does not exist"),
+    }
 }

@@ -115,7 +115,7 @@ CREATE TABLE product_types (
 CREATE TABLE products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    price INTEGER NOT NULL,
+    price INTEGER,
     liquidation INTEGER,
     visible_on_site INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
