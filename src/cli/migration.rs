@@ -1,6 +1,7 @@
 use crate::server::database::has_table::HasTable;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventRow;
+use crate::server::models::facture_items::FactureItemRow;
 use crate::server::models::factures::FactureRow;
 use crate::server::models::product_types::ProductTypeRow;
 use crate::server::models::products::{ProductImageRow, ProductRow};
@@ -39,6 +40,7 @@ pub struct AirtableExport {
     pub events: AirtableRecords<EventFields>,
     pub products: AirtableRecords<ProductFields>,
     pub factures: AirtableRecords<FactureFields>,
+    pub facture_items: AirtableRecords<FactureItemFields>,
 }
 
 /// Table in the JSON
@@ -372,7 +374,7 @@ impl From<AirtableRecord<ProductFields>> for ProductRowWithRelated {
                 created_at: record.created_time.clone(),
                 updated_at: record.created_time,
             },
-            product_types: record.fields.product_types.unwrap_or_default(),
+            product_types: record.fields.product_types.unwrap(),
             image_front: record.fields.image_front.and_then(|imgs| {
                 imgs.first().map(|img| ProductImage {
                     url: img.url.clone(),
@@ -450,7 +452,7 @@ pub struct FactureRowWithFKs {
 impl From<AirtableRecord<FactureFields>> for FactureRowWithFKs {
     fn from(record: AirtableRecord<FactureFields>) -> Self {
         // Extract client airtable ID (required - take first element)
-        let client_airtable_id = record.fields.client.first().cloned().unwrap_or_default();
+        let client_airtable_id = record.fields.client.first().cloned().unwrap();
 
         let facture_type = match record.fields.facture_type.as_deref() {
             Some("Produits") => "Product",
@@ -596,6 +598,223 @@ pub async fn load_and_insert_factures(
             Ok(())
         }
         None => anyhow::bail!("Factures table does not exist"),
+    }
+}
+
+/// Facture item fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct FactureItemFields {
+    #[serde(rename = "_itemType")]
+    item_type: String, // "Product", "Location", or "Alteration"
+    #[serde(rename = "Produit")]
+    product: Vec<String>, // Airtable linked field (required)
+    #[serde(rename = "Facture")]
+    facture: Vec<String>, // Airtable linked field (required)
+    #[serde(rename = "Prix")]
+    price: Option<f64>, // Will convert to cents
+    #[serde(rename = "Notes")]
+    notes: Option<String>,
+    #[serde(rename = "Quantité")]
+    quantity: Option<i64>,
+
+    // Produit-specific
+    #[serde(rename = "Total extra taille forte")]
+    extra_large_size: Option<f64>, // Will convert to cents
+    #[serde(rename = "Rabais")]
+    rebate_percent: Option<i64>,
+    #[serde(rename = "Grandeur")]
+    size: Option<String>,
+    #[serde(rename = "Buste")]
+    chest: Option<i64>,
+    #[serde(rename = "Taille")]
+    waist: Option<i64>,
+    #[serde(rename = "Hanche")]
+    hips: Option<i64>,
+    #[serde(rename = "Couleur")]
+    color: Option<String>,
+    #[serde(rename = "Bénéficiaire")]
+    beneficiary: Option<String>,
+    #[serde(rename = "Plancher")]
+    floor_item: Option<bool>,
+
+    // Location-specific
+    #[serde(rename = "Assurances")]
+    insurance: Option<f64>, // Will convert to cents
+    #[serde(rename = "Autre frais")]
+    other_costs: Option<f64>, // Will convert to cents
+
+    // Alteration-specific
+    #[serde(rename = "Rabais dollar")]
+    rebate_dollar: Option<f64>, // Will convert to cents
+}
+
+/// Migration-specific: Facture item with unresolved foreign keys
+#[derive(Debug)]
+pub struct FactureItemRowWithFKs {
+    pub row: FactureItemRow,
+    pub airtable_id: String,
+    pub facture_airtable_id: String, // Required FK to resolve
+    pub product_airtable_id: String, // Required FK to resolve
+}
+
+impl From<AirtableRecord<FactureItemFields>> for FactureItemRowWithFKs {
+    fn from(record: AirtableRecord<FactureItemFields>) -> Self {
+        // Extract facture airtable ID (required - take first element)
+        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
+
+        // Extract product airtable ID (required - take first element)
+        let product_airtable_id = record.fields.product.first().cloned().unwrap();
+
+        // Map item type from French to database values
+        let item_type = match record.fields.item_type.as_str() {
+            "Products" => "Product",
+            "Location" => "Location",
+            "Alteration" => "Alteration",
+            other => other, // Keep as-is if already in database format
+        };
+
+        FactureItemRowWithFKs {
+            airtable_id: record.id,
+            facture_airtable_id,
+            product_airtable_id,
+            row: FactureItemRow {
+                facture_id: 0, // Will be resolved from airtable_mapping
+                product_id: 0, // Will be resolved from airtable_mapping
+                item_type: item_type.to_string(),
+                price: record.fields.price.map(dollars_to_cents),
+                notes: record.fields.notes,
+                quantity: record.fields.quantity.unwrap_or(1),
+                extra_large_size: record.fields.extra_large_size.map(dollars_to_cents),
+                rebate_percent: record.fields.rebate_percent,
+                size: record.fields.size,
+                chest: record.fields.chest,
+                waist: record.fields.waist,
+                hips: record.fields.hips,
+                color: record.fields.color,
+                beneficiary: record.fields.beneficiary,
+                floor_item: record.fields.floor_item.unwrap_or(false),
+                insurance: record.fields.insurance.map(dollars_to_cents),
+                other_costs: record.fields.other_costs.map(dollars_to_cents),
+                rebate_dollar: record.fields.rebate_dollar.map(dollars_to_cents),
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
+        }
+    }
+}
+
+/// Load facture_items records from Airtable JSON export
+async fn load_facture_items_from_export(
+    data: AirtableRecords<FactureItemFields>,
+) -> Result<Vec<FactureItemRowWithFKs>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_facture_item_fields(&record.fields).with_context(|| {
+            format!(
+                "Invalid facture_item data in record {} (id: {})",
+                idx, record.id
+            )
+        })?;
+
+        rows.push(FactureItemRowWithFKs::from(record));
+    }
+
+    println!("Loaded {} facture_item records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_facture_item_fields(fields: &FactureItemFields) -> Result<()> {
+    // Facture is required
+    if fields.facture.is_empty() {
+        anyhow::bail!("facture_item must have a facture");
+    }
+
+    // Product is required
+    if fields.product.is_empty() {
+        anyhow::bail!("facture_item must have a product");
+    }
+
+    // Validate item type
+    const VALID_TYPES: &[&str] = &["Products", "Location", "Alteration", "Produit"];
+    if !VALID_TYPES.contains(&fields.item_type.as_str()) {
+        anyhow::bail!(
+            "Invalid facture_item type: '{}'. Must be one of: {:?}",
+            fields.item_type,
+            VALID_TYPES
+        );
+    }
+
+    // Validate quantity if present
+    if let Some(qty) = fields.quantity {
+        if qty < 0 {
+            anyhow::bail!("facture_item quantity cannot be negative");
+        }
+    }
+
+    Ok(())
+}
+
+/// Load and insert facture_items with foreign key resolution
+pub async fn load_and_insert_facture_items(
+    pool: &SqlitePool,
+    data: AirtableRecords<FactureItemFields>,
+    clear_existing: bool,
+) -> Result<()> {
+    let facture_items = load_facture_items_from_export(data).await?;
+
+    let count_records = count_records(pool, "facture_items").await?;
+    match count_records {
+        Some(count) => {
+            if !clear_existing {
+                anyhow::bail!(
+                    "Facture_items table already has records. Use --clear-existing to replace them."
+                );
+            }
+
+            if count > 0 {
+                clear_table(pool, "facture_items").await?;
+            }
+
+            let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+            for mut item in facture_items {
+                // Resolve facture_id (required - will abort if not found)
+                let facture_id = resolve_airtable_id(pool, "factures", &item.facture_airtable_id)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Failed to resolve facture for facture_item (airtable_id: {})",
+                            item.airtable_id
+                        )
+                    })?;
+                item.row.facture_id = facture_id;
+
+                // Resolve product_id (required - will abort if not found)
+                let product_id = resolve_airtable_id(pool, "products", &item.product_airtable_id)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Failed to resolve product for facture_item (airtable_id: {})",
+                            item.airtable_id
+                        )
+                    })?;
+                item.row.product_id = product_id;
+
+                // Insert facture_item and get db_id
+                let item_id = item
+                    .row
+                    .insert_one(&mut tx)
+                    .await?
+                    .context("Facture_item insertion must return an id")?;
+
+                // Insert airtable mapping
+                insert_airtable_id(&mut tx, "facture_items", item_id, item.airtable_id).await?;
+            }
+
+            tx.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        None => anyhow::bail!("Facture_items table does not exist"),
     }
 }
 

@@ -28,6 +28,22 @@ Initialize with `sqlx database create"`.
 
 Apply migrations with: `sqlx migrate run`.
 
+### CLI migration
+
+To migrate off Airtable, I've exported the data as JSON (from the other app), and I wrote the `cli` binary in this project to do so.
+
+You can run it like:
+
+```bash
+cargo run --bin cli -- load --src data/db.json --target data/lmah.db --clear-existing
+```
+
+You want to start from a clean database everytime you run the import:
+
+```bash
+rm data/lmah.db && sqlx database create && sqlx migrate run
+```
+
 ## Development
 
 ### Server

@@ -4,6 +4,7 @@ use crate::server::models::{
     clients::ClientRow,
     config::ConfigRow,
     events::EventRow,
+    facture_items::FactureItemRow,
     factures::FactureRow,
     product_types::ProductTypeRow,
     products::{ProductImageRow, ProductRow},
@@ -194,6 +195,58 @@ impl Insertable for FactureRow {
             format!(
                 "Failed to insert facture for client_id={}",
                 self.client_id
+            )
+        })?;
+
+        // Get the database ID
+        let db_id = result.last_insert_rowid();
+
+        return Ok(Some(db_id));
+    }
+}
+
+impl Insertable for FactureItemRow {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        // Insert facture_item row
+        let result = sqlx::query(
+            "INSERT INTO facture_items (
+                facture_id, product_id, item_type,
+                price, notes, quantity,
+                extra_large_size, rebate_percent, size, chest, waist, hips, color, beneficiary, floor_item,
+                insurance, other_costs,
+                rebate_dollar,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&self.facture_id)
+        .bind(&self.product_id)
+        .bind(&self.item_type)
+        .bind(&self.price)
+        .bind(&self.notes)
+        .bind(&self.quantity)
+        .bind(&self.extra_large_size)
+        .bind(&self.rebate_percent)
+        .bind(&self.size)
+        .bind(&self.chest)
+        .bind(&self.waist)
+        .bind(&self.hips)
+        .bind(&self.color)
+        .bind(&self.beneficiary)
+        .bind(if self.floor_item { 1 } else { 0 })
+        .bind(&self.insurance)
+        .bind(&self.other_costs)
+        .bind(&self.rebate_dollar)
+        .bind(&self.created_at)
+        .bind(&self.updated_at)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert facture_item for facture_id={}, product_id={}",
+                self.facture_id, self.product_id
             )
         })?;
 
