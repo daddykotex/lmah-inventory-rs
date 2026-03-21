@@ -1,5 +1,6 @@
 use crate::server::models::{
     clients::ClientRow, config::ConfigRow, events::EventRow, product_types::ProductTypeRow,
+    products::ProductRow,
 };
 
 pub trait HasTable {
@@ -27,5 +28,11 @@ impl HasTable for EventRow {
 impl HasTable for ProductTypeRow {
     fn table_name() -> &'static str {
         "product_types"
+    }
+}
+
+impl HasTable for ProductRow {
+    fn table_name() -> &'static str {
+        "products"
     }
 }

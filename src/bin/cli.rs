@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{
-    ClientFields, ConfigFields, EventFields, ProductTypeFields, load_data, load_records,
+    clear_airtable_mapping, load_and_insert_products, load_data, load_records, ClientFields,
+    ConfigFields, EventFields, ProductTypeFields,
 };
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
@@ -128,12 +129,21 @@ async fn load(args: &LoadArgs) -> Result<()> {
     println!("Target: {}", args.target.display());
     println!();
 
-    // ===== LOAD CONFIG =====
+    // ===== LOAD JSON =====
     println!("Step 1: Loading JSON...");
     let export = load_data(&args.src).await?;
+    println!("✓ JSON loaded and validated successfully");
 
-    println!("\nStep 3: Connecting to database...");
+    // ===== CONNECT TO DATABASE =====
+    println!("\nStep 2: Connecting to database...");
     let pool = connect_to_database(&args.target).await?;
+    println!("✓ Database connection established");
+
+    // ===== CLEAR AIRTABLE MAPPING =====
+    if args.clear_existing {
+        println!("\nStep 3: Clearing airtable_mapping table...");
+        clear_airtable_mapping(&pool).await?;
+    }
 
     // ===== INSERT CONFIG =====
     println!("\nStep 4: Inserting config records...");
@@ -156,8 +166,12 @@ async fn load(args: &LoadArgs) -> Result<()> {
     println!("\nStep 7: Inserting events records...");
     load_records::<EventFields, EventRow>(&pool, export.events, args.clear_existing).await?;
 
+    // ===== INSERT PRODUCTS (with types and images) =====
+    println!("\nStep 8: Inserting products with related data...");
+    load_and_insert_products(&pool, export.products, args.clear_existing).await?;
+
     // ===== VERIFY IMPORTS =====
-    println!("\nStep 8: Verifying imports...");
+    println!("\nStep 9: Verifying imports...");
     println!("\nConfig verification:");
     verify_import(&pool).await?;
 
