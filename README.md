@@ -59,7 +59,7 @@ cargo install systemfd
 Run the server in development mode with:
 
 ```bash
-systemfd --no-pid -s http::3000 -- watchexec -r -- cargo run --bin server
+systemfd --no-pid -s http::3000 -- watchexec -r -- cargo run --bin server -- --db-path data/lmah.db
 ```
 
 
