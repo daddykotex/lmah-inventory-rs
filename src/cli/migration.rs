@@ -1,4 +1,4 @@
-use crate::server::database::has_table::HasTable;
+use crate::server::database::has_table::{HasTable, Table};
 use crate::server::database::insert::Insertable;
 use crate::server::models::clients::ClientRow;
 use crate::server::models::config::ConfigRow;
@@ -545,13 +545,13 @@ pub async fn load_and_insert_factures(
 ) -> Result<()> {
     let factures = load_factures_from_export(data).await?;
 
-    count_check(pool, "factures").await?;
+    count_check(pool, Table::Factures).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut facture in factures {
         // Resolve client_id (required - will abort if not found)
-        let client_id = resolve_airtable_id(pool, "clients", &facture.client_airtable_id)
+        let client_id = resolve_airtable_id(pool, Table::Clients, &facture.client_airtable_id)
             .await
             .with_context(|| {
                 format!(
@@ -563,7 +563,7 @@ pub async fn load_and_insert_factures(
 
         // Resolve event_id (optional - if can't resolve, just set to None)
         if let Some(ref event_airtable_id) = facture.event_airtable_id {
-            match resolve_airtable_id(pool, "events", event_airtable_id).await {
+            match resolve_airtable_id(pool, Table::Events, event_airtable_id).await {
                 Ok(event_id) => {
                     facture.row.event_id = Some(event_id);
                 }
@@ -586,7 +586,7 @@ pub async fn load_and_insert_factures(
             .context("Facture insertion must return an id")?;
 
         // Insert airtable mapping
-        insert_airtable_id(&mut tx, "factures", facture_id, facture.airtable_id).await?;
+        insert_airtable_id(&mut tx, Table::Factures, facture_id, facture.airtable_id).await?;
     }
 
     tx.commit().await.context("Failed to commit transaction")?;
@@ -754,13 +754,13 @@ pub async fn load_and_insert_facture_items(
 ) -> Result<()> {
     let facture_items = load_facture_items_from_export(data).await?;
 
-    count_check(pool, "facture_items").await?;
+    count_check(pool, Table::FactureItems).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut item in facture_items {
         // Resolve facture_id (required - will abort if not found)
-        let facture_id = resolve_airtable_id(pool, "factures", &item.facture_airtable_id)
+        let facture_id = resolve_airtable_id(pool, Table::Factures, &item.facture_airtable_id)
             .await
             .with_context(|| {
                 format!(
@@ -771,7 +771,7 @@ pub async fn load_and_insert_facture_items(
         item.row.facture_id = facture_id;
 
         // Resolve product_id (required - will abort if not found)
-        let product_id = resolve_airtable_id(pool, "products", &item.product_airtable_id)
+        let product_id = resolve_airtable_id(pool, Table::Products, &item.product_airtable_id)
             .await
             .with_context(|| {
                 format!(
@@ -789,7 +789,7 @@ pub async fn load_and_insert_facture_items(
             .context("Facture_item insertion must return an id")?;
 
         // Insert airtable mapping
-        insert_airtable_id(&mut tx, "facture_items", item_id, item.airtable_id).await?;
+        insert_airtable_id(&mut tx, Table::FactureItems, item_id, item.airtable_id).await?;
     }
 
     tx.commit().await.context("Failed to commit transaction")?;
@@ -888,13 +888,13 @@ pub async fn load_and_insert_payments(
 ) -> Result<()> {
     let payments = load_payments_from_export(data).await?;
 
-    count_check(pool, "payments").await?;
+    count_check(pool, Table::Payments).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut payment in payments {
         // Resolve facture_id (required - will abort if not found)
-        let facture_id = resolve_airtable_id(pool, "factures", &payment.facture_airtable_id)
+        let facture_id = resolve_airtable_id(pool, Table::Factures, &payment.facture_airtable_id)
             .await
             .with_context(|| {
                 format!(
@@ -912,7 +912,7 @@ pub async fn load_and_insert_payments(
             .context("Payment insertion must return an id")?;
 
         // Insert airtable mapping
-        insert_airtable_id(&mut tx, "payments", payment_id, payment.airtable_id).await?;
+        insert_airtable_id(&mut tx, Table::Payments, payment_id, payment.airtable_id).await?;
     }
 
     tx.commit().await.context("Failed to commit transaction")?;
@@ -1011,12 +1011,12 @@ pub async fn load_and_insert_refunds(
 ) -> Result<()> {
     let refunds = load_refunds_from_export(data).await?;
 
-    count_check(pool, "refunds").await?;
+    count_check(pool, Table::Refunds).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
     for mut refund in refunds {
         // Resolve facture_id (required - will abort if not found)
-        let facture_id = resolve_airtable_id(pool, "factures", &refund.facture_airtable_id)
+        let facture_id = resolve_airtable_id(pool, Table::Factures, &refund.facture_airtable_id)
             .await
             .with_context(|| {
                 format!(
@@ -1034,7 +1034,7 @@ pub async fn load_and_insert_refunds(
             .context("Refund insertion must return an id")?;
 
         // Insert airtable mapping
-        insert_airtable_id(&mut tx, "refunds", refund_id, refund.airtable_id).await?;
+        insert_airtable_id(&mut tx, Table::Refunds, refund_id, refund.airtable_id).await?;
     }
 
     tx.commit().await.context("Failed to commit transaction")?;
@@ -1143,13 +1143,13 @@ pub async fn load_and_insert_statuts(
 ) -> Result<()> {
     let statuts = load_statuts_from_export(data).await?;
 
-    count_check(pool, "statuts").await?;
+    count_check(pool, Table::Statuts).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut statut in statuts {
         // Resolve facture_id (required - will abort if not found)
-        let facture_id = resolve_airtable_id(pool, "factures", &statut.facture_airtable_id)
+        let facture_id = resolve_airtable_id(pool, Table::Factures, &statut.facture_airtable_id)
             .await
             .with_context(|| {
                 format!(
@@ -1161,7 +1161,7 @@ pub async fn load_and_insert_statuts(
 
         // Resolve facture_item_id (required - will abort if not found)
         let facture_item_id =
-            resolve_airtable_id(pool, "facture_items", &statut.facture_item_airtable_id)
+            resolve_airtable_id(pool, Table::FactureItems, &statut.facture_item_airtable_id)
                 .await
                 .with_context(|| {
                     format!(
@@ -1179,7 +1179,7 @@ pub async fn load_and_insert_statuts(
             .context("Statut insertion must return an id")?;
 
         // Insert airtable mapping
-        insert_airtable_id(&mut tx, "statuts", statut_id, statut.airtable_id).await?;
+        insert_airtable_id(&mut tx, Table::Statuts, statut_id, statut.airtable_id).await?;
     }
 
     tx.commit().await.context("Failed to commit transaction")?;
@@ -1197,7 +1197,7 @@ where
         converted.push(WithId::<T>::from(r));
     }
 
-    count_check(pool, &T::table_name()).await?;
+    count_check(pool, T::table_name()).await?;
 
     let mut tx: sqlx::Transaction<'_, sqlx::Sqlite> =
         pool.begin().await.context("Failed to begin transaction")?;
@@ -1212,13 +1212,14 @@ where
     Ok(())
 }
 
-async fn count_check(pool: &SqlitePool, table_name: &'static str) -> Result<()> {
-    let result: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?")
-            .bind(table_name)
-            .fetch_one(pool)
-            .await
-            .context("Failed to verify config table")?;
+async fn count_check(pool: &SqlitePool, table_name: Table) -> Result<()> {
+    let result: (i64,) = sqlx::query_as(&format!(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{}'",
+        table_name
+    ))
+    .fetch_one(pool)
+    .await
+    .context("Failed to verify config table")?;
 
     if result.0 == 0 {
         anyhow::bail!(format!(
@@ -1242,16 +1243,16 @@ async fn count_check(pool: &SqlitePool, table_name: &'static str) -> Result<()> 
 
 async fn insert_airtable_id(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-    table_name: &'static str,
+    table_name: Table,
     id: i64,
     airtable_id: String,
 ) -> Result<()> {
     // Insert mapping into airtable_mapping table
-    sqlx::query(
+    sqlx::query(&format!(
         "INSERT INTO airtable_mapping (table_name, airtable_id, db_id)
-             VALUES (?, ?, ?)",
-    )
-    .bind(table_name)
+             VALUES ('{}', ?, ?)",
+        table_name
+    ))
     .bind(&airtable_id)
     .bind(id)
     .execute(&mut **tx)
@@ -1269,13 +1270,13 @@ async fn insert_airtable_id(
 /// Returns an error if the mapping is not found
 async fn resolve_airtable_id(
     pool: &SqlitePool,
-    table_name: &str,
+    table_name: Table,
     airtable_id: &str,
 ) -> Result<i64> {
-    let result: Option<(i64,)> = sqlx::query_as(
-        "SELECT db_id FROM airtable_mapping WHERE table_name = ? AND airtable_id = ?",
-    )
-    .bind(table_name)
+    let result: Option<(i64,)> = sqlx::query_as(&format!(
+        "SELECT db_id FROM airtable_mapping WHERE table_name = '{}' AND airtable_id = ?",
+        table_name
+    ))
     .bind(airtable_id)
     .fetch_optional(pool)
     .await
@@ -1312,7 +1313,7 @@ async fn insert_product_with_related(
         .context("Product insertion must return an id")?;
 
     // 2. Insert airtable mapping
-    insert_airtable_id(tx, "products", product_id, product.airtable_id).await?;
+    insert_airtable_id(tx, Table::Products, product_id, product.airtable_id).await?;
 
     // 3. Insert product_product_types records
     for product_type_name in product.product_types {
@@ -1366,7 +1367,7 @@ pub async fn load_and_insert_products(
 ) -> Result<()> {
     let products = load_products_from_export(data).await?;
 
-    count_check(pool, "products").await?;
+    count_check(pool, Table::Products).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
