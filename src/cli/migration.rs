@@ -545,8 +545,6 @@ pub async fn load_and_insert_factures(
 ) -> Result<()> {
     let factures = load_factures_from_export(data).await?;
 
-    count_check(pool, Table::Factures).await?;
-
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut facture in factures {
@@ -754,8 +752,6 @@ pub async fn load_and_insert_facture_items(
 ) -> Result<()> {
     let facture_items = load_facture_items_from_export(data).await?;
 
-    count_check(pool, Table::FactureItems).await?;
-
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut item in facture_items {
@@ -888,8 +884,6 @@ pub async fn load_and_insert_payments(
 ) -> Result<()> {
     let payments = load_payments_from_export(data).await?;
 
-    count_check(pool, Table::Payments).await?;
-
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut payment in payments {
@@ -1010,8 +1004,6 @@ pub async fn load_and_insert_refunds(
     data: AirtableRecords<RefundFields>,
 ) -> Result<()> {
     let refunds = load_refunds_from_export(data).await?;
-
-    count_check(pool, Table::Refunds).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
     for mut refund in refunds {
@@ -1143,8 +1135,6 @@ pub async fn load_and_insert_statuts(
 ) -> Result<()> {
     let statuts = load_statuts_from_export(data).await?;
 
-    count_check(pool, Table::Statuts).await?;
-
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     for mut statut in statuts {
@@ -1186,6 +1176,25 @@ pub async fn load_and_insert_statuts(
     Ok(())
 }
 
+pub async fn check_counts(pool: &SqlitePool) -> Result<()> {
+    let tables = vec![
+        Table::Clients,
+        Table::Config,
+        Table::Events,
+        Table::ProductTypes,
+        Table::Products,
+        Table::Factures,
+        Table::FactureItems,
+        Table::Payments,
+        Table::Refunds,
+        Table::Statuts,
+    ];
+    for t in tables {
+        count_check(pool, t).await?;
+    }
+    Ok(())
+}
+
 pub async fn load_records<R, T>(pool: &SqlitePool, data: AirtableRecords<R>) -> Result<()>
 where
     WithId<T>: From<AirtableRecord<R>>,
@@ -1196,8 +1205,6 @@ where
     for r in data.records {
         converted.push(WithId::<T>::from(r));
     }
-
-    count_check(pool, T::table_name()).await?;
 
     let mut tx: sqlx::Transaction<'_, sqlx::Sqlite> =
         pool.begin().await.context("Failed to begin transaction")?;
@@ -1366,8 +1373,6 @@ pub async fn load_and_insert_products(
     data: AirtableRecords<ProductFields>,
 ) -> Result<()> {
     let products = load_products_from_export(data).await?;
-
-    count_check(pool, Table::Products).await?;
 
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
