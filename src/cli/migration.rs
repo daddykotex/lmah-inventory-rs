@@ -9,6 +9,7 @@ use crate::server::models::payments::PaymentRow;
 use crate::server::models::product_types::ProductTypeRow;
 use crate::server::models::products::{ProductImageRow, ProductRow};
 use crate::server::models::refunds::RefundRow;
+use crate::server::models::statuts::StatutRow;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -46,6 +47,7 @@ pub struct AirtableExport {
     pub facture_items: AirtableRecords<FactureItemFields>,
     pub payments: AirtableRecords<PaymentFields>,
     pub refunds: AirtableRecords<RefundFields>,
+    pub statuts: AirtableRecords<StatutFields>,
 }
 
 /// Table in the JSON
@@ -1097,6 +1099,166 @@ pub async fn load_and_insert_refunds(
             Ok(())
         }
         None => anyhow::bail!("Refunds table does not exist"),
+    }
+}
+
+/// Statut fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct StatutFields {
+    #[serde(rename = "Facture")]
+    facture: Vec<String>, // Airtable linked field (required)
+    #[serde(rename = "Item de facture")]
+    facture_item: Vec<String>, // Airtable linked field (required)
+    #[serde(rename = "Type")]
+    statut_type: String,
+    #[serde(rename = "Date copy")]
+    date: String, // ISO 8601 timestamp, need to extract date
+    #[serde(rename = "Couturière")]
+    seamstress: Option<String>,
+}
+
+/// Migration-specific: Statut with unresolved foreign keys
+#[derive(Debug)]
+pub struct StatutRowWithFKs {
+    pub row: StatutRow,
+    pub airtable_id: String,
+    pub facture_airtable_id: String,      // Required FK to resolve
+    pub facture_item_airtable_id: String, // Required FK to resolve
+}
+
+/// Extract date from ISO 8601 timestamp (e.g., "2024-09-03T00:00:00Z" → "2024-09-03")
+fn extract_date_from_timestamp(timestamp: &str) -> String {
+    timestamp.split('T').next().unwrap_or(timestamp).to_string()
+}
+
+impl From<AirtableRecord<StatutFields>> for StatutRowWithFKs {
+    fn from(record: AirtableRecord<StatutFields>) -> Self {
+        // Extract facture airtable ID (required - take first element)
+        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
+
+        // Extract facture_item airtable ID (required - take first element)
+        let facture_item_airtable_id = record.fields.facture_item.first().cloned().unwrap();
+
+        StatutRowWithFKs {
+            airtable_id: record.id,
+            facture_airtable_id,
+            facture_item_airtable_id,
+            row: StatutRow {
+                facture_id: 0,      // Will be resolved from airtable_mapping
+                facture_item_id: 0, // Will be resolved from airtable_mapping
+                statut_type: record.fields.statut_type,
+                date: extract_date_from_timestamp(&record.fields.date),
+                seamstress: record.fields.seamstress,
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
+        }
+    }
+}
+
+/// Load statut records from Airtable JSON export
+async fn load_statuts_from_export(
+    data: AirtableRecords<StatutFields>,
+) -> Result<Vec<StatutRowWithFKs>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_statut_fields(&record.fields).with_context(|| {
+            format!("Invalid statut data in record {} (id: {})", idx, record.id)
+        })?;
+
+        rows.push(StatutRowWithFKs::from(record));
+    }
+
+    println!("Loaded {} statut records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_statut_fields(fields: &StatutFields) -> Result<()> {
+    // Facture is required
+    if fields.facture.is_empty() {
+        anyhow::bail!("statut must have a facture");
+    }
+
+    // Facture item is required
+    if fields.facture_item.is_empty() {
+        anyhow::bail!("statut must have a facture_item");
+    }
+
+    // Validate statut type
+    if fields.statut_type.trim().is_empty() {
+        anyhow::bail!("statut type cannot be empty");
+    }
+
+    // Validate date
+    if fields.date.trim().is_empty() {
+        anyhow::bail!("statut date cannot be empty");
+    }
+
+    Ok(())
+}
+
+/// Load and insert statuts with foreign key resolution
+pub async fn load_and_insert_statuts(
+    pool: &SqlitePool,
+    data: AirtableRecords<StatutFields>,
+    clear_existing: bool,
+) -> Result<()> {
+    let statuts = load_statuts_from_export(data).await?;
+
+    let count_records = count_records(pool, "statuts").await?;
+    match count_records {
+        Some(count) => {
+            if !clear_existing {
+                anyhow::bail!(
+                    "Statuts table already has records. Use --clear-existing to replace them."
+                );
+            }
+
+            if count > 0 {
+                clear_table(pool, "statuts").await?;
+            }
+
+            let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+            for mut statut in statuts {
+                // Resolve facture_id (required - will abort if not found)
+                let facture_id = resolve_airtable_id(pool, "factures", &statut.facture_airtable_id)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Failed to resolve facture for statut (airtable_id: {})",
+                            statut.airtable_id
+                        )
+                    })?;
+                statut.row.facture_id = facture_id;
+
+                // Resolve facture_item_id (required - will abort if not found)
+                let facture_item_id =
+                    resolve_airtable_id(pool, "facture_items", &statut.facture_item_airtable_id)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "Failed to resolve facture_item for statut (airtable_id: {})",
+                                statut.airtable_id
+                            )
+                        })?;
+                statut.row.facture_item_id = facture_item_id;
+
+                // Insert statut and get db_id
+                let statut_id = statut
+                    .row
+                    .insert_one(&mut tx)
+                    .await?
+                    .context("Statut insertion must return an id")?;
+
+                // Insert airtable mapping
+                insert_airtable_id(&mut tx, "statuts", statut_id, statut.airtable_id).await?;
+            }
+
+            tx.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        None => anyhow::bail!("Statuts table does not exist"),
     }
 }
 

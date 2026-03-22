@@ -7,3 +7,4 @@ pub mod payments;
 pub mod product_types;
 pub mod products;
 pub mod refunds;
+pub mod statuts;
