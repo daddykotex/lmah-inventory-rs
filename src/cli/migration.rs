@@ -1,11 +1,14 @@
 use crate::server::database::has_table::HasTable;
+use crate::server::database::insert::Insertable;
+use crate::server::models::clients::ClientRow;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventRow;
 use crate::server::models::facture_items::FactureItemRow;
 use crate::server::models::factures::FactureRow;
+use crate::server::models::payments::PaymentRow;
 use crate::server::models::product_types::ProductTypeRow;
 use crate::server::models::products::{ProductImageRow, ProductRow};
-use crate::server::{database::insert::Insertable, models::clients::ClientRow};
+use crate::server::models::refunds::RefundRow;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -41,6 +44,8 @@ pub struct AirtableExport {
     pub products: AirtableRecords<ProductFields>,
     pub factures: AirtableRecords<FactureFields>,
     pub facture_items: AirtableRecords<FactureItemFields>,
+    pub payments: AirtableRecords<PaymentFields>,
+    pub refunds: AirtableRecords<RefundFields>,
 }
 
 /// Table in the JSON
@@ -815,6 +820,283 @@ pub async fn load_and_insert_facture_items(
             Ok(())
         }
         None => anyhow::bail!("Facture_items table does not exist"),
+    }
+}
+
+/// Payment fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct PaymentFields {
+    #[serde(rename = "Facture")]
+    facture: Vec<String>, // Airtable linked field (required)
+    #[serde(rename = "Montant")]
+    amount: f64, // Will convert to cents
+    #[serde(rename = "Date")]
+    date: String,
+    #[serde(rename = "Type")]
+    payment_type: String,
+    #[serde(rename = "Numéro de chèque")]
+    cheque_number: Option<String>,
+}
+
+/// Migration-specific: Payment with unresolved foreign keys
+#[derive(Debug)]
+pub struct PaymentRowWithFKs {
+    pub row: PaymentRow,
+    pub airtable_id: String,
+    pub facture_airtable_id: String, // Required FK to resolve
+}
+
+impl From<AirtableRecord<PaymentFields>> for PaymentRowWithFKs {
+    fn from(record: AirtableRecord<PaymentFields>) -> Self {
+        // Extract facture airtable ID (required - take first element)
+        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
+
+        PaymentRowWithFKs {
+            airtable_id: record.id,
+            facture_airtable_id,
+            row: PaymentRow {
+                facture_id: 0, // Will be resolved from airtable_mapping
+                amount: dollars_to_cents(record.fields.amount),
+                date: record.fields.date,
+                payment_type: record.fields.payment_type,
+                cheque_number: record.fields.cheque_number,
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
+        }
+    }
+}
+
+/// Load payment records from Airtable JSON export
+async fn load_payments_from_export(
+    data: AirtableRecords<PaymentFields>,
+) -> Result<Vec<PaymentRowWithFKs>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_payment_fields(&record.fields).with_context(|| {
+            format!("Invalid payment data in record {} (id: {})", idx, record.id)
+        })?;
+
+        rows.push(PaymentRowWithFKs::from(record));
+    }
+
+    println!("Loaded {} payment records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_payment_fields(fields: &PaymentFields) -> Result<()> {
+    // Facture is required
+    if fields.facture.is_empty() {
+        anyhow::bail!("payment must have a facture");
+    }
+
+    // Validate amount
+    if fields.amount < 0.0 {
+        anyhow::bail!("payment amount cannot be negative");
+    }
+
+    // Validate date
+    if fields.date.trim().is_empty() {
+        anyhow::bail!("payment date cannot be empty");
+    }
+
+    // Validate payment type
+    if fields.payment_type.trim().is_empty() {
+        anyhow::bail!("payment type cannot be empty");
+    }
+
+    Ok(())
+}
+
+/// Load and insert payments with foreign key resolution
+pub async fn load_and_insert_payments(
+    pool: &SqlitePool,
+    data: AirtableRecords<PaymentFields>,
+    clear_existing: bool,
+) -> Result<()> {
+    let payments = load_payments_from_export(data).await?;
+
+    let count_records = count_records(pool, "payments").await?;
+    match count_records {
+        Some(count) => {
+            if !clear_existing {
+                anyhow::bail!(
+                    "Payments table already has records. Use --clear-existing to replace them."
+                );
+            }
+
+            if count > 0 {
+                clear_table(pool, "payments").await?;
+            }
+
+            let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+            for mut payment in payments {
+                // Resolve facture_id (required - will abort if not found)
+                let facture_id =
+                    resolve_airtable_id(pool, "factures", &payment.facture_airtable_id)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "Failed to resolve facture for payment (airtable_id: {})",
+                                payment.airtable_id
+                            )
+                        })?;
+                payment.row.facture_id = facture_id;
+
+                // Insert payment and get db_id
+                let payment_id = payment
+                    .row
+                    .insert_one(&mut tx)
+                    .await?
+                    .context("Payment insertion must return an id")?;
+
+                // Insert airtable mapping
+                insert_airtable_id(&mut tx, "payments", payment_id, payment.airtable_id).await?;
+            }
+
+            tx.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        None => anyhow::bail!("Payments table does not exist"),
+    }
+}
+
+/// Refund fields from Airtable
+#[derive(Debug, Deserialize)]
+pub struct RefundFields {
+    #[serde(rename = "Facture")]
+    facture: Vec<String>, // Airtable linked field (required)
+    #[serde(rename = "Montant")]
+    amount: f64, // Will convert to cents
+    #[serde(rename = "Date")]
+    date: String,
+    #[serde(rename = "Type")]
+    refund_type: String,
+    #[serde(rename = "Numéro de chèque")]
+    cheque_number: Option<String>,
+}
+
+/// Migration-specific: Refund with unresolved foreign keys
+#[derive(Debug)]
+pub struct RefundRowWithFKs {
+    pub row: RefundRow,
+    pub airtable_id: String,
+    pub facture_airtable_id: String, // Required FK to resolve
+}
+
+impl From<AirtableRecord<RefundFields>> for RefundRowWithFKs {
+    fn from(record: AirtableRecord<RefundFields>) -> Self {
+        // Extract facture airtable ID (required - take first element)
+        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
+
+        RefundRowWithFKs {
+            airtable_id: record.id,
+            facture_airtable_id,
+            row: RefundRow {
+                facture_id: 0, // Will be resolved from airtable_mapping
+                amount: dollars_to_cents(record.fields.amount),
+                date: record.fields.date,
+                refund_type: record.fields.refund_type,
+                cheque_number: record.fields.cheque_number,
+                created_at: record.created_time.clone(),
+                updated_at: record.created_time,
+            },
+        }
+    }
+}
+
+/// Load refund records from Airtable JSON export
+async fn load_refunds_from_export(
+    data: AirtableRecords<RefundFields>,
+) -> Result<Vec<RefundRowWithFKs>> {
+    let mut rows = Vec::new();
+    for (idx, record) in data.records.into_iter().enumerate() {
+        validate_refund_fields(&record.fields).with_context(|| {
+            format!("Invalid refund data in record {} (id: {})", idx, record.id)
+        })?;
+
+        rows.push(RefundRowWithFKs::from(record));
+    }
+
+    println!("Loaded {} refund records from JSON", rows.len());
+    Ok(rows)
+}
+
+fn validate_refund_fields(fields: &RefundFields) -> Result<()> {
+    // Facture is required
+    if fields.facture.is_empty() {
+        anyhow::bail!("refund must have a facture");
+    }
+
+    // Validate amount
+    if fields.amount < 0.0 {
+        anyhow::bail!("refund amount cannot be negative");
+    }
+
+    // Validate date
+    if fields.date.trim().is_empty() {
+        anyhow::bail!("refund date cannot be empty");
+    }
+
+    // Validate refund type
+    if fields.refund_type.trim().is_empty() {
+        anyhow::bail!("refund type cannot be empty");
+    }
+
+    Ok(())
+}
+
+/// Load and insert refunds with foreign key resolution
+pub async fn load_and_insert_refunds(
+    pool: &SqlitePool,
+    data: AirtableRecords<RefundFields>,
+    clear_existing: bool,
+) -> Result<()> {
+    let refunds = load_refunds_from_export(data).await?;
+
+    let count_records = count_records(pool, "refunds").await?;
+    match count_records {
+        Some(count) => {
+            if !clear_existing {
+                anyhow::bail!(
+                    "Refunds table already has records. Use --clear-existing to replace them."
+                );
+            }
+
+            if count > 0 {
+                clear_table(pool, "refunds").await?;
+            }
+
+            let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+            for mut refund in refunds {
+                // Resolve facture_id (required - will abort if not found)
+                let facture_id = resolve_airtable_id(pool, "factures", &refund.facture_airtable_id)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Failed to resolve facture for refund (airtable_id: {})",
+                            refund.airtable_id
+                        )
+                    })?;
+                refund.row.facture_id = facture_id;
+
+                // Insert refund and get db_id
+                let refund_id = refund
+                    .row
+                    .insert_one(&mut tx)
+                    .await?
+                    .context("Refund insertion must return an id")?;
+
+                // Insert airtable mapping
+                insert_airtable_id(&mut tx, "refunds", refund_id, refund.airtable_id).await?;
+            }
+
+            tx.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        None => anyhow::bail!("Refunds table does not exist"),
     }
 }
 
