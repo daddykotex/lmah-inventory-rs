@@ -542,19 +542,12 @@ fn validate_facture_fields(fields: &FactureFields) -> Result<()> {
 pub async fn load_and_insert_factures(
     pool: &SqlitePool,
     data: AirtableRecords<FactureFields>,
-    clear_existing: bool,
 ) -> Result<()> {
     let factures = load_factures_from_export(data).await?;
 
     let count_records = count_records(pool, "factures").await?;
     match count_records {
         Some(count) => {
-            if !clear_existing {
-                anyhow::bail!(
-                    "Factures table already has records. Use --clear-existing to replace them."
-                );
-            }
-
             if count > 0 {
                 clear_table(pool, "factures").await?;
             }
@@ -765,19 +758,12 @@ fn validate_facture_item_fields(fields: &FactureItemFields) -> Result<()> {
 pub async fn load_and_insert_facture_items(
     pool: &SqlitePool,
     data: AirtableRecords<FactureItemFields>,
-    clear_existing: bool,
 ) -> Result<()> {
     let facture_items = load_facture_items_from_export(data).await?;
 
     let count_records = count_records(pool, "facture_items").await?;
     match count_records {
         Some(count) => {
-            if !clear_existing {
-                anyhow::bail!(
-                    "Facture_items table already has records. Use --clear-existing to replace them."
-                );
-            }
-
             if count > 0 {
                 clear_table(pool, "facture_items").await?;
             }
@@ -914,19 +900,12 @@ fn validate_payment_fields(fields: &PaymentFields) -> Result<()> {
 pub async fn load_and_insert_payments(
     pool: &SqlitePool,
     data: AirtableRecords<PaymentFields>,
-    clear_existing: bool,
 ) -> Result<()> {
     let payments = load_payments_from_export(data).await?;
 
     let count_records = count_records(pool, "payments").await?;
     match count_records {
         Some(count) => {
-            if !clear_existing {
-                anyhow::bail!(
-                    "Payments table already has records. Use --clear-existing to replace them."
-                );
-            }
-
             if count > 0 {
                 clear_table(pool, "payments").await?;
             }
@@ -1053,19 +1032,12 @@ fn validate_refund_fields(fields: &RefundFields) -> Result<()> {
 pub async fn load_and_insert_refunds(
     pool: &SqlitePool,
     data: AirtableRecords<RefundFields>,
-    clear_existing: bool,
 ) -> Result<()> {
     let refunds = load_refunds_from_export(data).await?;
 
     let count_records = count_records(pool, "refunds").await?;
     match count_records {
         Some(count) => {
-            if !clear_existing {
-                anyhow::bail!(
-                    "Refunds table already has records. Use --clear-existing to replace them."
-                );
-            }
-
             if count > 0 {
                 clear_table(pool, "refunds").await?;
             }
@@ -1201,19 +1173,12 @@ fn validate_statut_fields(fields: &StatutFields) -> Result<()> {
 pub async fn load_and_insert_statuts(
     pool: &SqlitePool,
     data: AirtableRecords<StatutFields>,
-    clear_existing: bool,
 ) -> Result<()> {
     let statuts = load_statuts_from_export(data).await?;
 
     let count_records = count_records(pool, "statuts").await?;
     match count_records {
         Some(count) => {
-            if !clear_existing {
-                anyhow::bail!(
-                    "Statuts table already has records. Use --clear-existing to replace them."
-                );
-            }
-
             if count > 0 {
                 clear_table(pool, "statuts").await?;
             }
@@ -1262,11 +1227,7 @@ pub async fn load_and_insert_statuts(
     }
 }
 
-pub async fn load_records<R, T>(
-    pool: &SqlitePool,
-    data: AirtableRecords<R>,
-    clear_existing: bool,
-) -> Result<()>
+pub async fn load_records<R, T>(pool: &SqlitePool, data: AirtableRecords<R>) -> Result<()>
 where
     WithId<T>: From<AirtableRecord<R>>,
     T: HasTable,
@@ -1280,10 +1241,6 @@ where
     let count_records = count_records(pool, &T::table_name()).await?;
     match count_records {
         Some(count) => {
-            if !clear_existing {
-                anyhow::bail!("There");
-            }
-
             if count > 0 {
                 clear_table(pool, T::table_name()).await?;
             }
@@ -1463,19 +1420,12 @@ async fn insert_product_with_related(
 pub async fn load_and_insert_products(
     pool: &SqlitePool,
     data: AirtableRecords<ProductFields>,
-    clear_existing: bool,
 ) -> Result<()> {
     let products = load_products_from_export(data).await?;
 
     let count_records = count_records(pool, "products").await?;
     match count_records {
         Some(count) => {
-            if !clear_existing {
-                anyhow::bail!(
-                    "Products table already has records. Use --clear-existing to replace them."
-                );
-            }
-
             if count > 0 {
                 // Clear related tables first (due to foreign keys)
                 clear_table(pool, "product_images").await?;

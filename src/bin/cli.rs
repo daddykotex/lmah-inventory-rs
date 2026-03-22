@@ -1,10 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{
-    ClientFields, ConfigFields, EventFields, ProductTypeFields, clear_airtable_mapping,
-    load_and_insert_facture_items, load_and_insert_factures, load_and_insert_payments,
-    load_and_insert_products, load_and_insert_refunds, load_and_insert_statuts, load_data,
-    load_records,
+    ClientFields, ConfigFields, EventFields, ProductTypeFields, load_and_insert_facture_items,
+    load_and_insert_factures, load_and_insert_payments, load_and_insert_products,
+    load_and_insert_refunds, load_and_insert_statuts, load_data, load_records,
 };
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
@@ -47,10 +46,6 @@ struct LoadArgs {
     /// Location of the SQLite database
     #[arg(short, long)]
     target: PathBuf,
-
-    /// Clear existing config records before importing
-    #[arg(long)]
-    clear_existing: bool,
 }
 
 fn assert_args(args: &LoadArgs) {
@@ -141,56 +136,45 @@ async fn load(args: &LoadArgs) -> Result<()> {
     let pool = connect_to_database(&args.target).await?;
     println!("✓ Database connection established");
 
-    // ===== CLEAR AIRTABLE MAPPING =====
-    if args.clear_existing {
-        println!("\nStep 3: Clearing airtable_mapping table...");
-        clear_airtable_mapping(&pool).await?;
-    }
-
     // ===== INSERT CONFIG =====
     println!("\nStep 4: Inserting config records...");
-    load_records::<ConfigFields, ConfigRow>(&pool, export.config, args.clear_existing).await?;
+    load_records::<ConfigFields, ConfigRow>(&pool, export.config).await?;
 
     // ===== INSERT CLIENTS =====
     println!("\nStep 5: Inserting client records...");
-    load_records::<ClientFields, ClientRow>(&pool, export.clients, args.clear_existing).await?;
+    load_records::<ClientFields, ClientRow>(&pool, export.clients).await?;
 
     // ===== INSERT PRODUCT_TYPES =====
     println!("\nStep 6: Inserting product_types records...");
-    load_records::<ProductTypeFields, ProductTypeRow>(
-        &pool,
-        export.product_types,
-        args.clear_existing,
-    )
-    .await?;
+    load_records::<ProductTypeFields, ProductTypeRow>(&pool, export.product_types).await?;
 
     // ===== INSERT EVENTS =====
     println!("\nStep 7: Inserting events records...");
-    load_records::<EventFields, EventRow>(&pool, export.events, args.clear_existing).await?;
+    load_records::<EventFields, EventRow>(&pool, export.events).await?;
 
     // ===== INSERT PRODUCTS (with types and images) =====
     println!("\nStep 8: Inserting products with related data...");
-    load_and_insert_products(&pool, export.products, args.clear_existing).await?;
+    load_and_insert_products(&pool, export.products).await?;
 
     // ===== INSERT FACTURES (with FK resolution) =====
     println!("\nStep 9: Inserting factures with foreign key resolution...");
-    load_and_insert_factures(&pool, export.factures, args.clear_existing).await?;
+    load_and_insert_factures(&pool, export.factures).await?;
 
     // ===== INSERT FACTURE_ITEMS (with FK resolution) =====
     println!("\nStep 10: Inserting facture_items with foreign key resolution...");
-    load_and_insert_facture_items(&pool, export.facture_items, args.clear_existing).await?;
+    load_and_insert_facture_items(&pool, export.facture_items).await?;
 
     // ===== INSERT PAYMENTS (with FK resolution) =====
     println!("\nStep 11: Inserting payments with foreign key resolution...");
-    load_and_insert_payments(&pool, export.payments, args.clear_existing).await?;
+    load_and_insert_payments(&pool, export.payments).await?;
 
     // ===== INSERT REFUNDS (with FK resolution) =====
     println!("\nStep 12: Inserting refunds with foreign key resolution...");
-    load_and_insert_refunds(&pool, export.refunds, args.clear_existing).await?;
+    load_and_insert_refunds(&pool, export.refunds).await?;
 
     // ===== INSERT STATUTS (with FK resolution) =====
     println!("\nStep 13: Inserting statuts with foreign key resolution...");
-    load_and_insert_statuts(&pool, export.statuts, args.clear_existing).await?;
+    load_and_insert_statuts(&pool, export.statuts).await?;
 
     // ===== VERIFY IMPORTS =====
     println!("\nStep 14: Verifying imports...");
