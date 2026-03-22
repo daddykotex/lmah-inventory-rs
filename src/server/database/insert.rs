@@ -10,6 +10,7 @@ use crate::server::models::{
     product_types::ProductTypeRow,
     products::{ProductImageRow, ProductRow},
     refunds::RefundRow,
+    statuts::StatutRow,
 };
 
 pub trait Insertable {
@@ -312,6 +313,37 @@ impl Insertable for RefundRow {
             format!(
                 "Failed to insert refund for facture_id={}",
                 self.facture_id
+            )
+        })?;
+
+        let db_id = result.last_insert_rowid();
+
+        return Ok(Some(db_id));
+    }
+}
+
+impl Insertable for StatutRow {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        let result = sqlx::query(
+            "INSERT INTO statuts (facture_id, facture_item_id, type, date, seamstress, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&self.facture_id)
+        .bind(&self.facture_item_id)
+        .bind(&self.statut_type)
+        .bind(&self.date)
+        .bind(&self.seamstress)
+        .bind(&self.created_at)
+        .bind(&self.updated_at)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert statut for facture_id={}, facture_item_id={}",
+                self.facture_id, self.facture_item_id
             )
         })?;
 
