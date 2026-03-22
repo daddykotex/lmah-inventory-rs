@@ -6,8 +6,10 @@ use crate::server::models::{
     events::EventRow,
     facture_items::FactureItemRow,
     factures::FactureRow,
+    payments::PaymentRow,
     product_types::ProductTypeRow,
     products::{ProductImageRow, ProductRow},
+    refunds::RefundRow,
 };
 
 pub trait Insertable {
@@ -251,6 +253,68 @@ impl Insertable for FactureItemRow {
         })?;
 
         // Get the database ID
+        let db_id = result.last_insert_rowid();
+
+        return Ok(Some(db_id));
+    }
+}
+
+impl Insertable for PaymentRow {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        let result = sqlx::query(
+            "INSERT INTO payments (facture_id, amount, date, type, cheque_number, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&self.facture_id)
+        .bind(&self.amount)
+        .bind(&self.date)
+        .bind(&self.payment_type)
+        .bind(&self.cheque_number)
+        .bind(&self.created_at)
+        .bind(&self.updated_at)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert payment for facture_id={}",
+                self.facture_id
+            )
+        })?;
+
+        let db_id = result.last_insert_rowid();
+
+        return Ok(Some(db_id));
+    }
+}
+
+impl Insertable for RefundRow {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        let result = sqlx::query(
+            "INSERT INTO refunds (facture_id, amount, date, type, cheque_number, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&self.facture_id)
+        .bind(&self.amount)
+        .bind(&self.date)
+        .bind(&self.refund_type)
+        .bind(&self.cheque_number)
+        .bind(&self.created_at)
+        .bind(&self.updated_at)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert refund for facture_id={}",
+                self.facture_id
+            )
+        })?;
+
         let db_id = result.last_insert_rowid();
 
         return Ok(Some(db_id));

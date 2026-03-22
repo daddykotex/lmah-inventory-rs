@@ -1,6 +1,7 @@
 use crate::server::models::{
     clients::ClientRow, config::ConfigRow, events::EventRow, facture_items::FactureItemRow,
-    factures::FactureRow, product_types::ProductTypeRow, products::ProductRow,
+    factures::FactureRow, payments::PaymentRow, product_types::ProductTypeRow,
+    products::ProductRow, refunds::RefundRow,
 };
 
 pub trait HasTable {
@@ -46,5 +47,17 @@ impl HasTable for FactureRow {
 impl HasTable for FactureItemRow {
     fn table_name() -> &'static str {
         "facture_items"
+    }
+}
+
+impl HasTable for PaymentRow {
+    fn table_name() -> &'static str {
+        "payments"
+    }
+}
+
+impl HasTable for RefundRow {
+    fn table_name() -> &'static str {
+        "refunds"
     }
 }

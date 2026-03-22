@@ -3,5 +3,7 @@ pub mod config;
 pub mod events;
 pub mod facture_items;
 pub mod factures;
+pub mod payments;
 pub mod product_types;
 pub mod products;
+pub mod refunds;
