@@ -1,9 +1,10 @@
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{
-    ClientFields, ConfigFields, EventFields, ProductTypeFields, load_and_insert_facture_items,
-    load_and_insert_factures, load_and_insert_payments, load_and_insert_products,
-    load_and_insert_refunds, load_and_insert_statuts, load_data, load_records,
+    ClientFields, ConfigFields, EventFields, ProductTypeFields, check_counts,
+    load_and_insert_facture_items, load_and_insert_factures, load_and_insert_payments,
+    load_and_insert_products, load_and_insert_refunds, load_and_insert_statuts, load_data,
+    load_records,
 };
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
@@ -134,6 +135,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
     // ===== CONNECT TO DATABASE =====
     println!("\nStep 2: Connecting to database...");
     let pool = connect_to_database(&args.target).await?;
+    check_counts(&pool).await?;
     println!("✓ Database connection established");
 
     // ===== INSERT CONFIG =====
