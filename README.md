@@ -35,10 +35,10 @@ To migrate off Airtable, I've exported the data as JSON (from the other app), an
 You can run it like:
 
 ```bash
-cargo run --bin cli -- load --src data/db.json --target data/lmah.db --clear-existing
+cargo run --bin cli -- load --src data/db.json --target data/lmah.db
 ```
 
-You want to start from a clean database everytime you run the import:
+You want to start from a clean database every time you run the import:
 
 ```bash
 rm data/lmah.db && sqlx database create && sqlx migrate run
