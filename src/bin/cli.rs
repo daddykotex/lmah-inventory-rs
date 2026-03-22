@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{
     ClientFields, ConfigFields, EventFields, ProductTypeFields, check_counts,
@@ -6,13 +6,13 @@ use lmah_inventory_rs::cli::migration::{
     load_and_insert_products, load_and_insert_refunds, load_and_insert_statuts, load_data,
     load_records,
 };
+use lmah_inventory_rs::server::database::connect_to_path;
 use lmah_inventory_rs::server::models::clients::ClientRow;
 use lmah_inventory_rs::server::models::config::ConfigRow;
 use lmah_inventory_rs::server::models::events::EventRow;
 use lmah_inventory_rs::server::models::product_types::ProductTypeRow;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use sqlx::sqlite::SqlitePool;
+use std::path::PathBuf;
 
 /// CLI tool to load the data from a JSON database into a SQL database
 #[derive(Parser, Debug)]
@@ -72,22 +72,6 @@ fn assert_args(args: &LoadArgs) {
     );
 }
 
-async fn connect_to_database(db_path: &Path) -> Result<SqlitePool> {
-    let connection_string = format!("sqlite://{}", db_path.display());
-
-    let options = SqliteConnectOptions::from_str(&connection_string)?
-        .foreign_keys(true)
-        .create_if_missing(false);
-
-    let pool = SqlitePool::connect_with(options)
-        .await
-        .context("Failed to connect to SQLite database")?;
-
-    println!("Connected to database: {}", db_path.display());
-
-    Ok(pool)
-}
-
 async fn verify_import(pool: &SqlitePool) -> Result<()> {
     let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM config")
         .fetch_one(pool)
@@ -134,7 +118,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
 
     // ===== CONNECT TO DATABASE =====
     println!("\nStep 2: Connecting to database...");
-    let pool = connect_to_database(&args.target).await?;
+    let pool = connect_to_path(&args.target).await?;
     check_counts(&pool).await?;
     println!("✓ Database connection established");
 
