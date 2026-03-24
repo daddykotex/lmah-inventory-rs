@@ -1,10 +1,9 @@
 use std::path::PathBuf;
 
 use axum::Router;
-use clap::{Parser};
-use lmah_inventory_rs::server::{database::{connect_to_path}, routes::bootstrap::setup_routes};
+use clap::Parser;
+use lmah_inventory_rs::server::{database::connect_to_path, routes::bootstrap::setup_routes};
 use tokio::net::TcpListener;
-
 
 /// Options for starting the server
 #[derive(Parser, Debug)]
@@ -15,7 +14,7 @@ struct Config {
     db_path: PathBuf,
 
     /// Port of the HTTP server
-    #[arg(short, long, default_value="3000")]
+    #[arg(short, long, default_value = "3000")]
     port: u16,
 }
 
@@ -23,8 +22,7 @@ struct Config {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::parse();
 
-    let pool = connect_to_path(&config.db_path)
-        .await?;
+    let pool = connect_to_path(&config.db_path).await?;
     let app: Router = setup_routes().await?.with_state(pool);
 
     let mut listenfd = listenfd::ListenFd::from_env();
