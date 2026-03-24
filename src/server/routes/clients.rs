@@ -1,4 +1,4 @@
-use axum::{Router, extract::State, response::Html, routing::get};
+use axum::{Router, extract::State, routing::get};
 use maud::Markup;
 use sqlx::SqlitePool;
 
