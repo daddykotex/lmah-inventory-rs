@@ -1,6 +1,9 @@
 /// Grabbed from:
 /// https://github.com/tokio-rs/axum/blob/main/examples/anyhow-error-response/src/main.rs
-use axum::{ http::StatusCode, response::{IntoResponse, Response}};
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 pub struct AppError(anyhow::Error);
 
 impl IntoResponse for AppError {

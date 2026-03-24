@@ -1,6 +1,6 @@
-use axum::{Router, extract::State, response::{Html, }, routing::get};
+use axum::{Router, extract::State, response::Html, routing::get};
 use maud::Markup;
-use sqlx::{SqlitePool};
+use sqlx::SqlitePool;
 
 use crate::server::{database::has_table::Table, routes::errors::AppError, templates::clients};
 

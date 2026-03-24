@@ -1,0 +1,129 @@
+body,
+html {
+  height: 100%;
+}
+#main-success .alert {
+  margin-bottom: 0;
+  position: absolute;
+  top: 3px;
+  right: 70px;
+}
+#main-error .alert {
+  margin-bottom: 0;
+  position: absolute;
+  top: 3px;
+  right: 70px;
+}
+.actions {
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  background-color: white;
+  min-height: 3rem;
+  border-bottom: 1px solid gray;
+}
+.colored-actions {
+  background-color: #eee;
+}
+.actions .filtered-warning {
+  padding-top: 0.25rem;
+}
+.actions form {
+  display: inline;
+}
+
+table.find-client .form-check {
+  padding-left: 55%;
+}
+
+.state-color-red {
+  background-color: red;
+}
+.state-color-orange {
+  background-color: orange;
+}
+.state-color-yellow {
+  background-color: yellow;
+}
+.state-color-pink {
+  background-color: pink;
+}
+.state-color-blue {
+  background-color: blue;
+}
+.state-color-lightgreen {
+  background-color: #00ff00;
+}
+.state-color-darkgreen {
+  background-color: darkgreen;
+}
+.state-color-black {
+  background-color: black;
+}
+.state-color-cyan {
+  background-color: cyan;
+}
+.text-black {
+  color: #000;
+}
+.text-white {
+  color: #fff;
+}
+.state-tile {
+  width: 25px;
+  border-radius: 5px;
+  display: inline-block;
+  text-align: center;
+}
+form.inline-button {
+  display: inline;
+}
+.tablesorter-bootstrap:not(.table-dark) tfoot td,
+.tablesorter-bootstrap:not(.table-dark) tfoot th,
+.tablesorter-bootstrap:not(.table-dark)
+  thead:not(.thead-dark)
+  .tablesorter-header {
+  background-color: inherit;
+}
+
+table.find-facture thead.sticky-top {
+  top: 96px;
+  background-color: white;
+}
+table.admin-find-facture thead.sticky-top {
+  background-color: white;
+}
+table.items th.file {
+  width: 100px;
+}
+
+.help ul > li.answer {
+  list-style: none;
+}
+
+.input-group .decimal {
+  width: 40px;
+  padding: 0;
+}
+
+#loading-overlay {
+  display: none;
+  background: white;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  z-index: 2000; /* above fixed top */
+  top: 0;
+}
+
+.loading-overlay-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.loading-overlay-image > img {
+  width: 50px;
+  height: 50px;
+  border-radius: 5px;
+}
