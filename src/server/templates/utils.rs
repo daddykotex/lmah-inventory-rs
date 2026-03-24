@@ -29,17 +29,117 @@ fn spinner() -> Markup {
                     img src="/static/icons/spinner.gif";
                 }
             }
-            script type="text/javascript" {
-                r#"
-                    function showSpinner() {
-                        $('#loading-overlay').show();
-                    }
+        script type="text/javascript" {
+            r#"
+                function showSpinner() {
+                    $('#loading-overlay').show();
+                }
 
-                    function hideSpinner() {
-                        $('#loading-overlay').hide();
-                    }
-                "#
+                function hideSpinner() {
+                    $('#loading-overlay').hide();
+                }
+            "#
+        }
+    }
+}
+#[derive(PartialEq)]
+pub enum MenuConstants {
+    Factures,
+    Clients,
+    Evenements,
+    Help,
+    Admin,
+}
+
+pub fn navbar_item(is_active: bool, url: &str, label: &str) -> Markup {
+    let class = format!("nav-item {}", if is_active { "active" } else { "" });
+    html! {
+        li class=(class) {
+            a."nav-link" href=(url) {
+                (label)
             }
+        }
+    }
+}
+
+pub fn navbar(current_menu: MenuConstants) -> Markup {
+    html! {
+        nav."navbar navbar-expand-md navbar-dark bg-dark" {
+            a."navbar-brand" href="/" {
+                "La Mariée à l'Honneur"
+            }
+            button."navbar-toggler" aria-controls="menu" type="button" aria-label="Toggle navigation" aria-expanded="false" data-toggle="collapse" data-target="id="menu"" {
+                span."navbar-toggler-icon" {}
+            }
+            div."collapse navbar-collapse" id="menu" {
+                ul."navbar-nav mr-auto" {
+                    (navbar_item(current_menu == MenuConstants::Clients, "/clients", "Clients"))
+                    (navbar_item(current_menu == MenuConstants::Factures, "/factures", "Factures"))
+                    (navbar_item(current_menu == MenuConstants::Evenements, "/events", "Événements"))
+                }
+                ul."navbar-nav flex-row" {
+                    li."nav-item" {
+                        a."nav-link" href="/help" {
+                            "Aide"
+                        }
+                    }
+                    li."nav-item" {
+                        form method="POST" action="/signout" {
+                            button."btn btn-link nav-link" type="submit" {
+                                "Se déconnecter"
+                            }
+                        }
+                    }
+                }
+                div."d-none" id="main-success" {
+                    div."alert alert-success alert-dismissible fade show" role="alert" {
+                        strong {
+                            "Bravo! "
+                        }
+                        "L'action s'est terminé avec succès."
+                        button."close" data-dismiss="alert" aria-label="Close" type="button" {
+                            span aria-hidden="true" {
+                                (PreEscaped("&times;"))
+                            }
+                        }
+                    }
+                }
+                div."d-none" id="main-error" {
+                    div."alert alert-danger alert-dismissible fade show" role="alert" {
+                        strong {
+                            "Oops"
+                        }
+                        span id="error-msg" {}
+                        button."close" aria-label="Close" data-dismiss="alert" type="button" {
+                            span aria-hidden="true" {
+                                "&times;"
+                            }
+                        }
+                    }
+                }
+            }
+            script type="text/javascript" {
+            (PreEscaped(r#"
+                var urlParams = new URLSearchParams(window.location.search);
+                var successParam = urlParams.get('success');
+                if (successParam) {
+                    document.getElementById("main-success").classList.remove("d-none");
+                }
+
+                var errorParam = urlParams.get('errorMsg');
+                if (errorParam) {
+                    document.getElementById("main-error").classList.remove("d-none");
+                    document.getElementById("error-msg").innerText = errorParam;
+                }
+                setTimeout(function() {
+                    var elem = document.getElementById("main-success");
+                    if (elem) {
+                    document.getElementById("main-success").parentNode.removeChild(elem);
+                    }
+                }, 5 * 1000);
+            "#))
+        }
+        }
     }
 }
 
@@ -100,6 +200,41 @@ pub fn footer() -> Markup {
                 });
                 });
             });
+            "#))
+        }
+        script type="text/javascript" {
+            (PreEscaped(r#"
+                function setupSearch(containerId, inputId, tableSelector, clearSelector) {
+                    function setClass(inputLength) {
+                        if (inputLength > 0) {
+                            $(`#${containerId} .filtered-warning`).removeClass('d-none');
+                            $(`#${containerId}`).addClass('colored-actions');
+                        } else {
+                            $(`#${containerId}`).removeClass('colored-actions');
+                            $(`#${containerId} .filtered-warning`).addClass('d-none');
+                        }
+                    }
+
+                    function search(value) {
+                        $(`${tableSelector} tr:has(> td)`).filter(function() {
+                            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+                        });
+                    }
+
+                    $(`#${inputId}`).on("keyup", function() {
+                        var value = $(this).val().toLowerCase();
+                        if (clearSelector !== null && value !== null) {
+                            $(clearSelector).val('');
+                        }
+
+                        search($(this).val().toLowerCase());
+                        setClass(value.length);
+                    });
+
+
+                    search($(`#${inputId}`).val().toLowerCase());
+                    setClass($(`#${inputId}`).val().toLowerCase().length);
+                }
             "#))
         }
         (spinner())
