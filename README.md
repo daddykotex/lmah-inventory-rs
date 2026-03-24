@@ -75,4 +75,4 @@ Use a Nix Flake to try:
 nix run github:jamiebrynes7/sprite-cli-nix
 ```
 
-But transfering the file is harder than it seems.
+But transferring the file is harder than it seems.
