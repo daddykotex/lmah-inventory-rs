@@ -2,6 +2,24 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 
 use crate::server::templates::utils::*;
 
+/// TODO Remove
+fn make_client(i: i64) -> Client {
+    Client {
+        id: i.to_string(),
+        first_name: format!("fname-{}", i),
+        last_name: format!("lname-{}", i),
+        street: None,
+        city: None,
+        phone: "(555) 555-5555".to_string(),
+        phone2: None,
+    }
+}
+
+fn make_clients(count: i64) -> Vec<Client> {
+    (1..count).map(make_client).collect()
+}
+/// END TODO Remove
+
 fn find_clients(
     container_id: &str,
     input_id: &str,
@@ -58,18 +76,7 @@ fn action_col(client: &Client) -> Markup {
 }
 
 fn clients_table(count: i64) -> Markup {
-    let mut clients = Vec::with_capacity(count.try_into().ok().unwrap());
-    for i in 0..count {
-        clients.push(Client {
-            id: format!("id-{}", i),
-            first_name: format!("fname-{}", i),
-            last_name: format!("lname-{}", i),
-            street: None,
-            city: None,
-            phone: "555-555-555".to_string(),
-            phone2: None,
-        })
-    }
+    let clients = make_clients(count);
 
     html! {
         table."table table-sm find-client" {
@@ -291,11 +298,31 @@ pub fn page_clients(count: i64) -> Markup {
     page("Clients", body)
 }
 
-pub fn page_new_client() -> Markup {
-    let ClientFormMarkup { body, javascript } = new_client_form("/clients/new", None);
+pub fn page_one_client(id: i64) -> Markup {
+    let client = make_client(id);
+    let update_url = format!("/clients/{}/update", id);
+    let ClientFormMarkup {
+        body: form_body,
+        javascript,
+    } = new_client_form(&update_url, Some(client));
+
     let body = html! {
         (navbar(MenuConstants::Clients))
-        (new_client(body))
+        (new_client(form_body))
+        (footer())
+        (javascript)
+    };
+    page("Nouveau client", body)
+}
+
+pub fn page_new_client() -> Markup {
+    let ClientFormMarkup {
+        body: form_body,
+        javascript,
+    } = new_client_form("/clients/new", None);
+    let body = html! {
+        (navbar(MenuConstants::Clients))
+        (new_client(form_body))
         (footer())
         (javascript)
     };
