@@ -6,15 +6,13 @@ use axum::{
 use maud::Markup;
 use sqlx::SqlitePool;
 
-use crate::{
-    cli,
-    server::{database::has_table::Table, routes::errors::AppError, templates::clients},
-};
+use crate::server::{database::has_table::Table, routes::errors::AppError, templates::clients};
 
 async fn list_clients(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
     let query = format!("SELECT COUNT(*) FROM {}", Table::Clients);
     let (count,): (i64,) = sqlx::query_as(&query).fetch_one(&pool).await?;
 
+    /// TODO retrieve clients using database and pass them to the page_clients function below
     let rendered = clients::page_clients(count);
 
     Ok(rendered)
@@ -28,6 +26,7 @@ async fn one_client(
     Path(client_id): Path<i64>,
     State(pool): State<SqlitePool>,
 ) -> Result<Markup, AppError> {
+    /// TODO retrieve client using database and pass it to the page_one_client function below
     Ok(clients::page_one_client(client_id))
 }
 
