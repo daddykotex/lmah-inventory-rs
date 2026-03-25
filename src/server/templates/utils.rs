@@ -240,3 +240,22 @@ pub fn footer() -> Markup {
         (spinner())
     }
 }
+
+pub fn custom_form_validation() -> Markup {
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(r#"
+                function customFormValidation($form) {
+                    var form = $form[0];
+                    $form.submit(function(event) {
+                        if (!form || form.checkValidity() === false) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        $form.addClass('was-validated');
+                    });
+                };
+            "#))
+        }
+    }
+}

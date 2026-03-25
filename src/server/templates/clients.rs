@@ -37,10 +37,15 @@ fn find_clients(
     }
 }
 
+#[derive(Clone)]
 struct Client {
     id: String,
     first_name: String,
     last_name: String,
+    street: Option<String>,
+    city: Option<String>,
+    phone: String,
+    phone2: Option<String>,
 }
 
 fn action_col(client: &Client) -> Markup {
@@ -59,6 +64,10 @@ fn clients_table(count: i64) -> Markup {
             id: format!("id-{}", i),
             first_name: format!("fname-{}", i),
             last_name: format!("lname-{}", i),
+            street: None,
+            city: None,
+            phone: "555-555-555".to_string(),
+            phone2: None,
         })
     }
 
@@ -96,7 +105,128 @@ fn clients_table(count: i64) -> Markup {
     }
 }
 
-fn main(count: i64) -> Markup {
+struct ClientFormMarkup {
+    body: Markup,
+    javascript: Markup,
+}
+
+fn new_client_form(path: &str, maybe_client: Option<Client>) -> ClientFormMarkup {
+    let maybe_first_name = maybe_client.clone().map(|s| s.first_name);
+    let maybe_last_name = maybe_client.clone().map(|s| s.last_name);
+    let maybe_street = maybe_client.clone().and_then(|s| s.street);
+    let maybe_city = maybe_client.clone().and_then(|s| s.city);
+    let maybe_phone = maybe_client.clone().map(|s| s.phone);
+    let maybe_phone2 = maybe_client.clone().and_then(|s| s.phone2);
+
+    let body = html! {
+        form."client-form" autocomplete="false" action=(path) method="POST" {
+            div."form-row" {
+                div."col-12 col-md-6 form-group" {
+                    label for="firstname" {
+                        "Prénom"
+                    }
+                    input."form-control" id="firstname" type="text" value=[maybe_first_name] name="firstname" required;
+                    div."invalid-feedback" {
+                        "Veuillez entrer un prénom"
+                    }
+                }
+                div."col-12 col-md-6 form-group" {
+                    label for="lastname" {
+                        "Nom de famille"
+                    }
+                    input."form-control" id="lastname" required type="text" value=[maybe_last_name] name="lastname";
+                    div."invalid-feedback" {
+                        "Veuillez entrer un nom de famille"
+                    }
+                }
+            }
+            div."form-row" {
+                div."col-12 col-md-6 form-group" {
+                    label for="street" {
+                        "Rue"
+                    }
+                    input."form-control" id="street" name="street" value=[maybe_street] type="text";
+                    div."invalid-feedback" {
+                        "Veuillez entrer la rue"
+                    }
+                }
+                div."col-12 col-md-6 form-group" {
+                    label for="city" {
+                        "Ville"
+                    }
+                    input."form-control" id="city" value=[maybe_city] name="city" type="text";
+                    div."invalid-feedback" {
+                        "Veuillez entrer la ville"
+                    }
+                }
+            }
+            div."form-row" {
+                div."col-12 col-md-6 form-group" {
+                    label for="phone1" {
+                        "Téléphone"
+                    }
+                    input."validate-phone form-control" id="phone1" value=[maybe_phone] name="phone1" required type="text";
+                    div."invalid-feedback" {
+                        "Veuillez entrer un téléphone valide: (555) 555-5555, poste 1234"
+                    }
+                }
+                div."col-12 col-md-6 form-group" {
+                    label for="phone2" {
+                        "Téléphone #2"
+                    }
+                    input."validate-phone form-control" id="phone2" value=[maybe_phone2] name="phone2" type="text";
+                    div."invalid-feedback" {
+                        "Veuillez entrer un téléphone valide: (555) 555-5555, poste 1234"
+                    }
+                }
+            }
+            br;
+            button."btn btn-primary btn-lg btn-block" type="submit" {
+                "Sauvegarder"
+            }
+        }
+
+    };
+    let javascript = html! {
+        (custom_form_validation())
+        (client_form_helper())
+    };
+    ClientFormMarkup { body, javascript }
+}
+
+fn client_form_helper() -> Markup {
+    html! {
+        script type="text/javascript" src="/static/js/jquery.maskedinput.min.js" integrity="sha384-ATbYjrywZ6+DvHhy1i703oHUPV8MJxzAiIqrZpvMnwUNpsykpgEt8W3BkMhnHe7a" {}
+        script type="text/javascript" {
+            (PreEscaped(r#"
+                $(document).ready(function() {
+                    $('.client-form').each(function() {
+                        var form = $(this);
+                        customFormValidation(form);
+                        $('#phone1', form).mask("(999) 999-9999?, poste: 99999");
+                        $('#phone2', form).mask("(999) 999-9999?, poste: 99999");
+                    });
+                });
+            "#))
+        }
+    }
+}
+
+fn new_client(form: Markup) -> Markup {
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row" {
+                    div."col-12" {
+                        (form)
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn list_clients(count: i64) -> Markup {
     html! {
         main role="main" {
             div."container-fluid" {
@@ -138,18 +268,36 @@ fn main(count: i64) -> Markup {
     }
 }
 
-pub fn page(count: i64) -> Markup {
+fn page(title: &str, body: Markup) -> Markup {
     html! {
         (DOCTYPE)
         html lang="fr" {
-            (head("Clients"))
+            (head(title))
 
             body {
-                (navbar(MenuConstants::Clients))
-                (main(count))
-                (footer())
-                (find_clients("clients-actions", "search", "table.find-client", None))
+                (body)
             }
         }
     }
+}
+
+pub fn page_clients(count: i64) -> Markup {
+    let body = html! {
+        (navbar(MenuConstants::Clients))
+        (list_clients(count))
+        (footer())
+        (find_clients("clients-actions", "search", "table.find-client", None))
+    };
+    page("Clients", body)
+}
+
+pub fn page_new_client() -> Markup {
+    let ClientFormMarkup { body, javascript } = new_client_form("/clients/new", None);
+    let body = html! {
+        (navbar(MenuConstants::Clients))
+        (new_client(body))
+        (footer())
+        (javascript)
+    };
+    page("Nouveau client", body)
 }
