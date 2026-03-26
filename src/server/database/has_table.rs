@@ -1,9 +1,16 @@
 use std::fmt::Display;
 
 use crate::server::models::{
-    clients::ClientRow, config::ConfigRow, events::EventRow, facture_items::FactureItemRow,
-    factures::FactureRow, payments::PaymentRow, product_types::ProductTypeRow,
-    products::ProductRow, refunds::RefundRow, statuts::StatutRow,
+    clients::{ClientInsert, ClientRow},
+    config::ConfigRow,
+    events::EventRow,
+    facture_items::FactureItemRow,
+    factures::FactureRow,
+    payments::PaymentRow,
+    product_types::ProductTypeRow,
+    products::ProductRow,
+    refunds::RefundRow,
+    statuts::StatutRow,
 };
 
 pub enum Table {
@@ -19,66 +26,93 @@ pub enum Table {
     Statuts,
 }
 
-pub trait HasTable {
-    fn table_name() -> Table;
+pub trait TableName {
+    fn table_name(&self) -> &'static str;
 }
 
-impl HasTable for ClientRow {
-    fn table_name() -> Table {
-        Table::Clients
+impl TableName for Table {
+    fn table_name(&self) -> &'static str {
+        match self {
+            Table::Clients => "clients",
+            Table::Config => "config",
+            Table::Events => "events",
+            Table::ProductTypes => "product_types",
+            Table::Products => "products",
+            Table::Factures => "factures",
+            Table::FactureItems => "facture_items",
+            Table::Payments => "payments",
+            Table::Refunds => "refunds",
+            Table::Statuts => "statuts",
+        }
     }
 }
 
+pub trait HasTable {
+    fn table() -> Table;
+}
+
 impl HasTable for ConfigRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::Config
     }
 }
 
+impl HasTable for ClientRow {
+    fn table() -> Table {
+        Table::Clients
+    }
+}
+
+impl HasTable for ClientInsert {
+    fn table() -> Table {
+        Table::Clients
+    }
+}
+
 impl HasTable for EventRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::Events
     }
 }
 
 impl HasTable for ProductTypeRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::ProductTypes
     }
 }
 
 impl HasTable for ProductRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::Products
     }
 }
 
 impl HasTable for FactureRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::Factures
     }
 }
 
 impl HasTable for FactureItemRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::FactureItems
     }
 }
 
 impl HasTable for PaymentRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::Payments
     }
 }
 
 impl HasTable for RefundRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::Refunds
     }
 }
 
 impl HasTable for StatutRow {
-    fn table_name() -> Table {
+    fn table() -> Table {
         Table::Statuts
     }
 }

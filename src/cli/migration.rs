@@ -1,6 +1,6 @@
-use crate::server::database::has_table::{HasTable, Table};
+use crate::server::database::has_table::{HasTable, Table, TableName};
 use crate::server::database::insert::Insertable;
-use crate::server::models::clients::ClientRow;
+use crate::server::models::clients::ClientInsert;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventRow;
 use crate::server::models::facture_items::FactureItemRow;
@@ -112,7 +112,7 @@ pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
 
 pub struct ToInsert {
     pub config: Vec<ConfigRow>,
-    pub clients: Vec<WithId<ClientRow>>,
+    pub clients: Vec<WithId<ClientInsert>>,
     pub product_types: Vec<ProductTypeRow>,
     pub events: Vec<WithId<EventRow>>,
 }
@@ -186,19 +186,17 @@ pub struct ClientFields {
     phone2: Option<String>,
 }
 
-impl From<AirtableRecord<ClientFields>> for WithId<ClientRow> {
+impl From<AirtableRecord<ClientFields>> for WithId<ClientInsert> {
     fn from(record: AirtableRecord<ClientFields>) -> Self {
         WithId {
             airtable_id: record.id,
-            row: ClientRow {
+            row: ClientInsert {
                 first_name: record.fields.first_name,
                 last_name: record.fields.last_name,
                 street: record.fields.street,
                 city: record.fields.city,
                 phone1: record.fields.phone1,
                 phone2: record.fields.phone2,
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
@@ -207,14 +205,14 @@ impl From<AirtableRecord<ClientFields>> for WithId<ClientRow> {
 /// Load client records from Airtable JSON export
 async fn load_clients_from_export(
     data: AirtableRecords<ClientFields>,
-) -> Result<Vec<WithId<ClientRow>>> {
+) -> Result<Vec<WithId<ClientInsert>>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_client_fields(&record.fields).with_context(|| {
             format!("Invalid client data in record {} (id: {})", idx, record.id)
         })?;
 
-        rows.push(WithId::<ClientRow>::from(record));
+        rows.push(WithId::<ClientInsert>::from(record));
     }
 
     println!("Loaded {} client records from JSON", rows.len());
@@ -1211,7 +1209,7 @@ where
     for with_id in converted {
         let maybe_id = with_id.row.insert_one(&mut tx).await?;
         if let Some(id) = maybe_id {
-            insert_airtable_id(&mut tx, T::table_name(), id, with_id.airtable_id).await?;
+            insert_airtable_id(&mut tx, T::table(), id, with_id.airtable_id).await?;
         }
     }
     tx.commit().await.context("Failed to commit transaction")?;
@@ -1250,7 +1248,7 @@ async fn count_check(pool: &SqlitePool, table_name: Table) -> Result<()> {
 
 async fn insert_airtable_id(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-    table_name: Table,
+    table: Table,
     id: i64,
     airtable_id: String,
 ) -> Result<()> {
@@ -1258,7 +1256,7 @@ async fn insert_airtable_id(
     sqlx::query(&format!(
         "INSERT INTO airtable_mapping (table_name, airtable_id, db_id)
              VALUES ('{}', ?, ?)",
-        table_name
+        table.table_name()
     ))
     .bind(&airtable_id)
     .bind(id)
@@ -1267,7 +1265,7 @@ async fn insert_airtable_id(
     .with_context(|| {
         format!(
             "Failed to insert airtable mapping for {}: id = {}, airtable_id = {}",
-            table_name, id, airtable_id
+            table, id, airtable_id
         )
     })?;
     Ok(())

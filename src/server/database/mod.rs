@@ -5,6 +5,8 @@ use std::str::FromStr;
 
 pub mod has_table;
 pub mod insert;
+pub mod select;
+pub mod update;
 
 pub async fn connect_to_path(db_path: &Path) -> Result<SqlitePool> {
     let connection_string = format!("sqlite://{}", db_path.display());
