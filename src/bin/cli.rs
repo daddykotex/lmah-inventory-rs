@@ -7,7 +7,7 @@ use lmah_inventory_rs::cli::migration::{
     load_records,
 };
 use lmah_inventory_rs::server::database::connect_to_path;
-use lmah_inventory_rs::server::models::clients::ClientRow;
+use lmah_inventory_rs::server::models::clients::ClientInsert;
 use lmah_inventory_rs::server::models::config::ConfigRow;
 use lmah_inventory_rs::server::models::events::EventRow;
 use lmah_inventory_rs::server::models::product_types::ProductTypeRow;
@@ -128,7 +128,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
 
     // ===== INSERT CLIENTS =====
     println!("\nStep 5: Inserting client records...");
-    load_records::<ClientFields, ClientRow>(&pool, export.clients).await?;
+    load_records::<ClientFields, ClientInsert>(&pool, export.clients).await?;
 
     // ===== INSERT PRODUCT_TYPES =====
     println!("\nStep 6: Inserting product_types records...");

@@ -1,24 +1,6 @@
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 
-use crate::server::templates::utils::*;
-
-/// TODO Remove
-fn make_client(i: i64) -> Client {
-    Client {
-        id: i.to_string(),
-        first_name: format!("fname-{}", i),
-        last_name: format!("lname-{}", i),
-        street: None,
-        city: None,
-        phone: "(555) 555-5555".to_string(),
-        phone2: None,
-    }
-}
-
-fn make_clients(count: i64) -> Vec<Client> {
-    (1..count).map(make_client).collect()
-}
-/// END TODO Remove
+use crate::server::{models::clients::ClientView, templates::utils::*};
 
 fn find_clients(
     container_id: &str,
@@ -55,18 +37,7 @@ fn find_clients(
     }
 }
 
-#[derive(Clone)]
-struct Client {
-    id: String,
-    first_name: String,
-    last_name: String,
-    street: Option<String>,
-    city: Option<String>,
-    phone: String,
-    phone2: Option<String>,
-}
-
-fn action_col(client: &Client) -> Markup {
+fn action_col(client: &ClientView) -> Markup {
     let url = format!("/clients/{}", client.id);
     html! {
         a."btn btn-sm btn-primary" href=(url) {
@@ -75,9 +46,7 @@ fn action_col(client: &Client) -> Markup {
     }
 }
 
-fn clients_table(count: i64) -> Markup {
-    let clients = make_clients(count);
-
+fn clients_table(clients: Vec<ClientView>) -> Markup {
     html! {
         table."table table-sm find-client" {
             thead {
@@ -117,12 +86,12 @@ struct ClientFormMarkup {
     javascript: Markup,
 }
 
-fn new_client_form(path: &str, maybe_client: Option<Client>) -> ClientFormMarkup {
+fn new_client_form(path: &str, maybe_client: Option<ClientView>) -> ClientFormMarkup {
     let maybe_first_name = maybe_client.clone().map(|s| s.first_name);
     let maybe_last_name = maybe_client.clone().map(|s| s.last_name);
     let maybe_street = maybe_client.clone().and_then(|s| s.street);
     let maybe_city = maybe_client.clone().and_then(|s| s.city);
-    let maybe_phone = maybe_client.clone().map(|s| s.phone);
+    let maybe_phone = maybe_client.clone().map(|s| s.phone1);
     let maybe_phone2 = maybe_client.clone().and_then(|s| s.phone2);
 
     let body = html! {
@@ -233,7 +202,7 @@ fn new_client(form: Markup) -> Markup {
     }
 }
 
-fn list_clients(count: i64) -> Markup {
+fn list_clients(clients: Vec<ClientView>) -> Markup {
     html! {
         main role="main" {
             div."container-fluid" {
@@ -267,7 +236,7 @@ fn list_clients(count: i64) -> Markup {
                 }
                 div."row" {
                     div."col-12" {
-                        (clients_table(count))
+                        (clients_table(clients))
                     }
                 }
             }
@@ -288,19 +257,18 @@ fn page(title: &str, body: Markup) -> Markup {
     }
 }
 
-pub fn page_clients(count: i64) -> Markup {
+pub fn page_clients(clients: Vec<ClientView>) -> Markup {
     let body = html! {
         (navbar(MenuConstants::Clients))
-        (list_clients(count))
+        (list_clients(clients))
         (footer())
         (find_clients("clients-actions", "search", "table.find-client", None))
     };
     page("Clients", body)
 }
 
-pub fn page_one_client(id: i64) -> Markup {
-    let client = make_client(id);
-    let update_url = format!("/clients/{}/update", id);
+pub fn page_one_client(client: ClientView) -> Markup {
+    let update_url = format!("/clients/{}/update", client.id);
     let ClientFormMarkup {
         body: form_body,
         javascript,

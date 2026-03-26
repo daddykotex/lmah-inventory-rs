@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 
 use crate::server::models::{
-    clients::ClientRow,
+    clients::{ClientInsert, ClientRow},
     config::ConfigRow,
     events::EventRow,
     facture_items::FactureItemRow,
@@ -47,7 +47,7 @@ impl Insertable for ConfigRow {
     }
 }
 
-impl Insertable for ClientRow {
+impl Insertable for ClientInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
@@ -55,8 +55,38 @@ impl Insertable for ClientRow {
         // Insert client row
         let result = sqlx::query(
             "INSERT INTO clients (first_name, last_name, street, city, phone1, phone2, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+        )
+        .bind(&self.first_name)
+        .bind(&self.last_name)
+        .bind(&self.street)
+        .bind(&self.city)
+        .bind(&self.phone1)
+        .bind(&self.phone2)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert client: {} {}",
+                self.first_name, self.last_name
+            )
+        })?;
+
+        Ok(Some(result.last_insert_rowid()))
+    }
+}
+
+impl Insertable for ClientRow {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        // Insert client row
+        let result = sqlx::query(
+            "INSERT INTO clients (id, first_name, last_name, street, city, phone1, phone2, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )
+        .bind(&self.id)
         .bind(&self.first_name)
         .bind(&self.last_name)
         .bind(&self.street)

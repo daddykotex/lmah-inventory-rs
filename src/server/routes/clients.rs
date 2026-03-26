@@ -5,44 +5,38 @@ use axum::{
     routing::{get, post},
 };
 use maud::Markup;
-use serde::Deserialize;
 use sqlx::SqlitePool;
 
-use crate::server::{database::has_table::Table, routes::errors::AppError, templates::clients};
+use crate::server::{
+    models::clients::{ClientForm, ClientView},
+    routes::errors::AppError,
+    services::clients::{insert_client, select_all, select_one, update_client},
+    templates::clients,
+};
 
 async fn list_clients(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
-    let query = format!("SELECT COUNT(*) FROM {}", Table::Clients);
-    let (count,): (i64,) = sqlx::query_as(&query).fetch_one(&pool).await?;
-
-    // TODO retrieve clients using database and pass them to the page_clients function below
-    let rendered = clients::page_clients(count);
+    let clients = select_all(&pool).await?;
+    let client_views = clients.into_iter().map(ClientView::from).collect();
+    let rendered = clients::page_clients(client_views);
 
     Ok(rendered)
 }
 
-async fn new_client(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
+async fn new_client() -> Result<Markup, AppError> {
     Ok(clients::page_new_client())
-}
-
-#[derive(Deserialize, Debug)]
-struct ClientForm {
-    #[serde(rename = "firstname")]
-    first_name: String,
-    #[serde(rename = "lastname")]
-    last_name: String,
-    street: Option<String>,
-    city: Option<String>,
-    #[serde(rename = "phone1")]
-    phone: String,
-    phone2: Option<String>,
 }
 
 async fn one_client(
     State(pool): State<SqlitePool>,
     Path(client_id): Path<i64>,
 ) -> Result<Markup, AppError> {
-    // TODO retrieve client using database and pass it to the page_one_client function below
-    Ok(clients::page_one_client(client_id))
+    let maybe_client = select_one(&pool, client_id).await?;
+    let client = maybe_client.ok_or(anyhow::Error::msg(format!(
+        "Client with id {} not found",
+        client_id
+    )))?;
+    let client_view = ClientView::from(client);
+    Ok(clients::page_one_client(client_view))
 }
 
 async fn update_one_client(
@@ -50,8 +44,7 @@ async fn update_one_client(
     Path(client_id): Path<i64>,
     Form(update): Form<ClientForm>,
 ) -> Result<Redirect, AppError> {
-    println!("got update {:?}", update);
-    // TODO update the client using the received form
+    update_client(&pool, client_id, update).await?;
     let url = format!("/clients/{}?success=true", client_id);
     Ok(Redirect::to(&url))
 }
@@ -60,9 +53,8 @@ async fn create_one_client(
     State(pool): State<SqlitePool>,
     Form(create): Form<ClientForm>,
 ) -> Result<Redirect, AppError> {
-    println!("got create {:?}", create);
-    // TODO create the client and use the generate id in the url below
-    let url = format!("/clients/{}?success=true", 0);
+    let id = insert_client(&pool, create).await?;
+    let url = format!("/clients/{}?success=true", id);
     Ok(Redirect::to(&url))
 }
 
