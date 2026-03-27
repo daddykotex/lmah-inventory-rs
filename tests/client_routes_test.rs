@@ -2,12 +2,13 @@ mod fixtures;
 mod http;
 
 use axum::http::StatusCode;
-use fixtures::clients::ClientFixture;
 use http::helpers::*;
 use insta::assert_snapshot;
 use lmah_inventory_rs::server::{database::insert::Insertable, routes::clients::client_router};
 use sqlx;
 use tower::ServiceExt;
+
+use crate::fixtures::clients::ClientFixture;
 
 #[tokio::test]
 async fn test_list_clients_empty() {
@@ -78,7 +79,11 @@ async fn test_new_client_form_renders() {
 async fn test_get_client_success() {
     let pool = create_test_db().await.unwrap();
     let mut tx = pool.begin().await.unwrap();
-    let client_id = ClientFixture::charlie().insert_one(&mut tx).await.unwrap().expect("Did not get a client id after insert");
+    let client_id = ClientFixture::charlie()
+        .insert_one(&mut tx)
+        .await
+        .unwrap()
+        .expect("Did not get a client id after insert");
     tx.commit().await.expect("Unable to commit the transaction");
 
     let app = client_router().with_state(pool);
@@ -89,6 +94,7 @@ async fn test_get_client_success() {
 
     let body = body_to_string(response.into_body()).await;
     assert_snapshot!("get_client_success", body);
+    assert!(body.contains("value=\"Charlie\""));
 }
 
 #[tokio::test]
@@ -100,23 +106,6 @@ async fn test_get_client_not_found() {
     let response = app.oneshot(request).await.unwrap();
     // TODO make a 404
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-}
-
-#[tokio::test]
-async fn test_get_client_form_prepopulated() {
-    let pool = create_test_db().await.unwrap();
-    let mut tx = pool.begin().await.unwrap();
-    let client_id = ClientFixture::alice().insert_one(&mut tx).await.unwrap().expect("Did not get a client id after insert");
-    tx.commit().await.expect("Unable to commit the transaction");
-
-    let app = client_router().with_state(pool);
-    let request = get_request(&format!("/clients/{}", client_id));
-
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = body_to_string(response.into_body()).await;
-    assert_snapshot!("get_client_form_prepopulated", body);
 }
 
 #[tokio::test]
@@ -175,14 +164,16 @@ async fn test_create_client_with_optional_fields() {
     assert_eq!(client.1, Some("Quebec".to_string()));
 }
 
-
 #[tokio::test]
 async fn test_update_client_success() {
     let pool = create_test_db().await.unwrap();
     let mut tx = pool.begin().await.unwrap();
-    let client_id = ClientFixture::alice().insert_one(&mut tx).await.unwrap().expect("Did not get a client id after insert");
+    let client_id = ClientFixture::alice()
+        .insert_one(&mut tx)
+        .await
+        .unwrap()
+        .expect("Did not get a client id after insert");
     tx.commit().await.expect("Unable to commit the transaction");
-
 
     let app = client_router().with_state(pool.clone());
 
@@ -229,7 +220,11 @@ async fn test_update_client_not_found() {
 async fn test_update_client_all_fields() {
     let pool = create_test_db().await.unwrap();
     let mut tx = pool.begin().await.unwrap();
-    let client_id = ClientFixture::bob().insert_one(&mut tx).await.unwrap().expect("Did not get a client id after insert");
+    let client_id = ClientFixture::bob()
+        .insert_one(&mut tx)
+        .await
+        .unwrap()
+        .expect("Did not get a client id after insert");
     tx.commit().await.expect("Unable to commit the transaction");
 
     let app = client_router().with_state(pool.clone());
@@ -249,13 +244,12 @@ async fn test_update_client_all_fields() {
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
     // Verify all fields updated
-    let client: (String, String, Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT first_name, last_name, street, city FROM clients WHERE id = ?",
-    )
-    .bind(client_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let client: (String, String, Option<String>, Option<String>) =
+        sqlx::query_as("SELECT first_name, last_name, street, city FROM clients WHERE id = ?")
+            .bind(client_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(client.0, "Robert");
     assert_eq!(client.1, "Brownson");

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use axum::body::{Body, to_bytes};
 use axum::http::Request;
-use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteConnectOptions;
 use std::str::FromStr;
 
 /// Create an in-memory test database with migrations applied
