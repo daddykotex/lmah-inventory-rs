@@ -14,6 +14,7 @@
   packages = [
     pkgs.watchexec
     pkgs.sqlite
+    pkgs.cargo-insta
   ];
 
   # See full reference at https://devenv.sh/reference/options/
