@@ -16,7 +16,8 @@ pub async fn connect_to_path(db_path: &Path) -> Result<SqlitePool> {
 pub async fn connect_to_url(db_url: &String) -> Result<SqlitePool> {
     let options = SqliteConnectOptions::from_str(&db_url)?
         .foreign_keys(true)
-        .create_if_missing(false);
+        .create_if_missing(false)
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
 
     let pool = SqlitePool::connect_with(options)
         .await
