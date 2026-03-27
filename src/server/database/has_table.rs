@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::server::models::{
     clients::{ClientInsert, ClientRow},
     config::ConfigRow,
-    events::EventRow,
+    events::{EventInsert, EventRow},
     facture_items::FactureItemRow,
     factures::FactureRow,
     payments::PaymentRow,
@@ -66,6 +66,12 @@ impl HasTable for ClientRow {
 impl HasTable for ClientInsert {
     fn table() -> Table {
         Table::Clients
+    }
+}
+
+impl HasTable for EventInsert {
+    fn table() -> Table {
+        Table::Events
     }
 }
 

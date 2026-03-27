@@ -1,0 +1,344 @@
+use maud::{DOCTYPE, Markup, PreEscaped, html};
+
+use crate::server::{models::events::EventView, templates::utils::*};
+
+fn find_events(
+    container_id: &str,
+    input_id: &str,
+    table_selector: &str,
+    clear_selector: Option<&str>,
+) -> Markup {
+    let selector_arg = match clear_selector {
+        Some(selector) => format!("'{}'", selector),
+        None => String::from("null"),
+    };
+    let search_script = format!(
+        r#"
+            $(document).ready(function() {{
+                setupSearch('{}', '{}', '{}', {})
+            }});
+        "#,
+        container_id, input_id, table_selector, selector_arg
+    );
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(r#"
+                $(document).ready(function(){
+                    $("table.find-event").tablesorter({
+                        theme : "bootstrap",
+                        widthFixed: true
+                    });
+                });
+            "#))
+        }
+        script type="text/javascript" {
+            (PreEscaped(search_script))
+        }
+    }
+}
+
+fn action_col(event: &EventView) -> Markup {
+    let url = format!("/events/{}", event.id);
+    html! {
+        a."btn btn-sm btn-primary" href=(url) {
+            "Voir"
+        }
+    }
+}
+
+fn events_table(events: Vec<EventView>) -> Markup {
+    html! {
+        table."table table-sm find-event" {
+            thead {
+                tr {
+                    th scope="col" {
+                        "Actions"
+                    }
+                    th scope="col" {
+                        "Type"
+                    }
+                    th scope="col" {
+                        "Nom"
+                    }
+                    th scope="col" {
+                        "Date"
+                    }
+                }
+            }
+            tbody {
+                @for event in events {
+                    tr {
+                        td {
+                            (action_col(&event))
+                        }
+                        td {
+                            (event.event_type)
+                        }
+                        td {
+                            (event.name)
+                        }
+                        td {
+                            (event.date)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct EventFormMarkup {
+    body: Markup,
+    javascript: Markup,
+}
+
+fn new_event_form(
+    path: &str,
+    event_types: Vec<String>,
+    maybe_event: Option<EventView>,
+) -> EventFormMarkup {
+    let maybe_name = maybe_event.clone().map(|s| s.name);
+    let maybe_date = maybe_event.clone().map(|s| s.date);
+    let maybe_type = maybe_event.clone().map(|s| s.event_type);
+
+    let event_type_selections: Vec<(bool, String)> = event_types
+        .into_iter()
+        .enumerate()
+        .map(|(i, e)| (maybe_type.as_ref().map_or(i == 0, |e2| e2 == &e), e))
+        .collect();
+
+    let body = html! {
+        form."evenement-form" autocomplete="false" action=(path) method="POST" {
+            div."form-row form-group" {
+                div."col-12" {
+                    label for="type" {
+                        "Type"
+                    }
+                    select."custom-select" id="type" name="type" {
+                        @for (selected, event_type) in event_type_selections {
+                            @if selected {
+                                option value=(event_type) selected {
+                                    (event_type)
+                                }
+                            } @else {
+                                option value=(event_type) {
+                                    (event_type)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            div."form-row form-group" {
+                div."col-12" {
+                    label for="name" {
+                        "Nom"
+                    }
+                    input."form-control" id="name" type="text" name="name" value=[maybe_name] required;
+                }
+            }
+            div."form-row form-group" {
+                div."col-12" {
+                    label for="date" {
+                        "Date"
+                    }
+                    input."form-control date-picker" id="date" type="text" data-min-date="true" name="date" value=[maybe_date] autocomplete="false" required;
+                }
+            }
+            br;
+            button."btn btn-primary" type="submit" {
+                "Sauvegarder"
+            }
+        }
+
+    };
+    let javascript = html! {
+        (custom_form_validation())
+    };
+    EventFormMarkup { body, javascript }
+}
+
+struct Facture {
+    id: i64,
+    date: String,
+    client_name: String,
+}
+
+fn related_factures(items: Vec<Facture>) -> Markup {
+    html! {
+        @if items.is_empty() {
+            p { "Aucune factures liées" }
+        } @else {
+            h3 {
+                "Factures liées:"
+            }
+            table."table table-sm" {
+                thead {
+                    tr {
+                        th scope="col" {
+                            "Actions"
+                        }
+                        th scope="col" {
+                            "No. de facture"
+                        }
+                        th scope="col" {
+                            "Date facture"
+                        }
+                        th scope="col" {
+                            "Nom du client"
+                        }
+                    }
+                }
+                tbody {
+                    @for item in items {
+                        @let url = format!("/factures/{}/items", item.id);
+                        tr {
+                            td {
+                                a."btn btn-sm btn-primary" href=(url) {
+                                    "Voir"
+                                }
+                            }
+                            td {
+                                (item.id)
+                            }
+                            td {
+                                (item.date)
+                            }
+                            td {
+                                (item.client_name)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn new_event(form: Markup, related_factures: Markup) -> Markup {
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row" {
+                    div."col-12" {
+                        h3 {
+                            "Détails d'un événement"
+                        }
+                    }
+                }
+                div."row" {
+                    div."col-12" {
+                        (form)
+                    }
+                }
+                hr;
+                div."row" {
+                    div."col-12" {
+                        (related_factures)
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn list_events(events: Vec<EventView>) -> Markup {
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row actions sticky-top" id="events-actions" {
+                    div."col-12 col-sm-6 col-md-3" {
+                        h4 {
+                            "Liste des événements"
+                        }
+                    }
+                    div."col-12 col-sm-6 col-md-9" {
+                        input."form-control" id="search" type="text" placeholder="Filtre";
+                    }
+                    div."filtered-warning col-12 d-none" {
+                        span {
+                            b {
+                                "Affichage filtré"
+                            }
+                        }
+                    }
+                }
+                div."row" {
+                    div."col-12" {
+                        (events_table(events))
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn page(title: &str, body: Markup) -> Markup {
+    html! {
+        (DOCTYPE)
+        html lang="fr" {
+            (head(title))
+
+            body {
+                (body)
+            }
+        }
+    }
+}
+
+pub fn page_events(events: Vec<EventView>) -> Markup {
+    let body = html! {
+        (navbar(MenuConstants::Evenements))
+        (list_events(events))
+        (footer())
+        (find_events("events-actions", "search", "table.find-event", None))
+    };
+    page("Événements", body)
+}
+
+// todo Load event types from the database
+const EVENT_TYPES: [&str; 5] = [
+    "Bal de graduation",
+    "Fiancailles",
+    "Fiançailles",
+    "Mariage",
+    "Soirée",
+];
+
+pub fn page_one_event(event: EventView) -> Markup {
+    let event_name = event.name.clone();
+    let event_types = EVENT_TYPES.iter().map(|e| e.to_string()).collect();
+    let update_url = format!("/events/{}/update", event.id);
+    let EventFormMarkup {
+        body: form_body,
+        javascript,
+    } = new_event_form(&update_url, event_types, Some(event));
+
+    // TODO retrieve related factures
+    let related_factures = related_factures(Vec::new());
+
+    let body = html! {
+        (navbar(MenuConstants::Evenements))
+        (new_event(form_body, related_factures))
+        (footer())
+        (javascript)
+    };
+    let title = format!("{} - Événements", event_name);
+    page(&title, body)
+}
+
+pub fn page_new_event() -> Markup {
+    let event_types = EVENT_TYPES.iter().map(|e| e.to_string()).collect();
+    let EventFormMarkup {
+        body: form_body,
+        javascript,
+    } = new_event_form("/events/new", event_types, None);
+    let related_factures = related_factures(Vec::new());
+    let body = html! {
+        (navbar(MenuConstants::Evenements))
+        (new_event(form_body, related_factures))
+        (footer())
+        (javascript)
+    };
+    page("Nouvel événement", body)
+}
