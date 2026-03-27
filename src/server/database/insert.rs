@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use crate::server::models::{
     clients::{ClientInsert, ClientRow},
     config::ConfigRow,
-    events::EventRow,
+    events::{EventInsert, EventRow},
     facture_items::FactureItemRow,
     factures::FactureRow,
     payments::PaymentRow,
@@ -120,6 +120,27 @@ impl Insertable for ProductTypeRow {
             .with_context(|| format!("Failed to insert product_type: {}", self.name))?;
 
         return Ok(None);
+    }
+}
+
+impl Insertable for EventInsert {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        // Insert client row
+        let result = sqlx::query(
+            "INSERT INTO events (name, date, event_type, created_at, updated_at)
+             VALUES (?, ?, ?, datetime('now'), datetime('now'))",
+        )
+        .bind(&self.name)
+        .bind(&self.date)
+        .bind(&self.event_type)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| format!("Failed to insert event: {}", self.name,))?;
+
+        Ok(Some(result.last_insert_rowid()))
     }
 }
 

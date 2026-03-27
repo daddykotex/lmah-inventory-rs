@@ -2,7 +2,7 @@ use crate::server::database::has_table::{HasTable, Table, TableName};
 use crate::server::database::insert::Insertable;
 use crate::server::models::clients::ClientInsert;
 use crate::server::models::config::ConfigRow;
-use crate::server::models::events::EventRow;
+use crate::server::models::events::EventInsert;
 use crate::server::models::facture_items::FactureItemRow;
 use crate::server::models::factures::FactureRow;
 use crate::server::models::payments::PaymentRow;
@@ -114,7 +114,7 @@ pub struct ToInsert {
     pub config: Vec<ConfigRow>,
     pub clients: Vec<WithId<ClientInsert>>,
     pub product_types: Vec<ProductTypeRow>,
-    pub events: Vec<WithId<EventRow>>,
+    pub events: Vec<WithId<EventInsert>>,
 }
 
 pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
@@ -291,16 +291,14 @@ pub struct EventFields {
     event_type: String,
 }
 
-impl From<AirtableRecord<EventFields>> for WithId<EventRow> {
+impl From<AirtableRecord<EventFields>> for WithId<EventInsert> {
     fn from(record: AirtableRecord<EventFields>) -> Self {
         WithId {
             airtable_id: record.id,
-            row: EventRow {
+            row: EventInsert {
                 name: record.fields.name,
                 event_type: record.fields.event_type,
                 date: record.fields.date,
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
@@ -309,13 +307,13 @@ impl From<AirtableRecord<EventFields>> for WithId<EventRow> {
 /// Load event records from Airtable JSON export
 async fn load_events_from_export(
     data: AirtableRecords<EventFields>,
-) -> Result<Vec<WithId<EventRow>>> {
+) -> Result<Vec<WithId<EventInsert>>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_event_fields(&record.fields)
             .with_context(|| format!("Invalid event data in record {} (id: {})", idx, record.id))?;
 
-        rows.push(WithId::<EventRow>::from(record));
+        rows.push(WithId::<EventInsert>::from(record));
     }
 
     println!("Loaded {} event records from JSON", rows.len());

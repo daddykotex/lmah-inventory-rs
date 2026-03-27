@@ -9,7 +9,7 @@ use lmah_inventory_rs::cli::migration::{
 use lmah_inventory_rs::server::database::connect_to_path;
 use lmah_inventory_rs::server::models::clients::ClientInsert;
 use lmah_inventory_rs::server::models::config::ConfigRow;
-use lmah_inventory_rs::server::models::events::EventRow;
+use lmah_inventory_rs::server::models::events::EventInsert;
 use lmah_inventory_rs::server::models::product_types::ProductTypeRow;
 use sqlx::sqlite::SqlitePool;
 use std::path::PathBuf;
@@ -136,7 +136,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
 
     // ===== INSERT EVENTS =====
     println!("\nStep 7: Inserting events records...");
-    load_records::<EventFields, EventRow>(&pool, export.events).await?;
+    load_records::<EventFields, EventInsert>(&pool, export.events).await?;
 
     // ===== INSERT PRODUCTS (with types and images) =====
     println!("\nStep 8: Inserting products with related data...");

@@ -85,7 +85,7 @@ CREATE TABLE clients (
 CREATE TABLE events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    type TEXT NOT NULL,
+    event_type TEXT NOT NULL,
     date TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -286,7 +286,7 @@ CREATE INDEX idx_clients_name ON clients(last_name, first_name);
 
 -- Events indexes
 CREATE INDEX idx_events_date ON events(date DESC);
-CREATE INDEX idx_events_type ON events(type);
+CREATE INDEX idx_events_type ON events(event_type);
 
 -- Products indexes
 CREATE INDEX idx_products_name ON products(name);
