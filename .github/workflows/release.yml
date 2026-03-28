@@ -57,7 +57,10 @@ jobs:
     - name: Install devenv.sh
       run: nix profile add nixpkgs#devenv
 
-    - name: Run a single command in the devenv shell
+    - name: Cargo test
+      run: devenv shell cargo test
+
+    - name: Cargo build
       run: devenv shell cargo build --release
 
     - name: Upload artifact
