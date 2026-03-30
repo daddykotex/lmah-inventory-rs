@@ -164,7 +164,7 @@ CREATE TABLE product_images (
 CREATE TABLE factures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
-    type TEXT CHECK(type IN ('Product', 'Location', 'Alteration')),
+    facture_type TEXT CHECK(facture_type IN ('Product', 'Location', 'Alteration')),
     date TEXT,
     event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
     fixed_total INTEGER,
@@ -270,7 +270,7 @@ CREATE TABLE statuts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     facture_item_id INTEGER NOT NULL REFERENCES facture_items(id) ON DELETE CASCADE,
-    type TEXT NOT NULL,
+    statut_type TEXT NOT NULL,
     date TEXT NOT NULL,
     seamstress TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -305,7 +305,7 @@ CREATE INDEX idx_product_images_position ON product_images(product_id, position)
 CREATE INDEX idx_factures_client ON factures(client_id);
 CREATE INDEX idx_factures_event ON factures(event_id);
 CREATE INDEX idx_factures_date ON factures(date DESC);
-CREATE INDEX idx_factures_type ON factures(type);
+CREATE INDEX idx_factures_type ON factures(facture_type);
 CREATE INDEX idx_factures_cancelled ON factures(cancelled);
 
 -- Facture items indexes
@@ -326,7 +326,7 @@ CREATE INDEX idx_refunds_date ON refunds(date DESC);
 CREATE INDEX idx_statuts_facture ON statuts(facture_id);
 CREATE INDEX idx_statuts_item ON statuts(facture_item_id);
 CREATE INDEX idx_statuts_date ON statuts(date DESC);
-CREATE INDEX idx_statuts_type ON statuts(type);
+CREATE INDEX idx_statuts_type ON statuts(statut_type);
 CREATE INDEX idx_statuts_item_date ON statuts(facture_item_id, date DESC);
 
 -- ============================================================================

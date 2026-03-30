@@ -2,7 +2,7 @@ use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
 /// Database row structure for clients table
-#[derive(Debug, FromRow)]
+#[derive(Debug, FromRow, Clone)]
 pub struct ClientRow {
     pub id: i64,
     pub first_name: String,

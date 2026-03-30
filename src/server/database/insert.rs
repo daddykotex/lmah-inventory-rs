@@ -10,7 +10,7 @@ use crate::server::models::{
     product_types::ProductTypeRow,
     products::{ProductImageRow, ProductRow},
     refunds::RefundRow,
-    statuts::StatutRow,
+    statuts::StatutInsert,
 };
 
 pub trait Insertable {
@@ -151,7 +151,7 @@ impl Insertable for EventRow {
     ) -> Result<Option<i64>> {
         // Insert event row
         let result = sqlx::query(
-            "INSERT INTO events (name, type, date, created_at, updated_at)
+            "INSERT INTO events (name, event_type, date, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(&self.name)
@@ -231,7 +231,7 @@ impl Insertable for FactureRow {
     ) -> Result<Option<i64>> {
         // Insert facture row
         let result = sqlx::query(
-            "INSERT INTO factures (client_id, type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
+            "INSERT INTO factures (client_id, facture_type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&self.client_id)
@@ -373,22 +373,20 @@ impl Insertable for RefundRow {
     }
 }
 
-impl Insertable for StatutRow {
+impl Insertable for StatutInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Option<i64>> {
         let result = sqlx::query(
-            "INSERT INTO statuts (facture_id, facture_item_id, type, date, seamstress, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO statuts (facture_id, facture_item_id, statut_type, date, seamstress, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
         .bind(&self.facture_id)
         .bind(&self.facture_item_id)
         .bind(&self.statut_type)
         .bind(&self.date)
         .bind(&self.seamstress)
-        .bind(&self.created_at)
-        .bind(&self.updated_at)
         .execute(&mut **tx)
         .await
         .with_context(|| {

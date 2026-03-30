@@ -31,7 +31,7 @@ expression: body
                 });
             });
             </script><script type="text/javascript">
-                function setupSearch(containerId, inputId, tableSelector, clearSelector) {
+                function setupSearch(searchFn, containerId, inputId, clearSelector) {
                     function setClass(inputLength) {
                         if (inputLength > 0) {
                             $(`#${containerId} .filtered-warning`).removeClass('d-none');
@@ -42,24 +42,18 @@ expression: body
                         }
                     }
 
-                    function search(value) {
-                        $(`${tableSelector} tr:has(> td)`).filter(function() {
-                            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
-                        });
-                    }
-
                     $(`#${inputId}`).on("keyup", function() {
                         var value = $(this).val().toLowerCase();
                         if (clearSelector !== null && value !== null) {
                             $(clearSelector).val('');
                         }
 
-                        search($(this).val().toLowerCase());
+                        searchFn($(this).val().toLowerCase());
                         setClass(value.length);
                     });
 
 
-                    search($(`#${inputId}`).val().toLowerCase());
+                    searchFn($(`#${inputId}`).val().toLowerCase());
                     setClass($(`#${inputId}`).val().toLowerCase().length);
                 }
             </script><div id="loading-overlay"><div class="loading-overlay-image"><img src="/static/icons/spinner.gif"></div></div><script type="text/javascript">
@@ -79,6 +73,11 @@ expression: body
                 });
             </script><script type="text/javascript">
             $(document).ready(function() {
-                setupSearch('clients-actions', 'search', 'table.find-client', null)
+                function searchAll(value) {
+                    $(`table.find-client tr:has(> td)`).filter(function() {
+                        $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+                    });
+                };
+                setupSearch(searchAll, 'clients-actions', 'search', null)
             });
         </script></body></html>

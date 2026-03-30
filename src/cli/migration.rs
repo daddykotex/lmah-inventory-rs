@@ -4,12 +4,11 @@ use crate::server::models::clients::ClientInsert;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventInsert;
 use crate::server::models::facture_items::FactureItemRow;
-use crate::server::models::factures::FactureRow;
 use crate::server::models::payments::PaymentRow;
 use crate::server::models::product_types::ProductTypeRow;
 use crate::server::models::products::{ProductImageRow, ProductRow};
 use crate::server::models::refunds::RefundRow;
-use crate::server::models::statuts::StatutRow;
+use crate::server::models::statuts::StatutInsert;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -21,6 +20,52 @@ use std::fs;
 pub struct ProductImage {
     pub url: String,
     pub filename: String,
+}
+
+#[derive(Debug)]
+pub struct MigrationFactureInsert {
+    pub id: i64,                      // map from facture number
+    pub client_id: i64,               // Required FK to clients
+    pub facture_type: Option<String>, // "Product", "Location", or "Alteration"
+    pub date: Option<String>,
+    pub event_id: Option<i64>,    // Optional FK to events
+    pub fixed_total: Option<i64>, // Amount in cents
+    pub cancelled: bool,
+    pub paper_ref: Option<String>,
+}
+
+impl Insertable for MigrationFactureInsert {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        // Insert facture row
+        let result = sqlx::query(
+            "INSERT INTO factures (id, client_id, facture_type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+        )
+        .bind(&self.id)
+        .bind(&self.client_id)
+        .bind(&self.facture_type)
+        .bind(&self.date)
+        .bind(&self.event_id)
+        .bind(&self.fixed_total)
+        .bind(if self.cancelled { 1 } else { 0 })
+        .bind(&self.paper_ref)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert facture {}",
+                self.client_id
+            )
+        })?;
+
+        // Get the database ID
+        let db_id = result.last_insert_rowid();
+
+        return Ok(Some(db_id));
+    }
 }
 
 /// Migration-specific: Product with related data (types and images) for insertion
@@ -426,6 +471,8 @@ fn validate_product_fields(fields: &ProductFields) -> Result<()> {
 /// Facture fields from Airtable
 #[derive(Debug, Deserialize)]
 pub struct FactureFields {
+    #[serde(rename = "Numéro de facture")]
+    facture_number: i64,
     #[serde(rename = "Client")]
     client: Vec<String>, // Airtable linked field (required)
     #[serde(rename = "Type")]
@@ -445,14 +492,14 @@ pub struct FactureFields {
 /// Migration-specific: Facture with unresolved foreign keys
 /// This struct holds airtable IDs that need to be resolved before insertion
 #[derive(Debug)]
-pub struct FactureRowWithFKs {
-    pub row: FactureRow,
+pub struct MigrationFactureInsertWithFKs {
+    pub row: MigrationFactureInsert,
     pub airtable_id: String,
     pub client_airtable_id: String,        // Required FK to resolve
     pub event_airtable_id: Option<String>, // Optional FK to resolve
 }
 
-impl From<AirtableRecord<FactureFields>> for FactureRowWithFKs {
+impl From<AirtableRecord<FactureFields>> for MigrationFactureInsertWithFKs {
     fn from(record: AirtableRecord<FactureFields>) -> Self {
         // Extract client airtable ID (required - take first element)
         let client_airtable_id = record.fields.client.first().cloned().unwrap();
@@ -470,11 +517,12 @@ impl From<AirtableRecord<FactureFields>> for FactureRowWithFKs {
             .event
             .and_then(|events| events.first().cloned());
 
-        FactureRowWithFKs {
+        MigrationFactureInsertWithFKs {
             airtable_id: record.id,
             client_airtable_id,
             event_airtable_id,
-            row: FactureRow {
+            row: MigrationFactureInsert {
+                id: record.fields.facture_number,
                 client_id: 0, // Will be resolved from airtable_mapping
                 facture_type: Some(String::from(facture_type)),
                 date: record.fields.date,
@@ -482,8 +530,6 @@ impl From<AirtableRecord<FactureFields>> for FactureRowWithFKs {
                 fixed_total: record.fields.fixed_total.map(dollars_to_cents),
                 cancelled: record.fields.cancelled.unwrap_or(false),
                 paper_ref: record.fields.paper_ref,
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
@@ -492,14 +538,14 @@ impl From<AirtableRecord<FactureFields>> for FactureRowWithFKs {
 /// Load facture records from Airtable JSON export
 async fn load_factures_from_export(
     data: AirtableRecords<FactureFields>,
-) -> Result<Vec<FactureRowWithFKs>> {
+) -> Result<Vec<MigrationFactureInsertWithFKs>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_facture_fields(&record.fields).with_context(|| {
             format!("Invalid facture data in record {} (id: {})", idx, record.id)
         })?;
 
-        rows.push(FactureRowWithFKs::from(record));
+        rows.push(MigrationFactureInsertWithFKs::from(record));
     }
 
     println!("Loaded {} facture records from JSON", rows.len());
@@ -1047,7 +1093,7 @@ pub struct StatutFields {
 /// Migration-specific: Statut with unresolved foreign keys
 #[derive(Debug)]
 pub struct StatutRowWithFKs {
-    pub row: StatutRow,
+    pub row: StatutInsert,
     pub airtable_id: String,
     pub facture_airtable_id: String,      // Required FK to resolve
     pub facture_item_airtable_id: String, // Required FK to resolve
@@ -1070,14 +1116,12 @@ impl From<AirtableRecord<StatutFields>> for StatutRowWithFKs {
             airtable_id: record.id,
             facture_airtable_id,
             facture_item_airtable_id,
-            row: StatutRow {
+            row: StatutInsert {
                 facture_id: 0,      // Will be resolved from airtable_mapping
                 facture_item_id: 0, // Will be resolved from airtable_mapping
                 statut_type: record.fields.statut_type,
                 date: extract_date_from_timestamp(&record.fields.date),
                 seamstress: record.fields.seamstress,
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
