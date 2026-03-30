@@ -22,6 +22,94 @@ fn bootstrap_js() -> Markup {
     }
 }
 
+pub fn find_table_with(
+    container_id: &str,
+    input_id: &str,
+    search_fn: &str,
+    clear_selector: Option<&str>,
+) -> Markup {
+    let selector_arg = match clear_selector {
+        Some(selector) => format!("'{}'", selector),
+        None => String::from("null"),
+    };
+    let search_script = format!(
+        r#"
+            $(document).ready(function() {{
+                setupSearch({}, '{}', '{}', {})
+            }});
+        "#,
+        search_fn, container_id, input_id, selector_arg
+    );
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(search_script))
+        }
+    }
+}
+
+pub fn state(value: u8, label: Option<&str>, span_class: Option<&str>) -> Markup {
+    let color = match value {
+        1 => "red",
+        2 => "orange",
+        3 => "yellow",
+        4 => "pink",
+        5 => "blue",
+        6 => "lightgreen",
+        7 => "darkgreen",
+        8 => "cyan",
+        _ => "red,",
+    };
+    let text_color = match value {
+        1 | 4 | 5 | 6 | 7 => "white",
+        _ => "black",
+    };
+    let spacing = if label.is_none() { "" } else { "mr-1" };
+    let class = format!(
+        "state-tile state-color-{} text-{} {}",
+        color, text_color, spacing
+    );
+    html! {
+        span class=[span_class] {
+            div class=(class) {
+                (value)
+            }
+            @if let Some(label) = label {
+                (label)
+            }
+        }
+    }
+}
+
+pub fn find_table(
+    container_id: &str,
+    input_id: &str,
+    table_selector: &str,
+    clear_selector: Option<&str>,
+) -> Markup {
+    let selector_arg = match clear_selector {
+        Some(selector) => format!("'{}'", selector),
+        None => String::from("null"),
+    };
+    let search_script = format!(
+        r#"
+            $(document).ready(function() {{
+                function searchAll(value) {{
+                    $(`{} tr:has(> td)`).filter(function() {{
+                        $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+                    }});
+                }};
+                setupSearch(searchAll, '{}', '{}', {})
+            }});
+        "#,
+        table_selector, container_id, input_id, selector_arg
+    );
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(search_script))
+        }
+    }
+}
+
 fn spinner() -> Markup {
     html! {
         div id="loading-overlay" {
@@ -204,7 +292,7 @@ pub fn footer() -> Markup {
         }
         script type="text/javascript" {
             (PreEscaped(r#"
-                function setupSearch(containerId, inputId, tableSelector, clearSelector) {
+                function setupSearch(searchFn, containerId, inputId, clearSelector) {
                     function setClass(inputLength) {
                         if (inputLength > 0) {
                             $(`#${containerId} .filtered-warning`).removeClass('d-none');
@@ -215,24 +303,18 @@ pub fn footer() -> Markup {
                         }
                     }
 
-                    function search(value) {
-                        $(`${tableSelector} tr:has(> td)`).filter(function() {
-                            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
-                        });
-                    }
-
                     $(`#${inputId}`).on("keyup", function() {
                         var value = $(this).val().toLowerCase();
                         if (clearSelector !== null && value !== null) {
                             $(clearSelector).val('');
                         }
 
-                        search($(this).val().toLowerCase());
+                        searchFn($(this).val().toLowerCase());
                         setClass(value.length);
                     });
 
 
-                    search($(`#${inputId}`).val().toLowerCase());
+                    searchFn($(`#${inputId}`).val().toLowerCase());
                     setClass($(`#${inputId}`).val().toLowerCase().length);
                 }
             "#))

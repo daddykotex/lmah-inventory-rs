@@ -8,18 +8,6 @@ fn find_events(
     table_selector: &str,
     clear_selector: Option<&str>,
 ) -> Markup {
-    let selector_arg = match clear_selector {
-        Some(selector) => format!("'{}'", selector),
-        None => String::from("null"),
-    };
-    let search_script = format!(
-        r#"
-            $(document).ready(function() {{
-                setupSearch('{}', '{}', '{}', {})
-            }});
-        "#,
-        container_id, input_id, table_selector, selector_arg
-    );
     html! {
         script type="text/javascript" {
             (PreEscaped(r#"
@@ -31,9 +19,7 @@ fn find_events(
                 });
             "#))
         }
-        script type="text/javascript" {
-            (PreEscaped(search_script))
-        }
+        (find_table(container_id, input_id, table_selector, clear_selector))
     }
 }
 
