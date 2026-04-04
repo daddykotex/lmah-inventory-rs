@@ -3,10 +3,10 @@ use crate::server::database::insert::Insertable;
 use crate::server::models::clients::ClientInsert;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventInsert;
-use crate::server::models::facture_items::FactureItemRow;
+use crate::server::models::facture_items::FactureItemInsert;
 use crate::server::models::payments::PaymentRow;
 use crate::server::models::product_types::ProductTypeRow;
-use crate::server::models::products::{ProductImageRow, ProductRow};
+use crate::server::models::products::{ProductImageInsert, ProductInsert};
 use crate::server::models::refunds::RefundRow;
 use crate::server::models::statuts::StatutInsert;
 use anyhow::{Context, Result};
@@ -73,7 +73,7 @@ impl Insertable for MigrationFactureInsert {
 /// It will be removed after migration is complete
 #[derive(Debug)]
 pub struct ProductRowWithRelated {
-    pub row: ProductRow,
+    pub row: ProductInsert,
     pub airtable_id: String,
     pub product_types: Vec<String>,        // Product type names
     pub image_front: Option<ProductImage>, // Optional front image
@@ -414,13 +414,11 @@ impl From<AirtableRecord<ProductFields>> for ProductRowWithRelated {
     fn from(record: AirtableRecord<ProductFields>) -> Self {
         ProductRowWithRelated {
             airtable_id: record.id,
-            row: ProductRow {
+            row: ProductInsert {
                 name: record.fields.name,
                 price: record.fields.price.map(dollars_to_cents),
                 liquidation: record.fields.liquidation.unwrap_or(false),
                 visible_on_site: record.fields.visible_on_site.unwrap_or(false),
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
             product_types: record.fields.product_types.unwrap(),
             image_front: record.fields.image_front.and_then(|imgs| {
@@ -684,7 +682,7 @@ pub struct FactureItemFields {
 /// Migration-specific: Facture item with unresolved foreign keys
 #[derive(Debug)]
 pub struct FactureItemRowWithFKs {
-    pub row: FactureItemRow,
+    pub row: FactureItemInsert,
     pub airtable_id: String,
     pub facture_airtable_id: String, // Required FK to resolve
     pub product_airtable_id: String, // Required FK to resolve
@@ -710,7 +708,7 @@ impl From<AirtableRecord<FactureItemFields>> for FactureItemRowWithFKs {
             airtable_id: record.id,
             facture_airtable_id,
             product_airtable_id,
-            row: FactureItemRow {
+            row: FactureItemInsert {
                 facture_id: 0, // Will be resolved from airtable_mapping
                 product_id: 0, // Will be resolved from airtable_mapping
                 item_type: item_type.to_string(),
@@ -729,8 +727,6 @@ impl From<AirtableRecord<FactureItemFields>> for FactureItemRowWithFKs {
                 insurance: record.fields.insurance.map(dollars_to_cents),
                 other_costs: record.fields.other_costs.map(dollars_to_cents),
                 rebate_dollar: record.fields.rebate_dollar.map(dollars_to_cents),
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
@@ -1349,9 +1345,6 @@ async fn insert_product_with_related(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     product: ProductRowWithRelated,
 ) -> Result<()> {
-    // Save the created_at timestamp before moving product.row
-    let created_at = product.row.created_at.clone();
-
     // 1. Insert product row and get database ID
     let product_id = product
         .row
@@ -1382,24 +1375,22 @@ async fn insert_product_with_related(
 
     // 4. Insert front image if present (use product's created_at timestamp)
     if let Some(image) = product.image_front {
-        let image_row = ProductImageRow {
+        let image_row = ProductImageInsert {
             product_id,
             url: image.url,
             filename: image.filename,
             position: "front".to_string(),
-            created_at: created_at.clone(),
         };
         image_row.insert_one(tx).await?;
     }
 
     // 5. Insert back image if present (use product's created_at timestamp)
     if let Some(image) = product.image_back {
-        let image_row = ProductImageRow {
+        let image_row = ProductImageInsert {
             product_id,
             url: image.url,
             filename: image.filename,
             position: "back".to_string(),
-            created_at,
         };
         image_row.insert_one(tx).await?;
     }

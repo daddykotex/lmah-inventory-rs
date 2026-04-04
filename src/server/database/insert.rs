@@ -4,11 +4,11 @@ use crate::server::models::{
     clients::{ClientInsert, ClientRow},
     config::ConfigRow,
     events::{EventInsert, EventRow},
-    facture_items::FactureItemRow,
+    facture_items::FactureItemInsert,
     factures::FactureRow,
     payments::PaymentRow,
     product_types::ProductTypeRow,
-    products::{ProductImageRow, ProductRow},
+    products::{ProductImageInsert, ProductInsert},
     refunds::RefundRow,
     statuts::StatutInsert,
 };
@@ -170,7 +170,7 @@ impl Insertable for EventRow {
     }
 }
 
-impl Insertable for ProductRow {
+impl Insertable for ProductInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
@@ -178,14 +178,12 @@ impl Insertable for ProductRow {
         // Insert product row
         let result = sqlx::query(
             "INSERT INTO products (name, price, liquidation, visible_on_site, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
         .bind(&self.name)
         .bind(&self.price)
         .bind(&self.liquidation)
         .bind(if self.visible_on_site { 1 } else { 0 })
-        .bind(&self.created_at)
-        .bind(&self.updated_at)
         .execute(&mut **tx)
         .await
         .with_context(|| format!("Failed to insert product: {}", self.name))?;
@@ -197,20 +195,19 @@ impl Insertable for ProductRow {
     }
 }
 
-impl Insertable for ProductImageRow {
+impl Insertable for ProductImageInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Option<i64>> {
         sqlx::query(
             "INSERT INTO product_images (product_id, url, filename, position, created_at)
-             VALUES (?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, datetime('now))",
         )
         .bind(&self.product_id)
         .bind(&self.url)
         .bind(&self.filename)
         .bind(&self.position)
-        .bind(&self.created_at)
         .execute(&mut **tx)
         .await
         .with_context(|| {
@@ -259,7 +256,7 @@ impl Insertable for FactureRow {
     }
 }
 
-impl Insertable for FactureItemRow {
+impl Insertable for FactureItemInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
@@ -273,7 +270,7 @@ impl Insertable for FactureItemRow {
                 insurance, other_costs,
                 rebate_dollar,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
         .bind(&self.facture_id)
         .bind(&self.product_id)
@@ -293,8 +290,6 @@ impl Insertable for FactureItemRow {
         .bind(&self.insurance)
         .bind(&self.other_costs)
         .bind(&self.rebate_dollar)
-        .bind(&self.created_at)
-        .bind(&self.updated_at)
         .execute(&mut **tx)
         .await
         .with_context(|| {
