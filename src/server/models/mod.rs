@@ -1,6 +1,8 @@
 use crate::server::models::{
     clients::ClientView,
+    facture_items::FactureItemView,
     factures::FactureView,
+    products::ProductView,
     statuts::{State, StateView},
 };
 
@@ -15,13 +17,13 @@ pub mod products;
 pub mod refunds;
 pub mod statuts;
 
-pub struct FactureWithRelatedData {
+pub struct FactureDashboardData {
     pub facture: FactureView,
     pub client: ClientView,
     pub state_per_item: Vec<(i64, StateView)>,
 }
 
-impl FactureWithRelatedData {
+impl FactureDashboardData {
     pub fn seamstresses(&self) -> Vec<String> {
         self.state_per_item
             .iter()
@@ -38,4 +40,22 @@ impl FactureWithRelatedData {
             .min_by_key(|&a| a.1.state.value())
             .map(|(_, state)| state.clone())
     }
+}
+
+pub struct FactureItemsData {
+    pub facture: FactureView,
+    pub client: ClientView,
+    pub items: Vec<FactureItemEntry>,
+}
+
+pub struct FactureItemEntry {
+    pub item: FactureItemView,
+    pub product: ProductView,
+    pub state: StateView,
+}
+
+pub struct PageFactureItemsData {
+    pub facture_data: FactureItemsData,
+    pub alteration_product: ProductView,
+    pub location_product: ProductView,
 }
