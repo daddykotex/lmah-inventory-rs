@@ -230,7 +230,7 @@ CREATE TABLE payments (
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
     date TEXT NOT NULL,
-    type TEXT NOT NULL,
+    payment_type TEXT NOT NULL,
     cheque_number TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -250,7 +250,7 @@ CREATE TABLE refunds (
     facture_id INTEGER NOT NULL REFERENCES factures(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
     date TEXT NOT NULL,
-    type TEXT NOT NULL,
+    refund_type TEXT NOT NULL,
     cheque_number TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -316,11 +316,12 @@ CREATE INDEX idx_facture_items_type ON facture_items(item_type);
 -- Payments indexes
 CREATE INDEX idx_payments_facture ON payments(facture_id);
 CREATE INDEX idx_payments_date ON payments(date DESC);
-CREATE INDEX idx_payments_type ON payments(type);
+CREATE INDEX idx_payments_type ON payments(payment_type);
 
 -- Refunds indexes
 CREATE INDEX idx_refunds_facture ON refunds(facture_id);
 CREATE INDEX idx_refunds_date ON refunds(date DESC);
+CREATE INDEX idx_refunds_type ON refunds(refund_type);
 
 -- Statuts indexes (critical for current state queries)
 CREATE INDEX idx_statuts_facture ON statuts(facture_id);
