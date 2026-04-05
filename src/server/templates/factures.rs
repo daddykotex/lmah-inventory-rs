@@ -3,12 +3,33 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 use crate::server::{
     models::{
         FactureDashboardData, FactureItemEntry, FactureItemsData, PageFactureItemsData,
-        facture_items::{FactureItemType, FactureItemView},
-        products::ProductView,
-        statuts::StateView,
+        events::EventView,
+        facture_items::{FactureComputed, FactureItemType},
+        factures::FactureView,
     },
     templates::utils::*,
 };
+
+fn generate_print_js(for_admin: bool) -> Markup {
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(format!(r#"
+                $('.generate-print').click(function (e) {{
+                    var factureId = $(e.target).data().factureId;
+                    var waitingWindow = window.open("/wait", `waiting-${{factureId}}`, 'width=300,height=300');
+                    $.post(`/factures/${{factureId}}/generate-print?admin=${}`)
+                        .done(function (data, _statusText, xhr) {{
+                            waitingWindow.location.href = data.url;
+                        }})
+                        .fail(function (err) {{
+                            console.log(err);
+                            window.location.href = `/factures/${{factureId}}/print`;
+                        }});
+                }});
+            "#, for_admin)))
+        }
+    }
+}
 
 fn find_factures() -> Markup {
     html! {
@@ -74,28 +95,35 @@ fn the_items_action_col(
     }
 }
 
-fn list_the_items_row(entry: FactureItemEntry) -> Markup {
-    match entry.item.value {
+fn item_row_action_col(facture_id: i64, facture_item_id: i64) -> Markup {
+    let item_url = format!("/factures/{}/items/{}", facture_id, facture_item_id);
+    let delete_url = format!("{}/delete", item_url);
+
+    html! {
+        a."btn btn-sm btn-primary" href=(item_url) {
+            "Voir"
+        }
+        form."inline-button" method="POST" action=(delete_url) {
+            button."btn btn-sm btn-danger" type="submit" {
+                "Retirer"
+            }
+        }
+    }
+}
+
+fn list_the_items_row(entry: &FactureItemEntry) -> Markup {
+    match &entry.item.value {
         FactureItemType::FactureItemProduct(value) => {
-            let item_url = format!("/factures/{}/items/{}", value.facture_id, value.id);
-            let delete_url = format!("{}/delete", item_url);
             html! {
                 tr {
                     td scope="row" {
-                        a."btn btn-sm btn-primary" href=(item_url) {
-                            "Voir"
-                        }
-                        form."inline-button" method="POST" action=(delete_url) {
-                            button."btn btn-sm btn-danger" type="submit" {
-                                "Retirer"
-                            }
-                        }
+                        (item_row_action_col(value.facture_id, value.id))
                     }
                     td {
                         (value.quantity)
                     }
                     td {
-                        @if let Some(b) = value.beneficiary {
+                        @if let Some(b) = &value.beneficiary {
                             (b)
                         }
                     }
@@ -123,12 +151,70 @@ fn list_the_items_row(entry: FactureItemEntry) -> Markup {
                 }
             }
         }
-        FactureItemType::FactureItemLocation(value) => html! {},
-        FactureItemType::FactureItemAlteration(value) => html! {},
+        FactureItemType::FactureItemLocation(value) => html! {
+            tr {
+                td scope="row" {
+                    (item_row_action_col(value.facture_id, value.id))
+                }
+                td {
+                    (value.quantity)
+                }
+                td {
+                    @if let Some(b) = &value.beneficiary {
+                        (b)
+                    }
+                }
+                td {
+                    @if let Some(p) = value.price {
+                        (p)
+                    }
+                }
+                td {
+                    @if let Some(ex) = value.insurance {
+                        (ex) "$"
+                    }
+                }
+                td {
+                    @if let Some(ex) = value.other_costs {
+                        (ex) "$"
+                    }
+                }
+                td {
+                    (state(entry.state.state.value(), Some(entry.state.state.label()), None))
+                }
+            }
+        },
+        FactureItemType::FactureItemAlteration(value) => html! {
+
+            tr {
+                td scope="row" {
+                    (item_row_action_col(value.facture_id, value.id))
+                }
+                td {
+                    (value.quantity)
+                }
+                td {
+                    (entry.product.name)
+                }
+                td {
+                    @if let Some(p) = value.price {
+                        (p)
+                    }
+                }
+                td {
+                    @if let Some(p) = value.rebate_dollar {
+                        (p) "$"
+                    }
+                }
+                td {
+                    (state(entry.state.state.value(), Some(entry.state.state.label()), None))
+                }
+            }
+        },
     }
 }
 
-fn list_the_items(facture_data: FactureItemsData) -> Markup {
+fn list_the_items(facture_data: &FactureItemsData) -> Markup {
     let default = String::from("Product");
     let facture_type = facture_data
         .facture
@@ -227,7 +313,7 @@ fn list_the_items(facture_data: FactureItemsData) -> Markup {
             table."table table-sm items" {
                 (header)
                 tbody {
-                    @for entry in facture_data.items {
+                    @for entry in &facture_data.items {
                         (list_the_items_row(entry))
                     }
                 }
@@ -239,7 +325,270 @@ fn list_the_items(facture_data: FactureItemsData) -> Markup {
     }
 }
 
-fn the_items(page_data: PageFactureItemsData) -> Markup {
+fn facture_type(facture_type: &Option<String>) -> String {
+    let default = String::from("Product");
+    let f = facture_type.as_ref().unwrap_or(&default);
+    let f = f.as_str();
+    match f {
+        "Location" => "Location".to_string(),
+        "Alteration" => "Altération".to_string(),
+        _ => "Produits".to_string(),
+    }
+}
+
+fn facture_info(facture_data: &FactureItemsData) -> Markup {
+    html! {
+        ul."ml-0 list-unstyled" {
+            li {
+                b {
+                    "Client: "
+                }
+                (facture_data.client.first_name) (facture_data.client.last_name)
+            }
+            li {
+                b {
+                    "Ville: "
+                }
+                @if let Some(c) = &facture_data.client.city {
+                    (c)
+                }
+            }
+            li {
+                b {
+                    "Téléphone: "
+                }
+                (facture_data.client.phone1)
+            }
+            li {
+                b {
+                    "Téléphone #2: "
+                }
+                @if let Some(p) = &facture_data.client.phone2 {
+                    (p)
+                }
+            }
+            li {
+                b {
+                    "Type de facture: "
+                }
+                (facture_type(&facture_data.facture.facture_type))
+            }
+            @if let Some(p) = &facture_data.facture.paper_ref {
+                li {
+                    b {
+                        "Réf. ancienne: "
+                    }
+                    (p)
+                }
+            }
+        }
+    }
+}
+
+fn facture_total(facture_computed: &FactureComputed) -> Markup {
+    html! {
+        table."table table-sm" {
+            tbody {
+                tr {
+                    th {
+                        "Sous-total:"
+                    }
+                    td."text-right" {
+                        (facture_computed.total)
+                    }
+                }
+                tr {
+                    th {
+                        "TPS 5%:"
+                    }
+                    td."text-right" {
+                        (facture_computed.tps)
+                    }
+                }
+                tr {
+                    th {
+                        "TVQ 9.975%:"
+                    }
+                    td."text-right" {
+                        (facture_computed.tvq)
+                    }
+                }
+                tr {
+                    th {
+                        "Total:"
+                    }
+                    td."text-right" {
+                        (facture_computed.tax_total)
+                    }
+                }
+                tr {
+                    th {
+                        "Total des paiements enregistrés:"
+                    }
+                    td."text-right" {
+                        (facture_computed.total_payments)
+                    }
+                }
+                tr {
+                    th {
+                        "Total des remboursements enregistrés:"
+                    }
+                    td."text-right" {
+                        (facture_computed.total_refunds)
+                    }
+                }
+                tr {
+                    th {
+                        "Solde à payer:"
+                    }
+                    td."text-right" {
+                        (facture_computed.balance)
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn facture_actions(
+    facture_id: i64,
+    show_items_button: bool,
+    show_transactions: bool,
+    has_event: bool,
+    is_cancelled: bool,
+) -> Markup {
+    let url = format!("/factures/{}/items", facture_id);
+    let transactions_url = format!("/factures/{}/transactions", facture_id);
+    let event_url = format!("/factures/{}/select-event", facture_id);
+    let cancel_url = format!("/factures/{}/cancel", facture_id);
+    let uncancel_url = format!("/factures/{}/uncancel", facture_id);
+    html! {
+        ul."list-group list-group-flush" {
+            @if show_items_button {
+                li."list-group-item py-1" {
+                    a."btn btn-primary" href=(url) {
+                        "Voir les items"
+                    }
+                }
+            }
+
+            li."list-group-item py-1" {
+                button."btn btn-primary" data-toggle="modal" data-target="#update-facture" {
+                    "Modifier la facture"
+                }
+            }
+            @if show_transactions {
+                li."list-group-item py-1" {
+                    a."btn btn-primary" href=(transactions_url) {
+                        "Voir les transactions"
+                    }
+                }
+            }
+            @if !has_event {
+                li."list-group-item py-1" {
+                    a."btn btn-primary" href=(event_url) {
+                        "Associer un événement"
+                    }
+                }
+            }
+            li."list-group-item py-1" {
+                button."generate-print btn btn-success" type="button" data-facture-id=(facture_id) {
+                    "Visualiser"
+                }
+            }
+            @if is_cancelled {
+                li."list-group-item py-1" {
+                    form action=(uncancel_url) method="POST" {
+                        button."btn btn-success" type="submit" {
+                            "Restaurer la facture"
+                        }
+                    }
+                }
+            } @else {
+                li."list-group-item py-1" {
+                    form action=(cancel_url) method="POST" {
+                        button."btn btn-danger" type="submit" {
+                            "Annuler la facture"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn event_details(facture_id: i64, event: &EventView) -> Markup {
+    let unlink_url = format!("/factures/{}/unlink-event", facture_id);
+    let event_url = format!("/events/{}", event.id);
+    html! {
+        div."card mt-1" {
+            div."card-body" {
+                h3."card-title" {
+                    "Détails de l'événement"
+                }
+                h5."card-subtitle mb-2" {
+                    (event.name) " - " (event.date)
+                }
+                p."card-text" {
+                    span {
+                        b {
+                            "Type:"
+                        }
+                        "Mariage"
+                    }
+                }
+                div."row" {
+                    div."col-auto" {
+                        form action=(unlink_url) method="POST" {
+                            button."btn btn-danger" type="submit" {
+                                "Dissocier de l'événement"
+                            }
+                        }
+                    }
+                    div."col-auto" {
+                        a."btn btn-primary" href=(event_url) {
+                            "Voir l'événement"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn facture_form(facture: &FactureView) -> Markup {
+    html! {
+        div."facture-form" {
+            div."form-row form-group" {
+                div."col-12" {
+                    label for="date" {
+                        "Date"
+                    }
+                    input."form-control date-picker" id="date" value=[&facture.date] type="text" name="date" autocomplete="false";
+                }
+            }
+            div."form-row form-group" {
+                div."col-12" {
+                    label for="paper-ref" {
+                        "Ref. Ancienne"
+                    }
+                    input."form-control" id="paper-ref" autocomplete="false" type="text" name="paper-ref" value=[&facture.paper_ref];
+                }
+            }
+        }
+    }
+}
+
+fn the_items(page_data: &PageFactureItemsData) -> Markup {
+    let has_event = page_data.facture_data.event.is_some();
+    let box_content = html! {
+        (facture_info(&page_data.facture_data))
+        br;
+        (facture_total(&page_data.facture_data.facture_computed))
+        (facture_actions(page_data.facture_data.facture.id, false, true, has_event, page_data.facture_data.facture.cancelled))
+    };
+    let facture_title = format!("Facture #{}", page_data.facture_data.facture.id);
+
     html! {
         main role="main" {
             div."container-fluid" {
@@ -250,242 +599,13 @@ fn the_items(page_data: PageFactureItemsData) -> Markup {
                                 (the_items_action_col(&page_data.facture_data.facture.facture_type, page_data.location_product.id, page_data.alteration_product.id))
                             }
                         }
-                        table."table table-sm items" {
-                            thead {
-                                tr {
-                                    th scope="col" {
-                                        "Actions"
-                                    }
-                                    th scope="col" {
-                                        "Quantité"
-                                    }
-                                    th scope="col" {
-                                        "Bénéficiaire"
-                                    }
-                                    th scope="col" {
-                                        "Nom"
-                                    }
-                                    th scope="col" {
-                                        "Prix unitaire"
-                                    }
-                                    th scope="col" {
-                                        "Rabais (%)"
-                                    }
-                                    th scope="col" {
-                                        "Taille forte"
-                                    }
-                                    th scope="col" {
-                                        "Statut"
-                                    }
-                                }
-                            }
-                            tbody {
-                                tr {
-                                    td scope="row" {
-                                        a."btn btn-sm btn-primary" href="/factures/rec123/items/rec123" {
-                                            "Voir"
-                                        }
-                                        form."inline-button" method="POST" action="/factures/rec123/items/rec123/delete" {
-                                            button."btn btn-sm btn-danger" type="submit" {
-                                                "Retirer"
-                                            }
-                                        }
-                                    }
-                                    td {
-                                        "1"
-                                    }
-                                    td {
-                                        "Marie"
-                                    }
-                                    td {
-                                        "Robe de mariée élégante"
-                                    }
-                                    td {
-                                        "1500.00"
-                                    }
-                                    td {
-                                        "0 %"
-                                    }
-                                    td {}
-                                    td {
-                                        span {
-                                            div."state-tile state-color-red text-white" {
-                                                "1"
-                                            }
-                                            "À commander"
-                                        }
-                                    }
-                                }
-                            }
-                        }
+
+                        (list_the_items(&page_data.facture_data))
                     }
                     div."col-12 order-1 col-lg-4 order-lg-12" {
-                        div."card" {
-                            div."card-body" {
-                                h3."card-title" {
-                                    "Détails de la facture"
-                                }
-                                h5."card-subtitle mb-2" {
-                                    "Facture #1001"
-                                }
-                                div."card-text" {
-                                    ul."ml-0 list-unstyled" {
-                                        li {
-                                            b {
-                                                "Client:"
-                                            }
-                                            "Marie Tremblay"
-                                        }
-                                        li {
-                                            b {
-                                                "Ville:"
-                                            }
-                                            "Montréal"
-                                        }
-                                        li {
-                                            b {
-                                                "Téléphone:"
-                                            }
-                                            "514-555-1234"
-                                        }
-                                        li {
-                                            b {
-                                                "Téléphone #2"
-                                            }
-                                            "514-555-5678"
-                                        }
-                                        li {
-                                            b {
-                                                "Type de facture:"
-                                            }
-                                            "Produits"
-                                        }
-                                        li {
-                                            b {
-                                                "Réf. ancienne"
-                                            }
-                                            "F-2025-001"
-                                        }
-                                    }
-                                    table."table table-sm" {
-                                        tbody {
-                                            tr {
-                                                th {
-                                                    "Sous-total:"
-                                                }
-                                                td."text-right" {
-                                                    "1500.00"
-                                                }
-                                            }
-                                            tr {
-                                                th {
-                                                    "TPS 5%:"
-                                                }
-                                                td."text-right" {
-                                                    "75.00"
-                                                }
-                                            }
-                                            tr {
-                                                th {
-                                                    "TVQ 9.975%:"
-                                                }
-                                                td."text-right" {
-                                                    "149.44"
-                                                }
-                                            }
-                                            tr {
-                                                th {
-                                                    "Total:"
-                                                }
-                                                td."text-right" {
-                                                    "1724.44"
-                                                }
-                                            }
-                                            tr {
-                                                th {
-                                                    "Total des paiements enregistrés:"
-                                                }
-                                                td."text-right" {
-                                                    "862.22"
-                                                }
-                                            }
-                                            tr {
-                                                th {
-                                                    "Total des remboursements enregistrés:"
-                                                }
-                                                td."text-right" {
-                                                    "0.00"
-                                                }
-                                            }
-                                            tr {
-                                                th {
-                                                    "Solde à payer:"
-                                                }
-                                                td."text-right" {
-                                                    "862.22"
-                                                }
-                                            }
-                                        }
-                                    }
-                                    br;
-                                    ul."list-group list-group-flush" {
-                                        li."list-group-item py-1" {
-                                            button."btn btn-primary" data-toggle="modal" data-target="#update-facture" {
-                                                "Modifier la facture"
-                                            }
-                                        }
-                                        li."list-group-item py-1" {
-                                            a."btn btn-primary" href="/factures/rec123/transactions" {
-                                                "Voir les transactions"
-                                            }
-                                        }
-                                        li."list-group-item py-1" {
-                                            button."generate-print btn btn-success" type="button" data-facture-id="rec123" {
-                                                "Visualiser"
-                                            }
-                                        }
-                                        li."list-group-item py-1" {
-                                            form action="/factures/rec123/cancel" method="POST" {
-                                                button."btn btn-danger" type="submit" {
-                                                    "Annuler la facture"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        div."card mt-1" {
-                            div."card-body" {
-                                h3."card-title" {
-                                    "Détails de l'événement"
-                                }
-                                h5."card-subtitle mb-2" {
-                                    "Mariage de Marie - 2025-06-15"
-                                }
-                                p."card-text" {
-                                    span {
-                                        b {
-                                            "Type:"
-                                        }
-                                        "Mariage"
-                                    }
-                                }
-                                div."row" {
-                                    div."col-auto" {
-                                        form action="/factures/rec123/unlink-event" method="POST" {
-                                            button."btn btn-danger" type="submit" {
-                                                "Dissocier de l'événement"
-                                            }
-                                        }
-                                    }
-                                    div."col-auto" {
-                                        a."btn btn-primary" href="/events/rec123" {
-                                            "Voir l'événement"
-                                        }
-                                    }
-                                }
-                            }
+                        (sidebar_box("Détails de la facture", Some(&facture_title), box_content))
+                        @if let Some(event) = &page_data.facture_data.event {
+                            (event_details(page_data.facture_data.facture.id, event))
                         }
                         div."modal fade" id="update-facture" aria-hidden="true" aria-labelledby="update-facture-label" role="dialog" tabindex="-1" {
                             div."modal-dialog" role="document" {
@@ -497,35 +617,18 @@ fn the_items(page_data: PageFactureItemsData) -> Markup {
                                             }
                                             button."close" aria-label="Close" data-dismiss="modal" type="button" {
                                                 span aria-hidden="true" {
-                                                    "&times;"
+                                                    (PreEscaped("&times;"))
                                                 }
                                             }
                                         }
                                         div."modal-body" {
-                                            div."facture-form" {
-                                                div."form-row form-group" {
-                                                    div."col-12" {
-                                                        label for="date" {
-                                                            "Date"
-                                                        }
-                                                        input."form-control date-picker" id="date" value="2025-01-10" type="text" name="date" autocomplete="false";
-                                                    }
-                                                }
-                                                div."form-row form-group" {
-                                                    div."col-12" {
-                                                        label for="date" {
-                                                            "Ref. Ancienne"
-                                                        }
-                                                        input."form-control" id="paper-ref" type="text" value="F-2025-001" autocomplete="false" name="paper-ref";
-                                                    }
-                                                }
-                                            }
+                                            (facture_form(&page_data.facture_data.facture))
                                         }
                                         div."modal-footer" {
                                             button."btn btn-secondary" type="button" data-dismiss="modal" {
                                                 "Annuler"
                                             }
-                                            button."btn btn-danger" type="submit" {
+                                            button."btn btn-success" type="submit" {
                                                 "Modifier"
                                             }
                                         }
@@ -543,7 +646,7 @@ fn the_items(page_data: PageFactureItemsData) -> Markup {
                                             }
                                             button."close" data-dismiss="modal" aria-label="Close" type="button" {
                                                 span aria-hidden="true" {
-                                                    "&times;"
+                                                    (PreEscaped("&times;"))
                                                 }
                                             }
                                         }
@@ -772,9 +875,9 @@ pub fn page_factures(factures: Vec<FactureDashboardData>) -> Markup {
 pub fn page_facture_items(page_data: PageFactureItemsData) -> Markup {
     let body = html! {
         (navbar(MenuConstants::Factures))
-        (the_items(page_data))
+        (the_items(&page_data))
         (footer())
-        (find_factures())
+        (generate_print_js(false))
     };
     page("Items de la facture", body)
 }

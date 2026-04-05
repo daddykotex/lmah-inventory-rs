@@ -22,6 +22,26 @@ fn bootstrap_js() -> Markup {
     }
 }
 
+pub fn sidebar_box(title: &str, subtitle: Option<&str>, content: Markup) -> Markup {
+    html! {
+        div."card" {
+            div."card-body" {
+                h3."card-title" {
+                    (title)
+                }
+                @if let Some(st) = subtitle {
+                    h5."card-subtitle mb-2" {
+                        (st)
+                    }
+                }
+                div."card-text" {
+                    (content)
+                }
+            }
+        }
+    }
+}
+
 pub fn find_table_with(
     container_id: &str,
     input_id: &str,

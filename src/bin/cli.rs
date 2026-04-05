@@ -4,7 +4,7 @@ use lmah_inventory_rs::cli::migration::{
     ClientFields, ConfigFields, EventFields, ProductTypeFields, check_counts,
     load_and_insert_facture_items, load_and_insert_factures, load_and_insert_payments,
     load_and_insert_products, load_and_insert_refunds, load_and_insert_statuts, load_data,
-    load_records,
+    load_records, sort_export_by_created_time,
 };
 use lmah_inventory_rs::server::database::connect_to_path;
 use lmah_inventory_rs::server::models::clients::ClientInsert;
@@ -114,6 +114,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
     // ===== LOAD JSON =====
     println!("Step 1: Loading JSON...");
     let export = load_data(&args.src).await?;
+    let export = sort_export_by_created_time(export);
     println!("✓ JSON loaded and validated successfully");
 
     // ===== CONNECT TO DATABASE =====

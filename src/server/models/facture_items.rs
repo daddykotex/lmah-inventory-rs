@@ -96,6 +96,7 @@ pub struct FactureItemLocation {
     pub created_at: String,
     pub updated_at: String,
     //
+    pub beneficiary: Option<String>,
     pub insurance: Option<i64>,   // in cents
     pub other_costs: Option<i64>, // in cents
 }
@@ -120,6 +121,37 @@ pub enum FactureItemType<Location, Alteration, Product> {
 
 pub struct FactureItemView {
     pub value: FactureItemType<FactureItemLocation, FactureItemAlteration, FactureItemProduct>,
+}
+
+impl FactureItemView {
+    pub fn id(&self) -> i64 {
+        match &self.value {
+            FactureItemType::FactureItemProduct(i) => i.id,
+            FactureItemType::FactureItemLocation(i) => i.id,
+            FactureItemType::FactureItemAlteration(i) => i.id,
+        }
+    }
+    pub fn facture_id(&self) -> i64 {
+        match &self.value {
+            FactureItemType::FactureItemProduct(i) => i.facture_id,
+            FactureItemType::FactureItemLocation(i) => i.facture_id,
+            FactureItemType::FactureItemAlteration(i) => i.facture_id,
+        }
+    }
+    pub fn product_id(&self) -> i64 {
+        match &self.value {
+            FactureItemType::FactureItemProduct(i) => i.product_id,
+            FactureItemType::FactureItemLocation(i) => i.product_id,
+            FactureItemType::FactureItemAlteration(i) => i.product_id,
+        }
+    }
+    pub fn price(&self) -> Option<i64> {
+        match &self.value {
+            FactureItemType::FactureItemProduct(i) => i.price,
+            FactureItemType::FactureItemLocation(i) => i.price,
+            FactureItemType::FactureItemAlteration(i) => i.price,
+        }
+    }
 }
 
 impl TryFrom<FactureItemRow> for FactureItemView {
@@ -150,6 +182,7 @@ impl TryFrom<FactureItemRow> for FactureItemView {
                     quantity: value.quantity,
                     created_at: value.created_at,
                     updated_at: value.updated_at,
+                    beneficiary: value.beneficiary,
                     insurance: value.insurance,
                     other_costs: value.other_costs,
                 }),
@@ -181,9 +214,26 @@ impl TryFrom<FactureItemRow> for FactureItemView {
     }
 }
 
-#[derive(FromRow)]
+#[derive(Debug, FromRow)]
 pub struct ItemFactureFlowType {
     pub facture_id: i64,
     pub facture_item_id: i64,
     pub flow_type: String,
+}
+
+pub struct FactureComputed {
+    pub total: i64,
+    pub tvq: i64,
+    pub tps: i64,
+    pub tax_total: i64,
+    pub balance: i64,
+    pub total_payments: i64,
+    pub total_refunds: i64,
+    pub total_refundable: i64,
+}
+
+pub struct FactureItemComputed {
+    pub calculated_rebate: i64,
+    pub total: i64,
+    pub measurements: String,
 }

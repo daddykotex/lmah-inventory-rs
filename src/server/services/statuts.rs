@@ -6,6 +6,7 @@ use crate::server::models::{
     statuts::{State, StateView, StatutRow},
 };
 
+#[derive(Debug)]
 struct Entry {
     flow: ItemFactureFlowType,
     state: StateView,
@@ -141,4 +142,42 @@ fn test_load_statuts_flow() {
     let result = load_statuts_flow(facture_item_flows, statuts).unwrap();
     let result = result.get(&(159, 2430)).unwrap();
     assert_eq!(result.state, State::ItemOut("2020-07-28".to_string()));
+}
+
+#[cfg(test)]
+#[test]
+fn test_load_statuts_flow_dress_to_order() {
+    let facture_item_flows = vec![ItemFactureFlowType {
+        facture_id: 2573,
+        facture_item_id: 1226,
+        flow_type: "DressToOrderFlow".to_string(),
+    }];
+    let statuts = vec![
+        StatutRow {
+            id: 4810,
+            facture_id: 2573,
+            facture_item_id: 1226,
+            statut_type: "PlaceOrder".to_string(),
+            date: "2026-02-06".to_string(),
+            seamstress: None,
+            created_at: "2026-04-06 14:31:40".to_string(),
+            updated_at: "2026-04-06 14:31:40".to_string(),
+        },
+        StatutRow {
+            id: 3934,
+            facture_id: 2573,
+            facture_item_id: 1226,
+            statut_type: "RecordExpectedDeliveryDate".to_string(),
+            date: "2026-02-06".to_string(),
+            seamstress: None,
+            created_at: "2026-04-06 14:31:43".to_string(),
+            updated_at: "2026-04-06 14:31:43".to_string(),
+        },
+    ];
+    let result = load_statuts_flow(facture_item_flows, statuts).unwrap();
+    let result = result.get(&(2573, 1226)).unwrap();
+    assert_eq!(
+        result.state,
+        State::ExpectingDelivery("2026-02-06".to_string())
+    );
 }

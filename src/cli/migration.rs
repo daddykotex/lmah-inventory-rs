@@ -144,6 +144,51 @@ pub struct WithId<T> {
     pub airtable_id: String,
 }
 
+/// Sort all records in an AirtableExport by created_time in ascending order
+pub fn sort_export_by_created_time(mut export: AirtableExport) -> AirtableExport {
+    export
+        .config
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .clients
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .product_types
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .events
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .products
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .factures
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .facture_items
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .payments
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .refunds
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .statuts
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+}
+
 /// Load data from JSON file
 pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
     let json_content = fs::read_to_string(json_path)

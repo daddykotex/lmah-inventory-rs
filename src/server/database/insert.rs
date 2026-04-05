@@ -202,7 +202,7 @@ impl Insertable for ProductImageInsert {
     ) -> Result<Option<i64>> {
         sqlx::query(
             "INSERT INTO product_images (product_id, url, filename, position, created_at)
-             VALUES (?, ?, ?, ?, datetime('now))",
+             VALUES (?, ?, ?, ?, datetime('now'))",
         )
         .bind(&self.product_id)
         .bind(&self.url)
@@ -312,7 +312,7 @@ impl Insertable for PaymentRow {
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Option<i64>> {
         let result = sqlx::query(
-            "INSERT INTO payments (facture_id, amount, date, type, cheque_number, created_at, updated_at)
+            "INSERT INTO payments (facture_id, amount, date, payment_type, cheque_number, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&self.facture_id)
@@ -343,7 +343,7 @@ impl Insertable for RefundRow {
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Option<i64>> {
         let result = sqlx::query(
-            "INSERT INTO refunds (facture_id, amount, date, type, cheque_number, created_at, updated_at)
+            "INSERT INTO refunds (facture_id, amount, date, refund_type, cheque_number, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&self.facture_id)

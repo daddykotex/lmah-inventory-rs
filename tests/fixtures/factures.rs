@@ -1,6 +1,6 @@
 use lmah_inventory_rs::server::models::{
-    facture_items::FactureItemRow, factures::FactureRow, product_types::ProductTypeRow,
-    products::ProductRow, statuts::StatutInsert,
+    facture_items::FactureItemInsert, factures::FactureRow, product_types::ProductTypeRow,
+    products::ProductInsert, statuts::StatutInsert,
 };
 
 #[derive(Clone)]
@@ -29,8 +29,8 @@ pub struct FactureItemFixture;
 
 impl FactureItemFixture {
     /// A simple product item
-    pub fn product_item(facture_id: i64, product_id: i64) -> FactureItemRow {
-        FactureItemRow {
+    pub fn product_item(facture_id: i64, product_id: i64) -> FactureItemInsert {
+        FactureItemInsert {
             facture_id,
             product_id,
             item_type: "Product".to_string(),
@@ -49,8 +49,6 @@ impl FactureItemFixture {
             insurance: None,
             other_costs: None,
             rebate_dollar: None,
-            created_at: "2026-03-15 10:00:00".to_string(),
-            updated_at: "2026-03-15 10:00:00".to_string(),
         }
     }
 }
@@ -59,14 +57,12 @@ impl FactureItemFixture {
 pub struct ProductFixture;
 
 impl ProductFixture {
-    pub fn evening_dress() -> ProductRow {
-        ProductRow {
+    pub fn evening_dress() -> ProductInsert {
+        ProductInsert {
             name: "Evening Gown - Elegant Red".to_string(),
             price: Some(15000), // $150.00 in cents
             liquidation: false,
             visible_on_site: true,
-            created_at: "2026-03-01 10:00:00".to_string(),
-            updated_at: "2026-03-01 10:00:00".to_string(),
         }
     }
 }

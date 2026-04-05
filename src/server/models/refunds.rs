@@ -1,5 +1,7 @@
+use sqlx::prelude::FromRow;
+
 /// Database row structure for refunds table
-#[derive(Debug)]
+#[derive(Debug, FromRow)]
 pub struct RefundRow {
     pub facture_id: i64, // Required FK to factures
     pub amount: i64,     // Amount in cents
@@ -8,4 +10,29 @@ pub struct RefundRow {
     pub cheque_number: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug)]
+pub struct RefundView {
+    pub facture_id: i64, // Required FK to factures
+    pub amount: i64,     // Amount in cents
+    pub date: String,
+    pub refund_type: String,
+    pub cheque_number: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl From<RefundRow> for RefundView {
+    fn from(value: RefundRow) -> Self {
+        RefundView {
+            facture_id: value.facture_id,
+            amount: value.amount,
+            date: value.date,
+            refund_type: value.refund_type,
+            cheque_number: value.cheque_number,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
 }

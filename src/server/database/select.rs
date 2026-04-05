@@ -7,7 +7,9 @@ use crate::server::{
         events::EventRow,
         facture_items::{FactureItemRow, ItemFactureFlowType},
         factures::FactureRow,
+        payments::PaymentRow,
         products::ProductRow,
+        refunds::RefundRow,
         statuts::StatutRow,
     },
 };
@@ -193,7 +195,7 @@ impl Selectable<StatutRow> for StatutRow {
     async fn select_all(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<StatutRow>> {
         let table = StatutRow::table();
         let result: Vec<StatutRow> = sqlx::query_as(&format!(
-            "SELECT * FROM {} ORDER BY facture_id DESC, facture_item_id DESC",
+            "SELECT * FROM {} ORDER BY id ASC",
             table.table_name()
         ))
         .fetch_all(&mut **tx)
@@ -211,7 +213,7 @@ impl StatutRow {
     ) -> Result<Vec<StatutRow>> {
         let table = StatutRow::table();
         let result: Vec<StatutRow> = sqlx::query_as(&format!(
-            "SELECT * FROM {} WHERE facture_id = ? ORDER BY facture_id DESC, facture_item_id DESC",
+            "SELECT * FROM {} WHERE facture_id = ? ORDER BY id ASC",
             table.table_name()
         ))
         .bind(facture_id)
@@ -376,6 +378,44 @@ impl Selectable<ProductRow> for ProductRow {
         .fetch_all(&mut **tx)
         .await
         .context("Failed to retrieve product row")?;
+
+        Ok(result)
+    }
+}
+
+impl PaymentRow {
+    pub async fn select_all_for_facture(
+        facture_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<PaymentRow>> {
+        let table = PaymentRow::table();
+        let result: Vec<PaymentRow> = sqlx::query_as(&format!(
+            "SELECT * FROM {} WHERE facture_id = ?",
+            table.table_name()
+        ))
+        .bind(facture_id)
+        .fetch_all(&mut **tx)
+        .await
+        .context("Failed to retrieve payments")?;
+
+        Ok(result)
+    }
+}
+
+impl RefundRow {
+    pub async fn select_all_for_facture(
+        facture_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<RefundRow>> {
+        let table = RefundRow::table();
+        let result: Vec<RefundRow> = sqlx::query_as(&format!(
+            "SELECT * FROM {} WHERE facture_id = ?",
+            table.table_name()
+        ))
+        .bind(facture_id)
+        .fetch_all(&mut **tx)
+        .await
+        .context("Failed to retrieve refunds")?;
 
         Ok(result)
     }

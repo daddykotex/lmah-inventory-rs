@@ -1,6 +1,7 @@
 use crate::server::models::{
     clients::ClientView,
-    facture_items::FactureItemView,
+    events::EventView,
+    facture_items::{FactureComputed, FactureItemComputed, FactureItemView},
     factures::FactureView,
     products::ProductView,
     statuts::{State, StateView},
@@ -44,8 +45,11 @@ impl FactureDashboardData {
 
 pub struct FactureItemsData {
     pub facture: FactureView,
+    pub facture_computed: FactureComputed,
     pub client: ClientView,
+    pub event: Option<EventView>,
     pub items: Vec<FactureItemEntry>,
+    pub items_computed: Vec<FactureItemComputed>,
 }
 
 pub struct FactureItemEntry {
