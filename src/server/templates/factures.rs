@@ -103,6 +103,7 @@ fn item_row_action_col(facture_id: i64, facture_item_id: i64) -> Markup {
         a."btn btn-sm btn-primary" href=(item_url) {
             "Voir"
         }
+        (" ")
         form."inline-button" method="POST" action=(delete_url) {
             button."btn btn-sm btn-danger" type="submit" {
                 "Retirer"
@@ -343,7 +344,7 @@ fn facture_info(facture_data: &FactureItemsData) -> Markup {
                 b {
                     "Client: "
                 }
-                (facture_data.client.first_name) (facture_data.client.last_name)
+                (facture_data.client.first_name) " " (facture_data.client.last_name)
             }
             li {
                 b {
