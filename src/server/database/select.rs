@@ -223,9 +223,61 @@ impl StatutRow {
 
         Ok(result)
     }
+    pub async fn select_all_for_facture_item(
+        facture_item_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<StatutRow>> {
+        let table = StatutRow::table();
+        let result: Vec<StatutRow> = sqlx::query_as(&format!(
+            "SELECT * FROM {} WHERE facture_item_id = ? ORDER BY id ASC",
+            table.table_name()
+        ))
+        .bind(facture_item_id)
+        .fetch_all(&mut **tx)
+        .await
+        .context("Failed to retrieve statuts")?;
+
+        Ok(result)
+    }
 }
 
 impl ItemFactureFlowType {
+    pub async fn select_one_facture_item_flow_types(
+        facture_item_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<ItemFactureFlowType> {
+        let result: ItemFactureFlowType = sqlx::query_as(
+            r#"
+            select
+                facture_items.facture_id as facture_id,
+                facture_items.id as facture_item_id,
+                case item_type
+                    when 'Alteration' then 'AlterationFlow'
+                    when 'Location' then 'LocationFlow'
+                else case when product_types.name not in ('Robe de mariée', 'Robe de mère de la mariée', 'Robe de bal', 'Robe de bouquetière')
+                        then 'AccessoryItemFlow'
+                        else case when facture_items.floor_item
+                                then 'DressFloorItemFlow'
+                                else 'DressToOrderFlow'
+                            end
+                    end
+                end as flow_type
+            from facture_items
+            left join products on facture_items.product_id=products.id
+            left join product_product_types on products.id=product_product_types.product_id
+            left join product_types on product_types.name=product_product_types.product_type_name
+            where facture_items.id = ?
+            order by facture_id DESC, facture_items.id DESC;
+            "#
+        )
+        .bind(facture_item_id)
+        .fetch_one(&mut **tx)
+        .await
+        .context("Failed to facture item flows")?;
+
+        Ok(result)
+    }
+
     pub async fn select_one_facture_flow_types(
         facture_id: i64,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
