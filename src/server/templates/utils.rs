@@ -2,6 +2,43 @@ use maud::{Markup, PreEscaped, html};
 
 const BOOTSTRAP_VERSION: &str = "4.4.1";
 
+pub fn price_input(id: &str, label: &str, value: &Option<i64>, required: bool) -> Markup {
+    let required = if required { Some(true) } else { None };
+    html! {
+        label for=(id) {
+            (label)
+        }
+        div."input-group" {
+            div."input-group-prepend" {
+                span."input-group-text" {
+                    "$"
+                }
+            }
+            input."form-control" id=(id) type="text" name=(id) value=[value] required=[required];
+        }
+    }
+}
+
+pub fn ask_transition(value: &str) -> String {
+    match value {
+        "RecordingOutDate" => "Enregistrer une date de sortie".to_string(),
+        "RecordingTransfertToSeamstressDate" => {
+            "Enregistrer une date de remise à la couturière".to_string()
+        }
+        "PlaceOrder" => "Enregister une date de commande".to_string(),
+        "RecordExpectedDeliveryDate" => "Enregistrer une date attendue de livraison".to_string(),
+        "RecordReceptionDate" => "Enregister une date de réception".to_string(),
+        "RecordAdjustDate" => "Enregistrer une date de prise d'ajustements".to_string(),
+        "RecordingOutForLocationDate" => "Enregister une date de sortie pour location".to_string(),
+        "RecordingClientReturnDate" => "Enregistrer une date retour de location".to_string(),
+        "TransfertToAlteration" => "Enregistrer une date de transfert en altération".to_string(),
+        "RecordingBackFromSeamstressDate" => "Enregistrer une date de couture terminé".to_string(),
+        "RecordingBackOrderDate" => "Enregistrer un avis Back Order".to_string(),
+        "RecordingCancelDate" => "Enregistrer une date d'abandon".to_string(),
+        _ => "Inconnue".to_string(),
+    }
+}
+
 fn bootstrap_css() -> Markup {
     let url = format!(
         "https://stackpath.bootstrapcdn.com/bootstrap/{}/css/bootstrap.min.css",
@@ -22,7 +59,7 @@ fn bootstrap_js() -> Markup {
     }
 }
 
-pub fn sidebar_box(title: &str, subtitle: Option<&str>, content: Markup) -> Markup {
+pub fn sidebar_info_box(title: &str, subtitle: Option<&str>, content: Markup) -> Markup {
     html! {
         div."card" {
             div."card-body" {

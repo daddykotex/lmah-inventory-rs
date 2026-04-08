@@ -67,6 +67,12 @@ pub struct ClientView {
     pub updated_at: String,
 }
 
+impl ClientView {
+    pub fn name(&self) -> String {
+        format!("{} {}", self.first_name, self.last_name)
+    }
+}
+
 impl From<ClientRow> for ClientView {
     fn from(value: ClientRow) -> Self {
         ClientView {

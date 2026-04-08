@@ -8,6 +8,7 @@ use crate::server::{
         facture_items::{FactureItemRow, ItemFactureFlowType},
         factures::FactureRow,
         payments::PaymentRow,
+        product_types::ProductTypeRow,
         products::ProductRow,
         refunds::RefundRow,
         statuts::StatutRow,
@@ -468,6 +469,22 @@ impl RefundRow {
         .fetch_all(&mut **tx)
         .await
         .context("Failed to retrieve refunds")?;
+
+        Ok(result)
+    }
+}
+
+impl ProductTypeRow {
+    pub async fn select_for_product(
+        product_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<ProductTypeRow> {
+        let result: ProductTypeRow = sqlx::query_as(&format!(
+            "SELECT name FROM product_types LEFT JOIN product_product_types ON product_types.name = product_product_types.product_type_name where product_id = ?",
+        ))
+        .bind(product_id)
+        .fetch_one(&mut **tx)
+        .await?;
 
         Ok(result)
     }

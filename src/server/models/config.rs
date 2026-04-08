@@ -7,3 +7,14 @@ pub struct ConfigRow {
     pub created_at: String,
     pub updated_at: String,
 }
+
+pub struct NoteTemplate {
+    pub note_type: String,
+    pub key: String,
+    pub value: String,
+}
+
+pub struct ExtraLargeAmounts {
+    pub wedding: i64,
+    pub others: i64,
+}

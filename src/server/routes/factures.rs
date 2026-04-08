@@ -34,7 +34,7 @@ async fn the_facture_item(
     Path((facture_id, facture_item_id)): Path<(i64, i64)>,
 ) -> Result<Markup, AppError> {
     let facture_item_data = select_one_facture_item(&pool, facture_id, facture_item_id).await?;
-    let rendered = factures::page_one_facture_item(facture_item_data);
+    let rendered = factures::page_one_facture_item(&facture_item_data);
 
     Ok(rendered)
 }
