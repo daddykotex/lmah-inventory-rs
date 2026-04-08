@@ -12,6 +12,20 @@ struct Entry {
     state: StateView,
 }
 
+pub fn load_one_item_statuts_flow(
+    facture_item_flow_type: ItemFactureFlowType,
+    data: Vec<StatutRow>,
+) -> Result<StateView> {
+    let mut state = initial_state(&facture_item_flow_type.flow_type)?;
+
+    for statut_row in data {
+        let new_state = apply_statut(&facture_item_flow_type.flow_type, &statut_row, &state)?;
+        state = new_state;
+    }
+
+    Ok(state)
+}
+
 pub fn load_statuts_flow(
     facture_item_flows: Vec<ItemFactureFlowType>,
     data: Vec<StatutRow>,

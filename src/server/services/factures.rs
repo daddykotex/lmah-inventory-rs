@@ -4,6 +4,7 @@ use crate::server::{
     database::select::Selectable,
     models::{
         FactureDashboardData, FactureItemEntry, FactureItemsData, PageFactureItemsData,
+        PageOneFactureItemData,
         clients::{ClientRow, ClientView},
         events::{EventRow, EventView},
         facture_items::{
@@ -16,10 +17,52 @@ use crate::server::{
         refunds::RefundRow,
         statuts::{StateView, StatutRow},
     },
-    services::statuts::load_statuts_flow,
+    services::statuts::{load_one_item_statuts_flow, load_statuts_flow},
 };
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
+
+pub async fn select_one_facture_item(
+    pool: &SqlitePool,
+    facture_id: i64,
+    facture_item_id: i64,
+) -> Result<PageOneFactureItemData> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let facture_row = FactureRow::select_one(facture_id, &mut tx)
+        .await?
+        .ok_or(anyhow::Error::msg("Facture not found."))?;
+
+    let client_row = ClientRow::select_one(facture_row.client_id, &mut tx)
+        .await?
+        .ok_or(anyhow::Error::msg("Client related to facture not found."))?;
+
+    let facture_item_row = FactureItemRow::select_one(facture_item_id, &mut tx)
+        .await?
+        .ok_or(anyhow::Error::msg("Facture item not found."))?;
+
+    let product_row = ProductRow::select_one(facture_item_row.product_id, &mut tx)
+        .await?
+        .ok_or(anyhow::Error::msg(
+            "Product related to facture item not found.",
+        ))?;
+
+    let facture_item_flow =
+        ItemFactureFlowType::select_one_facture_item_flow_types(facture_item_id, &mut tx).await?;
+
+    let statut_rows = StatutRow::select_all_for_facture_item(facture_item_id, &mut tx).await?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    build_one_facture_item_data(
+        facture_row,
+        client_row,
+        facture_item_row,
+        product_row,
+        facture_item_flow,
+        statut_rows,
+    )
+}
 
 pub async fn select_one(pool: &SqlitePool, facture_id: i64) -> Result<PageFactureItemsData> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
@@ -184,6 +227,27 @@ fn build_facture_dashboard_data(
     }
 
     Ok(res)
+}
+
+fn build_one_facture_item_data(
+    facture: FactureRow,
+    client: ClientRow,
+    facture_item: FactureItemRow,
+    product: ProductRow,
+    item_flow_type: ItemFactureFlowType,
+    statuts: Vec<StatutRow>,
+) -> Result<PageOneFactureItemData> {
+    let state = load_one_item_statuts_flow(item_flow_type, statuts)?;
+    let item_entry = FactureItemEntry {
+        item: FactureItemView::try_from(facture_item)?,
+        product: ProductView::from(product),
+        state: state,
+    };
+    Ok(PageOneFactureItemData {
+        facture: FactureView::from(facture),
+        client: ClientView::from(client),
+        item: item_entry,
+    })
 }
 
 fn compute_item(item: &FactureItemView) -> FactureItemComputed {

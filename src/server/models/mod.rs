@@ -63,3 +63,9 @@ pub struct PageFactureItemsData {
     pub alteration_product: ProductView,
     pub location_product: ProductView,
 }
+
+pub struct PageOneFactureItemData {
+    pub facture: FactureView,
+    pub client: ClientView,
+    pub item: FactureItemEntry,
+}

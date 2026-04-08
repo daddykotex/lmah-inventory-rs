@@ -3,6 +3,7 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 use crate::server::{
     models::{
         FactureDashboardData, FactureItemEntry, FactureItemsData, PageFactureItemsData,
+        PageOneFactureItemData,
         events::EventView,
         facture_items::{FactureComputed, FactureItemType},
         factures::FactureView,
@@ -850,6 +851,27 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
     }
 }
 
+fn the_item(page_data: &PageOneFactureItemData) -> Markup {
+    let items_url = format!("/factures/{}/items", page_data.facture.id);
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row" {
+                    div."order-12 col-lg-8 order-lg-1" {
+                        a href=(items_url) {
+                            "Retour aux items de la facture"
+                        }
+                        br;
+                        h3 {
+                            (page_data.item.product.name)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn page(title: &str, body: Markup) -> Markup {
     html! {
         (DOCTYPE)
@@ -881,4 +903,13 @@ pub fn page_facture_items(page_data: PageFactureItemsData) -> Markup {
         (generate_print_js(false))
     };
     page("Items de la facture", body)
+}
+
+pub fn page_one_facture_item(page_data: PageOneFactureItemData) -> Markup {
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (the_item(&page_data))
+        (footer())
+    };
+    page("Item de facture", body)
 }
