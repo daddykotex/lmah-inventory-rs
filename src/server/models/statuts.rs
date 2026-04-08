@@ -1,3 +1,4 @@
+use anyhow::Result;
 use sqlx::prelude::FromRow;
 
 /// Database row structure for statuts table
@@ -46,6 +47,10 @@ pub enum State<Date, Seamstress> {
     // final states
     ItemOut(Date),
     LocationOut(Date),
+
+    // invalid states, for example: if the user change a user record status for an item then change its type
+    // by setting floor_item to true, then some states exists when they should not
+    Invalid(Date),
 }
 
 impl State<String, String> {
@@ -66,6 +71,7 @@ impl State<String, String> {
             State::WaitingForSeamstress(date) => Some(date),
             State::ItemOut(date) => Some(date),
             State::LocationOut(date) => Some(date),
+            State::Invalid(date) => Some(date),
         }
     }
     pub fn label(&self) -> &str {
@@ -87,6 +93,29 @@ impl State<String, String> {
             State::TransferredToAlteration(_) => "Transférer en altération",
             State::WaitingAdjustment(_) => "À ajuster",
             State::WaitingForSeamstress(_) => "Remis à la couturière",
+            State::Invalid(_) => "État invalide",
+        }
+    }
+    pub fn label_with_date(&self) -> String {
+        match self {
+            State::BackFromLocation(date) => format!("Retour par le client: {}", date),
+            State::BackFromSeamstress(date) => format!("Couture terminé le: {}", date),
+            State::BackOrder(date) => format!("Back Order le: {}", date),
+            State::Cancelled(date) => format!("Annulé le: {}", date),
+            State::ExpectingDelivery(date) => format!("Livraison attendue le:: {}", date),
+            State::FloorItem => format!("Item plancher"),
+            State::GivenToSeamstress(date, st) => format!("Remise à {} le:  {}", st, date),
+            State::ItemOut(date) => format!("Sortie le: {}", date),
+            State::LocationOut(date) => format!("Sortie le: {}", date),
+            State::Ordered(date) => format!("Commande placée le: {}", date),
+            State::OutForLocation(date) => format!("Sortie en location le: {}", date),
+            State::Received(date) => format!("Date de réception: {}", date),
+            State::ToBeAltered => "À altérer".to_string(),
+            State::ToOrder => "À commander".to_string(),
+            State::TransferredToAlteration(date) => format!("Transfert en altération le: {}", date),
+            State::WaitingAdjustment(date) => format!("Passé en ajustement le: {}", date),
+            State::WaitingForSeamstress(date) => format!("Remise à la couturière le: {}", date),
+            State::Invalid(date) => format!("État invalide le : {}", date),
         }
     }
     pub fn value(&self) -> u8 {
@@ -108,6 +137,7 @@ impl State<String, String> {
             State::WaitingForSeamstress(_) => 2,
             State::ItemOut(_) => 7,
             State::LocationOut(_) => 7,
+            State::Invalid(_) => 7,
         }
     }
 }
@@ -135,7 +165,73 @@ pub enum StateType {
 
 #[derive(Clone, Debug)]
 pub struct StateView {
-    pub state: State<String, String>,
+    pub current_state: State<String, String>,
+    pub previous_states: Vec<State<String, String>>,
+    pub item_flow: String,
+}
+
+pub const FLOOR_ITEM_INITIAL_TRANSITIONS: [&'static str; 2] =
+    ["RecordingOutDate", "TransfertToAlteration"];
+
+impl StateView {
+    pub fn available_transition(&self) -> Result<Vec<&str>> {
+        match self.item_flow.as_ref() {
+            "DressToOrderFlow" => Ok(match &self.current_state {
+                State::ToOrder => vec!["PlaceOrder"],
+                State::BackOrder(_) => vec!["RecordReceptionDate", "RecordingCancelDate"],
+                State::Ordered(_) => vec!["RecordExpectedDeliveryDate"],
+                State::ExpectingDelivery(_) => {
+                    vec!["RecordReceptionDate", "RecordingBackOrderDate"]
+                }
+                State::Received(_) => vec![
+                    "RecordingOutDate",
+                    "TransfertToAlteration",
+                    "RecordingCancelDate",
+                ],
+                // final states
+                State::ItemOut(_) | State::TransferredToAlteration(_) | State::Cancelled(_) => {
+                    vec![]
+                }
+                _ => vec![],
+            }),
+
+            "DressFloorItemFlow" => Ok(match &self.current_state {
+                State::FloorItem => Vec::from(FLOOR_ITEM_INITIAL_TRANSITIONS),
+                State::BackFromSeamstress(_) => vec!["RecordingOutDate"],
+                // final states
+                State::ItemOut(_) | State::TransferredToAlteration(_) => vec![],
+                _ => vec![],
+            }),
+
+            "AccessoryItemFlow" => Ok(vec![]),
+
+            "AlterationFlow" => Ok(match &self.current_state {
+                State::ToBeAltered => vec!["RecordingTransfertToSeamstressDate"],
+                State::GivenToSeamstress(_, _) => vec!["RecordingBackFromSeamstressDate"],
+                State::BackFromSeamstress(_) => vec!["RecordingOutDate"],
+                // final states
+                State::ItemOut(_) => vec![],
+                _ => vec![],
+            }),
+
+            "LocationFlow" => Ok(match &self.current_state {
+                State::ToOrder => vec!["PlaceOrder"],
+                State::Ordered(_) => vec!["RecordExpectedDeliveryDate"],
+                State::ExpectingDelivery(_) => vec!["RecordReceptionDate"],
+                State::Received(_) => vec!["RecordAdjustDate", "RecordingOutForLocationDate"],
+                State::WaitingAdjustment(_) => vec!["RecordingTransfertToSeamstressDate"],
+                State::WaitingForSeamstress(_) => vec!["RecordingBackFromSeamstressDate"],
+                State::BackFromSeamstress(_) => vec!["RecordingOutForLocationDate"],
+                State::OutForLocation(_) => vec!["RecordingClientReturnDate"],
+                State::BackFromLocation(_) => vec!["RecordingOutDate"],
+                // final states
+                State::ItemOut(_) => vec![],
+                _ => vec![],
+            }),
+
+            _ => anyhow::bail!("Invalid flow type"),
+        }
+    }
 }
 
 #[derive(Debug, FromRow)]
@@ -149,44 +245,3 @@ pub struct StatutsView {
     pub created_at: String,
     pub updated_at: String,
 }
-
-//   1. DressToOrderFlow (Dresses made to order)
-
-//   - ToOrder (value: 1) - "À commander"
-//   - BackOrder (value: 1) - "Back Order"
-//   - Ordered (value: 2) - "Commandé"
-//   - ExpectingDelivery (value: 3) - "À recevoir"
-//   - Received (value: 4) - "Reçu"
-//   - TransferedToAlteration (value: 6) - "Transférer en altération"
-//   - ItemOut (value: 7) - "Sortie"
-//   - Cancelled (value: 8) - "Abandonné"
-
-//   2. DressFloorItemFlow (Floor item dresses)
-
-//   - FloorItem (value: 4) - "Item plancher"
-//   - TransferedToAlteration (value: 6) - "Transférer en altération"
-//   - ItemOut (value: 7) - "Sortie"
-
-//   3. AccessoryItemFlow (Accessory items)
-
-//   - ItemOut (value: 7) - "Sortie" (only state, items go directly out)
-
-//   4. AlterationFlow (Alteration items)
-
-//   - ToBeAltered (value: 1) - "À altérer"
-//   - GivenToSeamstress (value: 2) - "Remis à la couturière"
-//   - BackFromSeamstress (value: 4) - "Couture terminé"
-//   - ItemOut (value: 7) - "Sortie"
-
-//   5. LocationFlow (Rental items)
-
-//   - ToOrder (value: 1) - "À commander"
-//   - Ordered (value: 2) - "Commandé"
-//   - ExpectingDelivery (value: 3) - "À recevoir"
-//   - Received (value: 4) - "Reçu"
-//   - WaitingAdjustment (value: 1) - "À ajuster"
-//   - WaitingForSeamstress (value: 2) - "Remis à la couturière"
-//   - BackFromSeamstress (value: 4) - "Couture terminé"
-//   - OutForLocation (value: 3) - "Sortie pour location"
-//   - BackFromLocation (value: 1) - "À retourner au locateur"
-//   - ItemOut (value: 7) - "Retour locateur"

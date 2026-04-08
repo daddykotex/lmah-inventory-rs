@@ -1,16 +1,10 @@
 use anyhow::Result;
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 
 use crate::server::models::{
     facture_items::ItemFactureFlowType,
     statuts::{State, StateView, StatutRow},
 };
-
-#[derive(Debug)]
-struct Entry {
-    flow: ItemFactureFlowType,
-    state: StateView,
-}
 
 pub fn load_one_item_statuts_flow(
     facture_item_flow_type: ItemFactureFlowType,
@@ -19,7 +13,7 @@ pub fn load_one_item_statuts_flow(
     let mut state = initial_state(&facture_item_flow_type.flow_type)?;
 
     for statut_row in data {
-        let new_state = apply_statut(&facture_item_flow_type.flow_type, &statut_row, &state)?;
+        let new_state = apply_statut(&state, &statut_row)?;
         state = new_state;
     }
 
@@ -30,11 +24,10 @@ pub fn load_statuts_flow(
     facture_item_flows: Vec<ItemFactureFlowType>,
     data: Vec<StatutRow>,
 ) -> Result<HashMap<(i64, i64), StateView>> {
-    let result: Result<HashMap<(i64, i64), Entry>> = facture_item_flows
+    let result: Result<HashMap<(i64, i64), StateView>> = facture_item_flows
         .into_iter()
         .map(|f| {
-            initial_state(&f.flow_type)
-                .map(|state| ((f.facture_id, f.facture_item_id), Entry { flow: f, state }))
+            initial_state(&f.flow_type).map(|state| ((f.facture_id, f.facture_item_id), state))
         })
         .collect();
 
@@ -43,9 +36,12 @@ pub fn load_statuts_flow(
     for statut_row in data {
         let found = result.get_mut(&(statut_row.facture_id, statut_row.facture_item_id));
         match found {
-            Some(entry) => {
-                let state = apply_statut(&entry.flow.flow_type, &statut_row, &entry.state)?;
-                entry.state = state;
+            Some(state) => {
+                let new_state = apply_statut(&state, &statut_row)?;
+                result.insert(
+                    (statut_row.facture_id, statut_row.facture_item_id),
+                    new_state,
+                );
             }
             None => anyhow::bail!(
                 "No state recorded for {}, {}",
@@ -55,7 +51,7 @@ pub fn load_statuts_flow(
         }
     }
 
-    Ok(result.into_iter().map(|f| (f.0, f.1.state)).collect())
+    Ok(result)
 }
 
 fn initial_state(flow_type: &str) -> Result<StateView> {
@@ -67,14 +63,19 @@ fn initial_state(flow_type: &str) -> Result<StateView> {
         "DressToOrderFlow" => Ok(State::ToOrder),
         _ => anyhow::bail!("Unsupported flow_type."),
     };
-    Ok(StateView { state: state? })
+    Ok(StateView {
+        item_flow: String::from(flow_type),
+        current_state: state?,
+        previous_states: vec![],
+    })
 }
 
 /// The state argument is unused right now, but it could be used
 /// to enforce only specific transitions, at specific states
-fn apply_statut(flow_type: &str, statut: &StatutRow, _state: &StateView) -> Result<StateView> {
+fn apply_statut(old_state: &StateView, statut: &StatutRow) -> Result<StateView> {
     let date = statut.date.clone();
-    let state: Result<State<String, String>> = match flow_type {
+    let old_state = old_state.clone();
+    let state: Result<State<String, String>> = match old_state.item_flow.as_ref() {
         "AlterationFlow" => match statut.statut_type.as_str() {
             "RecordingTransfertToSeamstressDate" => {
                 let seamstress = statut
@@ -86,6 +87,7 @@ fn apply_statut(flow_type: &str, statut: &StatutRow, _state: &StateView) -> Resu
             "RecordingBackFromSeamstressDate" => Ok(State::BackFromSeamstress(date)),
             "RecordingOutDate" => Ok(State::ItemOut(date)),
             _ => {
+                // no invalid state possible
                 anyhow::bail!("Invalid state transition for AlterationFlow")
             }
         },
@@ -100,6 +102,7 @@ fn apply_statut(flow_type: &str, statut: &StatutRow, _state: &StateView) -> Resu
             "RecordingClientReturnDate" => Ok(State::BackFromLocation(date)),
             "RecordingOutDate" => Ok(State::LocationOut(date)),
             _ => {
+                // no invalid state possible
                 anyhow::bail!("Invalid state transition for LocationFlow")
             }
         },
@@ -107,6 +110,7 @@ fn apply_statut(flow_type: &str, statut: &StatutRow, _state: &StateView) -> Resu
             "TransfertToAlteration" => Ok(State::TransferredToAlteration(date)),
             "RecordingOutDate" => Ok(State::ItemOut(date)),
             _ => {
+                // no invalid state possible
                 anyhow::bail!("Invalid state transition for AccessoryItemFlow")
             }
         },
@@ -114,7 +118,8 @@ fn apply_statut(flow_type: &str, statut: &StatutRow, _state: &StateView) -> Resu
             "TransfertToAlteration" => Ok(State::TransferredToAlteration(date)),
             "RecordingOutDate" => Ok(State::ItemOut(date)),
             _ => {
-                anyhow::bail!("Invalid state transition for DressFloorItemFlow")
+                // invalid state possible (when toggling on floor_item)
+                Ok(State::Invalid(date))
             }
         },
         "DressToOrderFlow" => match statut.statut_type.as_str() {
@@ -126,13 +131,21 @@ fn apply_statut(flow_type: &str, statut: &StatutRow, _state: &StateView) -> Resu
             "RecordingCancelDate" => Ok(State::Cancelled(date)),
             "TransfertToAlteration" => Ok(State::TransferredToAlteration(date)),
             _ => {
-                anyhow::bail!("Invalid state transition for DressFloorItemFlow")
+                // invalid state possible (when toggling on floor_item)
+                Ok(State::Invalid(date))
             }
         },
         _ => anyhow::bail!("Unsupported flow_type."),
     };
-    let state = state?;
-    Ok(StateView { state })
+
+    let mut previous_states = old_state.previous_states;
+    previous_states.push(old_state.current_state);
+
+    Ok(StateView {
+        current_state: state?,
+        previous_states: previous_states,
+        ..old_state
+    })
 }
 
 #[cfg(test)]
@@ -155,7 +168,10 @@ fn test_load_statuts_flow() {
     }];
     let result = load_statuts_flow(facture_item_flows, statuts).unwrap();
     let result = result.get(&(159, 2430)).unwrap();
-    assert_eq!(result.state, State::ItemOut("2020-07-28".to_string()));
+    assert_eq!(
+        result.current_state,
+        State::ItemOut("2020-07-28".to_string())
+    );
 }
 
 #[cfg(test)]
@@ -191,7 +207,7 @@ fn test_load_statuts_flow_dress_to_order() {
     let result = load_statuts_flow(facture_item_flows, statuts).unwrap();
     let result = result.get(&(2573, 1226)).unwrap();
     assert_eq!(
-        result.state,
+        result.current_state,
         State::ExpectingDelivery("2026-02-06".to_string())
     );
 }

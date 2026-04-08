@@ -3,8 +3,8 @@ use std::{collections::HashMap, hash::Hash};
 use crate::server::{
     database::select::Selectable,
     models::{
-        FactureDashboardData, FactureItemEntry, FactureItemsData, PageFactureItemsData,
-        PageOneFactureItemData,
+        FactureDashboardData, FactureItemEntry, FactureItemFormConfig, FactureItemsData,
+        PageFactureItemsData, PageOneFactureItemData,
         clients::{ClientRow, ClientView},
         events::{EventRow, EventView},
         facture_items::{
@@ -13,11 +13,15 @@ use crate::server::{
         },
         factures::{FactureRow, FactureView},
         payments::{PaymentRow, PaymentView},
+        product_types::{ProductTypeRow, ProductTypeView},
         products::{ProductRow, ProductView},
         refunds::RefundRow,
         statuts::{StateView, StatutRow},
     },
-    services::statuts::{load_one_item_statuts_flow, load_statuts_flow},
+    services::{
+        config::{load_extra_large_amount, load_note_templates, load_seamstresses},
+        statuts::{load_one_item_statuts_flow, load_statuts_flow},
+    },
 };
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
@@ -52,16 +56,33 @@ pub async fn select_one_facture_item(
 
     let statut_rows = StatutRow::select_all_for_facture_item(facture_item_id, &mut tx).await?;
 
+    let product_type_row = ProductTypeRow::select_for_product(product_row.id, &mut tx).await?;
+
+    let config_note_templates = load_note_templates(&mut tx).await?;
+    let config_extra_large_amount = load_extra_large_amount(&mut tx).await?;
+    let config_seamstresses = load_seamstresses(&mut tx).await?;
+
+    let form_config = FactureItemFormConfig {
+        note_templates: config_note_templates,
+        extra_large_amount: config_extra_large_amount,
+        seamstresses: config_seamstresses,
+    };
+
     tx.commit().await.context("Failed to commit transaction")?;
 
-    build_one_facture_item_data(
-        facture_row,
-        client_row,
-        facture_item_row,
-        product_row,
-        facture_item_flow,
-        statut_rows,
-    )
+    let state = load_one_item_statuts_flow(facture_item_flow, statut_rows)?;
+    let item_entry = FactureItemEntry {
+        item: FactureItemView::try_from(facture_item_row)?,
+        product: ProductView::from(product_row),
+        state: state,
+    };
+    Ok(PageOneFactureItemData {
+        facture: FactureView::from(facture_row),
+        client: ClientView::from(client_row),
+        item: item_entry,
+        product_type: ProductTypeView::from(product_type_row),
+        form_config,
+    })
 }
 
 pub async fn select_one(pool: &SqlitePool, facture_id: i64) -> Result<PageFactureItemsData> {
@@ -227,27 +248,6 @@ fn build_facture_dashboard_data(
     }
 
     Ok(res)
-}
-
-fn build_one_facture_item_data(
-    facture: FactureRow,
-    client: ClientRow,
-    facture_item: FactureItemRow,
-    product: ProductRow,
-    item_flow_type: ItemFactureFlowType,
-    statuts: Vec<StatutRow>,
-) -> Result<PageOneFactureItemData> {
-    let state = load_one_item_statuts_flow(item_flow_type, statuts)?;
-    let item_entry = FactureItemEntry {
-        item: FactureItemView::try_from(facture_item)?,
-        product: ProductView::from(product),
-        state: state,
-    };
-    Ok(PageOneFactureItemData {
-        facture: FactureView::from(facture),
-        client: ClientView::from(client),
-        item: item_entry,
-    })
 }
 
 fn compute_item(item: &FactureItemView) -> FactureItemComputed {

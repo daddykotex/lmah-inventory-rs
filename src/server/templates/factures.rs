@@ -4,9 +4,12 @@ use crate::server::{
     models::{
         FactureDashboardData, FactureItemEntry, FactureItemsData, PageFactureItemsData,
         PageOneFactureItemData,
+        config::{ExtraLargeAmounts, NoteTemplate},
         events::EventView,
-        facture_items::{FactureComputed, FactureItemType},
+        facture_items::{FactureComputed, FactureItemType, FactureItemView},
         factures::FactureView,
+        product_types::ProductTypeView,
+        statuts::{FLOOR_ITEM_INITIAL_TRANSITIONS, StateView},
     },
     templates::utils::*,
 };
@@ -28,6 +31,73 @@ fn generate_print_js(for_admin: bool) -> Markup {
                         }});
                 }});
             "#, for_admin)))
+        }
+    }
+}
+
+fn item_form_scripts() -> Markup {
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(r#"
+                $(document).ready(function () {
+                    function toggleSeamstressSelector(toggle) {
+                        if (toggle) {
+                            $('div.seamstress').removeClass('d-none');
+                        } else {
+                            $('div.seamstress').addClass('d-none');
+                        }
+                    }
+
+                    $('select.transition-selection').each(function (i, o) {
+                        $(o).change(function () {
+                            toggleSeamstressSelector($(0).val() === 'RecordingTransfertToSeamstressDate');
+                        });
+                    });
+
+                    toggleSeamstressSelector($('select.transition-selection').val() === 'RecordingTransfertToSeamstressDate');
+                    $('form.itemform #notes-formula').change(function () {
+                        var notesInput = $('form.itemform #notes');
+                        var previous = notesInput.val();
+                        var spacer = previous.trim().length <= 1 ? '' : '\n';
+                        notesInput.val(previous + spacer + $(this).val());
+                        $(this).val(''); // reset to empty formule type.
+                    });
+
+                    $('form.itemform input[type!="hidden"]:first').each(function () {
+                        $(this).trigger('focus');
+                    });
+
+                    //hide form fields when floor item is checked and show the status dropdown
+                    function toggleFloorItemFields(toggle) {
+                        $('.form-row.form-group input[name="size"], .form-row.form-group input[name="chest"], .form-row.form-group input[name="waist"], .form-row.form-group input[name="hips"], .form-row.form-group input[name="color"]').each(function () {
+                            if (toggle) {
+                                $(this).removeAttr('required');
+                                $(this).parentsUntil('.form-row.form-group').parent().hide();
+                            } else {
+                                $(this).attr('required', '');
+                                $(this).parentsUntil('.form-row.form-group').parent().show();
+                            }
+                        });
+                        $('.form-row.form-group select[name="status"]').each(function () {
+                            if (toggle) {
+                                $(this).attr('required', '');
+                                $(this).parentsUntil('.form-row.form-group').parent().show();
+                            } else {
+                                $(this).removeAttr('required');
+                                $(this).parentsUntil('.form-row.form-group').parent().hide();
+                            }
+                        });
+                    }
+                    // dress with the checkbox
+                    $('form input[name="floor-item"][type="checkbox"]').change(function () {
+                        toggleFloorItemFields($(this).prop('checked'));
+                    });
+                    var checked = $('form input[name="floor-item"][type="checkbox"]').prop('checked');
+                    // hidden when other type of product
+                    var floorItemHidden = $('form input[name="floor-item"][type="hidden"]').val() === 'true';
+                    toggleFloorItemFields(floorItemHidden || checked);
+                });
+            "#))
         }
     }
 }
@@ -148,7 +218,7 @@ fn list_the_items_row(entry: &FactureItemEntry) -> Markup {
                         }
                     }
                     td {
-                        (state(entry.state.state.value(), Some(entry.state.state.label()), None))
+                        (state(entry.state.current_state.value(), Some(entry.state.current_state.label()), None))
                     }
                 }
             }
@@ -182,7 +252,7 @@ fn list_the_items_row(entry: &FactureItemEntry) -> Markup {
                     }
                 }
                 td {
-                    (state(entry.state.state.value(), Some(entry.state.state.label()), None))
+                    (state(entry.state.current_state.value(), Some(entry.state.current_state.label()), None))
                 }
             }
         },
@@ -209,7 +279,7 @@ fn list_the_items_row(entry: &FactureItemEntry) -> Markup {
                     }
                 }
                 td {
-                    (state(entry.state.state.value(), Some(entry.state.state.label()), None))
+                    (state(entry.state.current_state.value(), Some(entry.state.current_state.label()), None))
                 }
             }
         },
@@ -605,7 +675,7 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
                         (list_the_items(&page_data.facture_data))
                     }
                     div."col-12 order-1 col-lg-4 order-lg-12" {
-                        (sidebar_box("Détails de la facture", Some(&facture_title), box_content))
+                        (sidebar_info_box("Détails de la facture", Some(&facture_title), box_content))
                         @if let Some(event) = &page_data.facture_data.event {
                             (event_details(page_data.facture_data.facture.id, event))
                         }
@@ -792,10 +862,10 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
                                         @match smallest_state {
                                             Some(s) =>  {
                                                 td {
-                                                    (state(s.state.value(), Some(s.state.label()), None))
+                                                    (state(s.current_state.value(), Some(s.current_state.label()), None))
                                                 }
                                                 td {
-                                                    @if let Some(date) = s.state.date() {
+                                                    @if let Some(date) = s.current_state.date() {
                                                         (date)
                                                     }
                                                 }
@@ -807,7 +877,7 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
                                         }
                                         td {
                                             @for (_, s) in facture_data.state_per_item {
-                                                (state(s.state.value(), None, Some("ml-1")))
+                                                (state(s.current_state.value(), None, Some("ml-1")))
                                             }
                                         }
                                     }
@@ -851,8 +921,433 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
     }
 }
 
+fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Markup {
+    fn quantity(q: i64) -> Markup {
+        html! {
+            div."form-row form-group" {
+                div."col-12" {
+                    label for="quantity" {
+                        "Quantité"
+                    }
+                    input."form-control" id="quantity" type="number" min="0" name="quantity" value=(q);
+                }
+            }
+        }
+    }
+
+    fn price(p: &Option<i64>) -> Markup {
+        html! {
+            div."form-row form-group" {
+                div."col-12" {
+                    (price_input("price", "Prix unitaire", p, true))
+                }
+            }
+        }
+    }
+
+    fn notes(notes: &Option<String>, note_templates: &Vec<NoteTemplate>) -> Markup {
+        html! {
+            div."form-row form-group" {
+                div."col-12" {
+                    label."w-100" for="notes" {
+                        span {
+                            "Notes"
+                        }
+                        @if notes.iter().count() > 0 {
+                            div."pull-right" {
+                                select #notes-formula {
+                                    option value="" {
+                                        "Formule type"
+                                    }
+                                    @for NoteTemplate { note_type: _, key, value } in note_templates {
+                                        option value=(value) {
+                                            (key)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    textarea."form-control" id="notes" name="notes" rows="5" {
+                        @if let Some(n) = notes {
+                            (n)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn extra_large_amount(p: &ProductTypeView, ex: &ExtraLargeAmounts) -> Option<i64> {
+        if p.is_dress() {
+            Some(ex.wedding)
+        } else {
+            Some(ex.others)
+        }
+    }
+
+    fn set_client_btn(client_name: &str) -> Markup {
+        html! {
+            button."btn btn-sm btn-primary set-client-name" type="button" data-name=(client_name) {
+                "Utiliser " (client_name)
+            }
+        }
+    }
+
+    let url = if is_update {
+        format!(
+            "/factures/{}/items/{}/update",
+            page_data.facture.id,
+            page_data.item.item.id()
+        )
+    } else {
+        format!("/factures/{}/items", page_data.facture.id,)
+    };
+    let client_name = page_data.client.name();
+    match &page_data.item.item.value {
+        FactureItemType::FactureItemProduct(value) => html! {
+            form."itemform" action=(url) method="POST" {
+                input name="product-id" value=(page_data.item.product.id) type="hidden";
+                input type="hidden" name="facture-id" value=(page_data.facture.id);
+
+                (quantity(value.quantity))
+
+                (price(&value.price))
+
+                div."form-row form-group" {
+                    div."col-12" {
+                        label for="rebatePercent" {
+                            "Rabais (%)"
+                        }
+                        input."form-control" id="rebate-percent" name="rebate-percent" type="number" min="0" value=[value.rebate_percent] step="0.01" max="100";
+                    }
+                }
+
+                div."form-row form-group" {
+                    div."col-12" {
+                        label for="beneficiary" {
+                           "Bénéficiaire " (set_client_btn(&client_name))
+                        }
+                        input."form-control" id="beneficiary" type="text" value=[&value.beneficiary] name="beneficiary";
+                    }
+                }
+
+                (notes(&value.notes, &page_data.form_config.note_templates))
+
+                @if page_data.product_type.is_dress() {
+                    @if let Some(extra_amount_config) = extra_large_amount(&page_data.product_type, &page_data.form_config.extra_large_amount) {
+                        @let extra_amount = value.extra_large_size.unwrap_or(extra_amount_config);
+                        div."form-row form-group" {
+                            div."col-12" {
+                                div."form-check" {
+                                    input type="hidden" value="false" name="extra-large-size";
+                                    input #extra-large-size-override name="extra-large-size" type="hidden" value="false";
+                                    input id="dress-extra-large-size" disabled class="form-check-input" name="extra-large-size" value="true" type="checkbox";
+                                    input type="hidden" name="extra-large-size-amount" value=(extra_amount);
+                                    label for="dress-extra-large-size" {
+                                        "Taille forte (" (extra_amount) ")"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    div."form-row form-group" {
+                        div."col-12" {
+                            div."form-check" {
+                                @let checked = if value.floor_item { Some(true) } else { None };
+                                input value="false" type="hidden" name="floor-item";
+                                input."form-check-input" id="dress-floor-item" type="checkbox" value="true" name="floor-item" checked=[checked];
+                                label for="dress-floor-item" {
+                                    "Modèle planché"
+                                }
+                            }
+                        }
+                    }
+                    div."form-row form-group" {
+                        div."col-12" {
+                            label for="size" {
+                                "Grandeur"
+                            }
+                            input."form-control" id="size" value=[&value.size] name="size" type="text";
+                        }
+                    }
+                    div."form-row form-group" {
+                        div."col-12" {
+                            label for="chest" {
+                                "Buste"
+                            }
+                            input."form-control" id="chest" value=[&value.chest] min="0" type="number" name="chest";
+                        }
+                    }
+                    div."form-row form-group" {
+                        div."col-12" {
+                            label for="waist" {
+                                "Taille"
+                            }
+                            input."form-control" id="waist" type="number" name="waist" value=[&value.waist] min="0";
+                        }
+                    }
+                    div."form-row form-group" {
+                        div."col-12" {
+                            label for="hips" {
+                                "Hanche"
+                            }
+                            input."form-control" id="hips" name="hips" type="number" value=[&value.hips] min="0";
+                        }
+                    }
+                    div."form-row form-group" {
+                        div."col-12" {
+                            label for="color" {
+                                "Couleur"
+                            }
+                            input."form-control" id="color" value=[&value.color] type="text" name="color";
+                        }
+                    }
+                } @else if page_data.product_type.is_gaine() {
+                    input name="extra-large-size" value="false" type="hidden";
+                    input name="floor-item" value="true" type="hidden";
+
+                    @let gaine_sizes = vec!["S", "M", "L", "XL", "2XL", "3XL", "4XL"];
+                    @let gaine_sizes: Vec<(bool, &str)> = gaine_sizes
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, e)| (value.size.as_ref().map_or(i == 0, |e2| e2 == &e), e))
+                        .collect();
+
+                    div."form-row form-group" {
+                        div."col-12" {
+                            label for="size" {
+                                "Grandeur"
+                            }
+                            select id="size" name="size" {
+                                @for (selected, gaine_size) in gaine_sizes {
+                                    @if selected {
+                                        option value=(gaine_size) selected {
+                                            (gaine_size)
+                                        }
+                                    } @else {
+                                        option value=(gaine_size) {
+                                            (gaine_size)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } @else {
+                    input name="extra-large-size" value="false" type="hidden";
+                    input name="floor-item" value="true" type="hidden";
+                }
+
+                @if !is_update {
+                    // this section is hidden if floor-item is not checked
+                    div."form-row form-group" {
+                        div."col-12" {
+                            label for="status" {
+                                "Status"
+                            }
+                            div."pull-right"{
+                                select id="status" name="status" {
+                                    option value=("") {
+                                        "Veuillez choisir une option"
+                                    }
+
+                                    @for s in FLOOR_ITEM_INITIAL_TRANSITIONS {
+                                        option value=(s) {
+                                            (ask_transition(s))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                br;
+                button."btn btn-primary btn-lg btn-block" type="submit" {
+                    "Sauvegarder"
+                }
+            }
+        },
+        FactureItemType::FactureItemLocation(value) => html! {
+            form."itemform" action=(url) method="POST" {
+                input name="product-id" value=(page_data.item.product.id) type="hidden";
+                input name="facture-id" value=(page_data.facture.id) type="hidden";
+
+                (quantity(value.quantity))
+
+                (price(&value.price))
+
+                div."form-row form-group" {
+                    div."col-12" {
+                        @let default_insurance = Some(2500);
+                        (price_input("insurance", "Assurances", &value.insurance.or(default_insurance), false))
+                    }
+                }
+
+                div."form-row form-group" {
+                    div."col-12" {
+                        (price_input("other-costs", "Autres frais", &value.insurance, false))
+                    }
+                }
+
+                div."form-row form-group" {
+                    div."col-12" {
+                        (set_client_btn(&client_name))
+                        input."form-control" id="beneficiary" type="text" value=[&value.beneficiary] name="beneficiary";
+                    }
+                }
+
+                (notes(&value.notes, &page_data.form_config.note_templates))
+
+                br;
+                button."btn btn-primary btn-lg btn-block" type="submit" {
+                    "Sauvegarder"
+                }
+            }
+        },
+        FactureItemType::FactureItemAlteration(value) => html! {
+            form."itemform" action=(url) method="POST" {
+                input name="product-id" value=(page_data.item.product.id) type="hidden";
+                input name="facture-id" value=(page_data.facture.id) type="hidden";
+
+                (quantity(value.quantity))
+
+                (price(&value.price))
+
+                div."form-row form-group" {
+                    div."col-12" {
+                        @let default_rebase = Some(0);
+                        (price_input("rebate-dollar", "Rabais ($)", &value.rebate_dollar.or(default_rebase), false))
+                    }
+                }
+
+                (notes(&value.notes, &page_data.form_config.note_templates))
+
+                br;
+                button."btn btn-primary btn-lg btn-block" type="submit" {
+                    "Sauvegarder"
+                }
+            }
+        },
+    }
+}
+
+fn status_history_table(state: &StateView) -> Markup {
+    let count = state.previous_states.iter().count();
+    html! {
+        table."table table-hover table-borderless" {
+            @for (idx, st) in state.previous_states.iter().enumerate() {
+                tr {
+                    td {
+                        (idx + 1) ". " (st.label_with_date())
+                    }
+                }
+            }
+            tr {
+                td {
+                    (count + 1) ". " (state.current_state.label_with_date())
+                }
+            }
+        }
+    }
+}
+
+fn state_modal(item: &FactureItemView, seamstresses: &Vec<String>) -> Markup {
+    let update_url = format!(
+        "/factures/{}/items/{}/update-state",
+        item.facture_id(),
+        item.id()
+    );
+    let target_id = format!("state-modal-{}", item.id());
+    let target_label = format!("label-{}", target_id);
+    let type_id = format!("type-{}", item.id());
+    let date_id = format!("date-{}", item.id());
+    let seamstress_id = format!("seamstress-{}", item.id());
+    html! {
+        div."modal fade" id=(target_id) role="dialog" aria-labelledby=(target_label) aria-hidden="true" tabindex="-1" {
+            div."modal-dialog" role="document" {
+                form action=(update_url) method="POST" {
+                    div."modal-content" {
+                        div."modal-header" {
+                            h5."modal-title" id=(target_label) {
+                                "Statut de l'item"
+                            }
+                            button."close" type="button" data-dismiss="modal" aria-label="Close" {
+                                span aria-hidden="true" {
+                                    (PreEscaped("&times;"))
+                                }
+                            }
+                        }
+                        div."modal-body" {
+                            div."form-row form-group" {
+                                div."col-12" {
+                                    label for=(type_id) {
+                                        "Transition"
+                                    }
+                                    select."transition-selection custom-select" id=(type_id) name="type" {
+                                        option value="PlaceOrder" selected {
+                                            "Enregister une date de commande"
+                                        }
+                                    }
+                                }
+                            }
+                            div."form-row form-group" {
+                                div."col-12" {
+                                    label for=(date_id) {
+                                        "Date"
+                                    }
+                                    input."form-control date-picker" id=(date_id) type="text" name="date" value="2026-03-23" required autocomplete="false";
+                                }
+                            }
+                            div."form-row form-group d-none seamstress" {
+                                div."col-12" {
+                                    label for=(seamstress_id) {
+                                        "Couturière"
+                                    }
+                                    select."custom-select" id=(seamstress_id) name="seamstress" {
+                                        @for ss in seamstresses {
+                                            option value=(ss) selected {
+                                                (ss)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        div."modal-footer" {
+                            button."btn btn-secondary" type="button" data-dismiss="modal" {
+                                "Annuler"
+                            }
+                            button."btn btn-primary" type="submit" {
+                                "Sauvegarder"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn the_item(page_data: &PageOneFactureItemData) -> Markup {
     let items_url = format!("/factures/{}/items", page_data.facture.id);
+    let statut_change_target_modal = format!("#state-modal-{}", page_data.item.item.id());
+    let available_transitions = page_data.item.state.available_transition().iter().count();
+    let statut_change_disabled = if available_transitions <= 0 {
+        Some(true)
+    } else {
+        None
+    };
+
+    let statuts_history = html! {
+        (status_history_table(&page_data.item.state))
+
+        hr;
+        button."btn btn-sm btn-warning" data-toggle="modal" disabled=[statut_change_disabled] data-target=(statut_change_target_modal) {
+            "Changer statut"
+        }
+    };
     html! {
         main role="main" {
             div."container-fluid" {
@@ -865,7 +1360,14 @@ fn the_item(page_data: &PageOneFactureItemData) -> Markup {
                         h3 {
                             (page_data.item.product.name)
                         }
+                        (facture_item_form(page_data, true))
                     }
+
+                    div."order-1 col-lg-4 order-lg-12" {
+                        (sidebar_info_box("Historique des statuts de l'item", None, statuts_history))
+                    }
+
+                    (state_modal(&page_data.item.item, &page_data.form_config.seamstresses))
                 }
             }
         }
@@ -905,11 +1407,12 @@ pub fn page_facture_items(page_data: PageFactureItemsData) -> Markup {
     page("Items de la facture", body)
 }
 
-pub fn page_one_facture_item(page_data: PageOneFactureItemData) -> Markup {
+pub fn page_one_facture_item(page_data: &PageOneFactureItemData) -> Markup {
     let body = html! {
         (navbar(MenuConstants::Factures))
-        (the_item(&page_data))
+        (the_item(page_data))
         (footer())
+        (item_form_scripts())
     };
     page("Item de facture", body)
 }
