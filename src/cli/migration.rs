@@ -710,7 +710,7 @@ pub struct FactureItemFields {
     color: Option<String>,
     #[serde(rename = "Bénéficiaire")]
     beneficiary: Option<String>,
-    #[serde(rename = "Plancher")]
+    #[serde(rename = "Item plancher")]
     floor_item: Option<bool>,
 
     // Location-specific
