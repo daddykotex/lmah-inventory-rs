@@ -140,6 +140,26 @@ impl State<String, String> {
             State::Invalid(_) => 7,
         }
     }
+
+    pub fn ask(transition: &str) -> &str {
+        match transition {
+            "RecordingOutDate" => "Enregistrer une date de sortie",
+            "RecordingTransfertToSeamstressDate" => {
+                "Enregistrer une date de remise à la couturière"
+            }
+            "PlaceOrder" => "Enregister une date de commande",
+            "RecordExpectedDeliveryDate" => "Enregistrer une date attendue de livraison",
+            "RecordReceptionDate" => "Enregister une date de réception",
+            "RecordAdjustDate" => "Enregistrer une date de prise d'ajustements",
+            "RecordingOutForLocationDate" => "Enregister une date de sortie pour location",
+            "RecordingClientReturnDate" => "Enregistrer une date retour de location",
+            "TransfertToAlteration" => "Enregistrer une date de transfert en altération",
+            "RecordingBackFromSeamstressDate" => "Enregistrer une date de couture terminé",
+            "RecordingBackOrderDate" => "Enregistrer un avis Back Order",
+            "RecordingCancelDate" => "Enregistrer une date d'abandon",
+            _ => "Inconnue",
+        }
+    }
 }
 
 pub enum Statut {
@@ -174,7 +194,7 @@ pub const FLOOR_ITEM_INITIAL_TRANSITIONS: [&'static str; 2] =
     ["RecordingOutDate", "TransfertToAlteration"];
 
 impl StateView {
-    pub fn available_transition(&self) -> Result<Vec<&str>> {
+    pub fn available_transitions(&self) -> Result<Vec<&str>> {
         match self.item_flow.as_ref() {
             "DressToOrderFlow" => Ok(match &self.current_state {
                 State::ToOrder => vec!["PlaceOrder"],
