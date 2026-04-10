@@ -6,10 +6,10 @@ use crate::server::{
         PageOneFactureItemData,
         config::{ExtraLargeAmounts, NoteTemplate},
         events::EventView,
-        facture_items::{FactureComputed, FactureItemType, FactureItemView},
+        facture_items::{FactureComputed, FactureItemType},
         factures::FactureView,
         product_types::ProductTypeView,
-        statuts::{FLOOR_ITEM_INITIAL_TRANSITIONS, StateView},
+        statuts::{FLOOR_ITEM_INITIAL_TRANSITIONS, State, StateView},
     },
     templates::utils::*,
 };
@@ -1253,7 +1253,9 @@ fn status_history_table(state: &StateView) -> Markup {
     }
 }
 
-fn state_modal(item: &FactureItemView, seamstresses: &Vec<String>) -> Markup {
+fn state_modal(data: &FactureItemEntry, seamstresses: &Vec<String>) -> Markup {
+    let item = &data.item;
+    let state = &data.state;
     let update_url = format!(
         "/factures/{}/items/{}/update-state",
         item.facture_id(),
@@ -1286,8 +1288,10 @@ fn state_modal(item: &FactureItemView, seamstresses: &Vec<String>) -> Markup {
                                         "Transition"
                                     }
                                     select."transition-selection custom-select" id=(type_id) name="type" {
-                                        option value="PlaceOrder" selected {
-                                            "Enregister une date de commande"
+                                        @for t in state.available_transitions().unwrap_or(vec![]) {
+                                            option value=(t) selected {
+                                                (State::<String, String>::ask(t))
+                                            }
                                         }
                                     }
                                 }
@@ -1333,7 +1337,7 @@ fn state_modal(item: &FactureItemView, seamstresses: &Vec<String>) -> Markup {
 fn the_item(page_data: &PageOneFactureItemData) -> Markup {
     let items_url = format!("/factures/{}/items", page_data.facture.id);
     let statut_change_target_modal = format!("#state-modal-{}", page_data.item.item.id());
-    let available_transitions = page_data.item.state.available_transition().iter().count();
+    let available_transitions = page_data.item.state.available_transitions().iter().count();
     let statut_change_disabled = if available_transitions <= 0 {
         Some(true)
     } else {
@@ -1367,7 +1371,7 @@ fn the_item(page_data: &PageOneFactureItemData) -> Markup {
                         (sidebar_info_box("Historique des statuts de l'item", None, statuts_history))
                     }
 
-                    (state_modal(&page_data.item.item, &page_data.form_config.seamstresses))
+                    (state_modal(&page_data.item, &page_data.form_config.seamstresses))
                 }
             }
         }
