@@ -1,5 +1,7 @@
 use sqlx::prelude::FromRow;
 
+use crate::server::models::product_types::ProductTypeView;
+
 /// Database row structure for products table
 /// Note: Airtable ID mapping is stored in the airtable_mapping table
 #[derive(Debug, FromRow)]
@@ -40,7 +42,7 @@ pub struct ProductImageInsert {
     pub position: String, // "front" or "back"
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ProductView {
     pub id: i64,
     pub name: String,
@@ -61,6 +63,27 @@ impl From<ProductRow> for ProductView {
             visible_on_site: value.visible_on_site,
             created_at: value.created_at,
             updated_at: value.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ProductInfo {
+    pub product: ProductView,
+    pub types: Vec<ProductTypeView>,
+}
+
+impl ProductInfo {
+    pub fn reduced_price(&self) -> Option<i64> {
+        if self.product.liquidation
+            && let Some(p) = self.product.price
+        {
+            let is_wedding = self.types.iter().any(|t| t.is_wedding());
+            let rate = if is_wedding { 0.7 } else { 0.5 };
+            let res: f64 = (p as f64 * rate).ceil();
+            Some(res as i64)
+        } else {
+            None
         }
     }
 }

@@ -2,7 +2,7 @@ use crate::server::models::{
     clients::ClientView,
     config::{ExtraLargeAmounts, NoteTemplate},
     events::EventView,
-    facture_items::{FactureComputed, FactureItemComputed, FactureItemView},
+    facture_items::{FactureComputed, FactureItemComputed, FactureItemType, FactureItemView},
     factures::FactureView,
     product_types::ProductTypeView,
     products::ProductView,
@@ -50,12 +50,12 @@ pub struct FactureItemsData {
     pub facture_computed: FactureComputed,
     pub client: ClientView,
     pub event: Option<EventView>,
-    pub items: Vec<FactureItemEntry>,
+    pub items: Vec<FactureItemEntry<FactureItemView>>,
     pub items_computed: Vec<FactureItemComputed>,
 }
 
-pub struct FactureItemEntry {
-    pub item: FactureItemView,
+pub struct FactureItemEntry<Item> {
+    pub item: Item,
     pub product: ProductView,
     pub state: StateView,
 }
@@ -72,10 +72,20 @@ pub struct FactureItemFormConfig {
     pub seamstresses: Vec<String>,
 }
 
+pub struct PageAddOneFactureItemData {
+    pub facture: FactureView,
+    pub facture_computed: FactureComputed,
+    pub event: Option<EventView>,
+    pub client: ClientView,
+    pub item: FactureItemEntry<FactureItemType>,
+    pub product_type: ProductTypeView,
+    pub form_config: FactureItemFormConfig,
+}
+
 pub struct PageOneFactureItemData {
     pub facture: FactureView,
     pub client: ClientView,
-    pub item: FactureItemEntry,
+    pub item: FactureItemEntry<FactureItemView>,
     pub product_type: ProductTypeView,
     pub form_config: FactureItemFormConfig,
 }

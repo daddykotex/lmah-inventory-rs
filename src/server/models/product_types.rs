@@ -6,7 +6,7 @@ pub struct ProductTypeRow {
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ProductTypeView {
     pub name: String,
 }
@@ -18,6 +18,20 @@ impl From<ProductTypeRow> for ProductTypeView {
 }
 
 impl ProductTypeView {
+    pub fn normalized(&self) -> String {
+        let res = if self.is_wedding() {
+            "wedding"
+        } else if self.is_mom() {
+            "mom"
+        } else if self.is_bal() {
+            "bal"
+        } else if self.is_bouq() {
+            "bouq"
+        } else {
+            "other"
+        };
+        res.to_string()
+    }
     pub fn is_dress(&self) -> bool {
         self.name.starts_with("Robe de ")
     }
