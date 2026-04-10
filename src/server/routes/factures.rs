@@ -9,10 +9,13 @@ use sqlx::SqlitePool;
 
 use crate::server::{
     models::{clients::ClientView, events::EventView},
-    routes::errors::AppError,
+    routes::{errors::AppError, redirect::RedirectOr},
     services::{
         clients, events,
-        factures::{select_all, select_one, select_one_facture_item},
+        factures::{
+            blank_facture_item, load_products_to_add, select_all, select_one,
+            select_one_facture_item,
+        },
     },
     templates::factures,
 };
@@ -39,7 +42,7 @@ async fn the_facture_item(
     Path((facture_id, facture_item_id)): Path<(i64, i64)>,
 ) -> Result<Markup, AppError> {
     let facture_item_data = select_one_facture_item(&pool, facture_id, facture_item_id).await?;
-    let rendered = factures::page_one_facture_item(&facture_item_data);
+    let rendered = factures::page_one_facture_item(facture_item_data);
 
     Ok(rendered)
 }
@@ -110,6 +113,33 @@ async fn new_facture_new_event(
     Ok(rendered)
 }
 
+async fn select_item(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+) -> Result<RedirectOr<Markup>, AppError> {
+    let result = load_products_to_add(&pool, facture_id).await?;
+    match result {
+        Ok(products) => {
+            let rendered = factures::page_select_item(facture_id, products);
+            Ok(RedirectOr::Response(rendered))
+        }
+        Err(product) => {
+            let url = format!("/factures/{}/add-item/{}", facture_id, product.id);
+            Ok(RedirectOr::Redirect(url))
+        }
+    }
+}
+
+async fn add_item(
+    State(pool): State<SqlitePool>,
+    Path((facture_id, product_id)): Path<(i64, i64)>,
+) -> Result<Markup, AppError> {
+    let facture_item_data = blank_facture_item(&pool, facture_id, product_id).await?;
+    let rendered = factures::page_add_item(facture_item_data);
+
+    Ok(rendered)
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
         .route("/factures/new", get(new_facture_the_client))
@@ -121,6 +151,11 @@ pub fn facture_router() -> Router<SqlitePool> {
         .route(
             "/factures/{facture_id}/select-event",
             get(new_facture_the_event),
+        )
+        .route("/factures/{facture_id}/add-item", get(select_item))
+        .route(
+            "/factures/{facture_id}/add-item/{product_id}",
+            get(add_item),
         )
         .route("/factures/{facture_id}/items", get(facture_items))
         .route(

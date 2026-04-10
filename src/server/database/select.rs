@@ -372,6 +372,23 @@ impl ClientRow {
 }
 
 impl ProductRow {
+    pub async fn select_only_products(
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<ProductRow>> {
+        let table = ProductRow::table();
+        let result: Vec<ProductRow> = sqlx::query_as(&format!(
+            "SELECT * FROM {} WHERE name NOT IN ('Altération', 'Location') ORDER BY id ASC",
+            table.table_name()
+        ))
+        .fetch_all(&mut **tx)
+        .await
+        .context(format!(
+            "Failed to retrieve all products but location and alteration"
+        ))?;
+
+        Ok(result)
+    }
+
     pub async fn select_by_name(
         name: &str,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
@@ -475,6 +492,27 @@ impl RefundRow {
 }
 
 impl ProductTypeRow {
+    pub async fn select_only_products(
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<(i64, String)>> {
+        let result: Vec<(i64, String)> = sqlx::query_as(
+            r#"
+            SELECT product_id, product_type_name
+            FROM product_product_types
+            LEFT JOIN products ON products.id = product_product_types.product_id
+            WHERE name NOT IN ('Altération', 'Location')
+            ORDER BY product_id ASC
+            "#,
+        )
+        .fetch_all(&mut **tx)
+        .await
+        .context(format!(
+            "Failed to retrieve product_types for all products but location and alteration"
+        ))?;
+
+        Ok(result)
+    }
+
     pub async fn select_for_product(
         product_id: i64,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,

@@ -2,14 +2,15 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 
 use crate::server::{
     models::{
-        FactureDashboardData, FactureItemEntry, FactureItemsData, PageFactureItemsData,
-        PageOneFactureItemData,
+        FactureDashboardData, FactureItemEntry, FactureItemFormConfig, FactureItemsData,
+        PageAddOneFactureItemData, PageFactureItemsData, PageOneFactureItemData,
         clients::{ClientView, ClientViewFuzzySearch},
         config::{ExtraLargeAmounts, NoteTemplate},
         events::EventView,
-        facture_items::{FactureComputed, FactureItemType},
+        facture_items::{FactureComputed, FactureItemType, FactureItemValue, FactureItemView},
         factures::FactureView,
         product_types::ProductTypeView,
+        products::{ProductInfo, ProductView},
         statuts::{FLOOR_ITEM_INITIAL_TRANSITIONS, State, StateView},
     },
     templates::{
@@ -220,6 +221,12 @@ fn item_form_scripts() -> Markup {
         script type="text/javascript" {
             (PreEscaped(r#"
                 $(document).ready(function () {
+                    $('form button.set-client-name').unbind('click').click(function() {
+                        var name = $(this).attr('data-name');
+                        if (name) {
+                            $('.form-row.form-group input[name="beneficiary"]').val(name);
+                        }
+                    });
                     function toggleSeamstressSelector(toggle) {
                         if (toggle) {
                             $('div.seamstress').removeClass('d-none');
@@ -327,6 +334,7 @@ fn seamstresses(data: Vec<String>) -> Markup {
 }
 
 fn the_items_action_col(
+    facture_id: i64,
     facture_type: &Option<String>,
     location_item_id: i64,
     alteration_item_id: i64,
@@ -335,9 +343,9 @@ fn the_items_action_col(
     let f = facture_type.as_ref().unwrap_or(&default);
     let f = f.as_str();
     let url = match f {
-        "Location" => format!("/factures/rec123/add-item/{}", location_item_id),
-        "Alteration" => format!("/factures/rec123/add-item/{}", alteration_item_id),
-        _ => "/factures/rec123/add-item".to_string(),
+        "Location" => format!("/factures/{}/add-item/{}", facture_id, location_item_id),
+        "Alteration" => format!("/factures/{}/add-item/{}", facture_id, alteration_item_id),
+        _ => format!("/factures/{}/add-item", facture_id),
     };
     html! {
         a."btn btn-primary" href=(url) {
@@ -363,13 +371,13 @@ fn item_row_action_col(facture_id: i64, facture_item_id: i64) -> Markup {
     }
 }
 
-fn list_the_items_row(entry: &FactureItemEntry) -> Markup {
+fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
     match &entry.item.value {
-        FactureItemType::FactureItemProduct(value) => {
+        FactureItemValue::FactureItemProduct(value) => {
             html! {
                 tr {
                     td scope="row" {
-                        (item_row_action_col(value.facture_id, value.id))
+                        (item_row_action_col(entry.item.facture_id, entry.item.id))
                     }
                     td {
                         (value.quantity)
@@ -403,10 +411,10 @@ fn list_the_items_row(entry: &FactureItemEntry) -> Markup {
                 }
             }
         }
-        FactureItemType::FactureItemLocation(value) => html! {
+        FactureItemValue::FactureItemLocation(value) => html! {
             tr {
                 td scope="row" {
-                    (item_row_action_col(value.facture_id, value.id))
+                    (item_row_action_col(entry.item.facture_id, entry.item.id))
                 }
                 td {
                     (value.quantity)
@@ -436,11 +444,11 @@ fn list_the_items_row(entry: &FactureItemEntry) -> Markup {
                 }
             }
         },
-        FactureItemType::FactureItemAlteration(value) => html! {
+        FactureItemValue::FactureItemAlteration(value) => html! {
 
             tr {
                 td scope="row" {
-                    (item_row_action_col(value.facture_id, value.id))
+                    (item_row_action_col(entry.item.facture_id, entry.item.id))
                 }
                 td {
                     (value.quantity)
@@ -588,20 +596,20 @@ fn facture_type(facture_type: &Option<String>) -> String {
     }
 }
 
-fn facture_info(facture_data: &FactureItemsData) -> Markup {
+fn facture_info_client(facture: &FactureView, client: &ClientView) -> Markup {
     html! {
         ul."ml-0 list-unstyled" {
             li {
                 b {
                     "Client: "
                 }
-                (facture_data.client.first_name) " " (facture_data.client.last_name)
+                (client.first_name) " " (client.last_name)
             }
             li {
                 b {
                     "Ville: "
                 }
-                @if let Some(c) = &facture_data.client.city {
+                @if let Some(c) = &client.city {
                     (c)
                 }
             }
@@ -609,13 +617,13 @@ fn facture_info(facture_data: &FactureItemsData) -> Markup {
                 b {
                     "Téléphone: "
                 }
-                (facture_data.client.phone1)
+                (client.phone1)
             }
             li {
                 b {
                     "Téléphone #2: "
                 }
-                @if let Some(p) = &facture_data.client.phone2 {
+                @if let Some(p) = &client.phone2 {
                     (p)
                 }
             }
@@ -623,9 +631,9 @@ fn facture_info(facture_data: &FactureItemsData) -> Markup {
                 b {
                     "Type de facture: "
                 }
-                (facture_type(&facture_data.facture.facture_type))
+                (facture_type(&facture.facture_type))
             }
-            @if let Some(p) = &facture_data.facture.paper_ref {
+            @if let Some(p) = &facture.paper_ref {
                 li {
                     b {
                         "Réf. ancienne: "
@@ -637,7 +645,7 @@ fn facture_info(facture_data: &FactureItemsData) -> Markup {
     }
 }
 
-fn facture_total(facture_computed: &FactureComputed) -> Markup {
+fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
     html! {
         table."table table-sm" {
             tbody {
@@ -702,7 +710,7 @@ fn facture_total(facture_computed: &FactureComputed) -> Markup {
     }
 }
 
-fn facture_actions(
+fn facture_info_actions(
     facture_id: i64,
     show_items_button: bool,
     show_transactions: bool,
@@ -834,10 +842,10 @@ fn facture_form(facture: &FactureView) -> Markup {
 fn the_items(page_data: &PageFactureItemsData) -> Markup {
     let has_event = page_data.facture_data.event.is_some();
     let box_content = html! {
-        (facture_info(&page_data.facture_data))
+        (facture_info_client(&page_data.facture_data.facture, &page_data.facture_data.client))
         br;
-        (facture_total(&page_data.facture_data.facture_computed))
-        (facture_actions(page_data.facture_data.facture.id, false, true, has_event, page_data.facture_data.facture.cancelled))
+        (facture_info_total(&page_data.facture_data.facture_computed))
+        (facture_info_actions(page_data.facture_data.facture.id, false, true, has_event, page_data.facture_data.facture.cancelled))
     };
     let facture_title = format!("Facture #{}", page_data.facture_data.facture.id);
 
@@ -848,7 +856,7 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
                     div."col-12 order-12 col-lg-8 order-lg-1" {
                         div."row actions sticky-top" {
                             div."col-12" {
-                                (the_items_action_col(&page_data.facture_data.facture.facture_type, page_data.location_product.id, page_data.alteration_product.id))
+                                (the_items_action_col(page_data.facture_data.facture.id, &page_data.facture_data.facture.facture_type, page_data.location_product.id, page_data.alteration_product.id))
                             }
                         }
 
@@ -1101,7 +1109,16 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
     }
 }
 
-fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Markup {
+fn facture_item_form(
+    facture_id: i64,
+    url: &str,
+    client: &ClientView,
+    product: &ProductView,
+    product_type: &ProductTypeView,
+    value: &FactureItemType,
+    form_config: &FactureItemFormConfig,
+    is_update: bool,
+) -> Markup {
     fn quantity(q: i64) -> Markup {
         html! {
             div."form-row form-group" {
@@ -1133,7 +1150,7 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
                         span {
                             "Notes"
                         }
-                        @if notes.iter().count() > 0 {
+                        @if note_templates.iter().count() > 0 {
                             div."pull-right" {
                                 select #notes-formula {
                                     option value="" {
@@ -1174,21 +1191,12 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
         }
     }
 
-    let url = if is_update {
-        format!(
-            "/factures/{}/items/{}/update",
-            page_data.facture.id,
-            page_data.item.item.id()
-        )
-    } else {
-        format!("/factures/{}/items", page_data.facture.id,)
-    };
-    let client_name = page_data.client.name();
-    match &page_data.item.item.value {
-        FactureItemType::FactureItemProduct(value) => html! {
+    let client_name = client.name();
+    match &value {
+        FactureItemValue::FactureItemProduct(value) => html! {
             form."itemform" action=(url) method="POST" {
-                input name="product-id" value=(page_data.item.product.id) type="hidden";
-                input type="hidden" name="facture-id" value=(page_data.facture.id);
+                input name="product-id" value=(&product.id) type="hidden";
+                input type="hidden" name="facture-id" value=(facture_id);
 
                 (quantity(value.quantity))
 
@@ -1212,10 +1220,10 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
                     }
                 }
 
-                (notes(&value.notes, &page_data.form_config.note_templates))
+                (notes(&value.notes, &form_config.note_templates))
 
-                @if page_data.product_type.is_dress() {
-                    @if let Some(extra_amount_config) = extra_large_amount(&page_data.product_type, &page_data.form_config.extra_large_amount) {
+                @if product_type.is_dress() {
+                    @if let Some(extra_amount_config) = extra_large_amount(product_type, &form_config.extra_large_amount) {
                         @let extra_amount = value.extra_large_size.unwrap_or(extra_amount_config);
                         div."form-row form-group" {
                             div."col-12" {
@@ -1283,7 +1291,7 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
                             input."form-control" id="color" value=[&value.color] type="text" name="color";
                         }
                     }
-                } @else if page_data.product_type.is_gaine() {
+                } @else if product_type.is_gaine() {
                     input name="extra-large-size" value="false" type="hidden";
                     input name="floor-item" value="true" type="hidden";
 
@@ -1349,10 +1357,10 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
                 }
             }
         },
-        FactureItemType::FactureItemLocation(value) => html! {
+        FactureItemValue::FactureItemLocation(value) => html! {
             form."itemform" action=(url) method="POST" {
-                input name="product-id" value=(page_data.item.product.id) type="hidden";
-                input name="facture-id" value=(page_data.facture.id) type="hidden";
+                input name="product-id" value=(product.id) type="hidden";
+                input name="facture-id" value=(facture_id) type="hidden";
 
                 (quantity(value.quantity))
 
@@ -1378,7 +1386,7 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
                     }
                 }
 
-                (notes(&value.notes, &page_data.form_config.note_templates))
+                (notes(&value.notes, &form_config.note_templates))
 
                 br;
                 button."btn btn-primary btn-lg btn-block" type="submit" {
@@ -1386,10 +1394,10 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
                 }
             }
         },
-        FactureItemType::FactureItemAlteration(value) => html! {
+        FactureItemValue::FactureItemAlteration(value) => html! {
             form."itemform" action=(url) method="POST" {
-                input name="product-id" value=(page_data.item.product.id) type="hidden";
-                input name="facture-id" value=(page_data.facture.id) type="hidden";
+                input name="product-id" value=(product.id) type="hidden";
+                input name="facture-id" value=(facture_id) type="hidden";
 
                 (quantity(value.quantity))
 
@@ -1402,7 +1410,7 @@ fn facture_item_form(page_data: &PageOneFactureItemData, is_update: bool) -> Mar
                     }
                 }
 
-                (notes(&value.notes, &page_data.form_config.note_templates))
+                (notes(&value.notes, &form_config.note_templates))
 
                 br;
                 button."btn btn-primary btn-lg btn-block" type="submit" {
@@ -1433,19 +1441,21 @@ fn status_history_table(state: &StateView) -> Markup {
     }
 }
 
-fn state_modal(data: &FactureItemEntry, seamstresses: &Vec<String>) -> Markup {
-    let item = &data.item;
-    let state = &data.state;
+fn state_modal(
+    facture_id: i64,
+    facture_item_id: i64,
+    state: &StateView,
+    seamstresses: &Vec<String>,
+) -> Markup {
     let update_url = format!(
         "/factures/{}/items/{}/update-state",
-        item.facture_id(),
-        item.id()
+        facture_id, facture_item_id
     );
-    let target_id = format!("state-modal-{}", item.id());
+    let target_id = format!("state-modal-{}", facture_item_id);
     let target_label = format!("label-{}", target_id);
-    let type_id = format!("type-{}", item.id());
-    let date_id = format!("date-{}", item.id());
-    let seamstress_id = format!("seamstress-{}", item.id());
+    let type_id = format!("type-{}", facture_item_id);
+    let date_id = format!("date-{}", facture_item_id);
+    let seamstress_id = format!("seamstress-{}", facture_item_id);
     html! {
         div."modal fade" id=(target_id) role="dialog" aria-labelledby=(target_label) aria-hidden="true" tabindex="-1" {
             div."modal-dialog" role="document" {
@@ -1514,9 +1524,16 @@ fn state_modal(data: &FactureItemEntry, seamstresses: &Vec<String>) -> Markup {
     }
 }
 
-fn the_item(page_data: &PageOneFactureItemData) -> Markup {
-    let items_url = format!("/factures/{}/items", page_data.facture.id);
-    let statut_change_target_modal = format!("#state-modal-{}", page_data.item.item.id());
+fn the_item(page_data: PageOneFactureItemData) -> Markup {
+    let facture_id = page_data.facture.id;
+    let facture_item_id = page_data.item.item.id;
+    let is_update = true;
+    let url = format!(
+        "/factures/{}/items/{}/update",
+        page_data.facture.id, facture_item_id
+    );
+    let items_url = format!("/factures/{}/items", facture_id);
+    let statut_change_target_modal = format!("#state-modal-{}", facture_item_id);
     let available_transitions = page_data.item.state.available_transitions().iter().count();
     let statut_change_disabled = if available_transitions <= 0 {
         Some(true)
@@ -1544,14 +1561,14 @@ fn the_item(page_data: &PageOneFactureItemData) -> Markup {
                         h3 {
                             (page_data.item.product.name)
                         }
-                        (facture_item_form(page_data, true))
+                        (facture_item_form(facture_id, &url, &page_data.client, &page_data.item.product, &page_data.product_type, &page_data.item.item.value, &page_data.form_config, is_update))
                     }
 
                     div."order-1 col-lg-4 order-lg-12" {
                         (sidebar_info_box("Historique des statuts de l'item", None, statuts_history))
                     }
 
-                    (state_modal(&page_data.item, &page_data.form_config.seamstresses))
+                    (state_modal(facture_id, facture_item_id, &page_data.item.state, &page_data.form_config.seamstresses))
                 }
             }
         }
@@ -1706,6 +1723,144 @@ fn new_facture_new_event(event_form: Markup) -> Markup {
     }
 }
 
+fn select_item(facture_id: i64, products: Vec<ProductInfo>) -> Markup {
+    let add_product_url = format!("/factures/{}/add-product", facture_id);
+    let add_item_form_url = format!("/factures/{}/add-item", facture_id);
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row actions sticky-top" id="facture-items-actions" {
+                    div."col-2" {
+                        a."btn btn-primary" href=(add_product_url) {
+                            "Ajouter un produit"
+                        }
+                    }
+                    div."col-10" {
+                        input."form-control" id="search" type="text" placeholder="Filtre";
+                    }
+                    div."filtered-warning col-12 d-none" {
+                        span {
+                            b {
+                                "Affichage filtré"
+                            }
+                        }
+                    }
+                    div."offset-2 col-10" {
+                        div."form-group row" {
+                            div."ml-2 form-check" {
+                                label."form-check-label" {
+                                    input."product-type-checkbox form-check-input" type="checkbox" checked="true" value="wedding";
+                                    "Robe de mariée"
+                                }
+                            }
+                            div."ml-2 form-check" {
+                                label."form-check-label" {
+                                    input."product-type-checkbox form-check-input" checked="true" type="checkbox" value="mom";
+                                    "Robe de mère de la mariée"
+                                }
+                            }
+                            div."ml-2 form-check" {
+                                label."form-check-label" {
+                                    input."product-type-checkbox form-check-input" type="checkbox" value="bal" checked="true";
+                                    "Robe de bal"
+                                }
+                            }
+                            div."ml-2 form-check" {
+                                label."form-check-label" {
+                                    input."product-type-checkbox form-check-input" type="checkbox" value="bouq" checked="true";
+                                    "Robe de bouquetière"
+                                }
+                            }
+                            div."ml-2 form-check" {
+                                label."form-check-label" {
+                                    input."product-type-checkbox form-check-input" value="other" checked="true" type="checkbox";
+                                    "Autres"
+                                }
+                            }
+                            div."ml-2 form-check" {
+                                label."form-check-label" {
+                                    input."product-type-checkbox form-check-input" checked="true" type="checkbox" value="non-available";
+                                    "Affiché les articles non disponible en boutique"
+                                }
+                            }
+                        }
+                    }
+                }
+                br;
+                div."row" {
+                    div."col-12" {
+                        form id="add-item" action=(add_item_form_url) method="POST" {
+                            div."row products-cards" {
+                                @for p in products {
+                                    @let add_one_item_url = format!("/factures/{}/add-item/{}", facture_id, p.product.id);
+
+                                    @let normalized_types: Vec<String> = (&p.types).iter().map(|pt|pt.normalized()).collect();
+                                    @let normalized_types: Vec<&str> = normalized_types.iter().map(|pt|pt.as_str()).collect();
+                                    @let normalized_types = normalized_types.join(",");
+
+                                    @let types: Vec<&str> = (&p.types).into_iter().map(|pt|pt.name.as_str()).collect();
+                                    @let types = types.join(", ");
+
+                                    div."one-product-card col-6 col-sm-3 col-md-2" data-product-availability="true" data-product-types=(normalized_types) {
+                                        div."card item mb-2" style="width: 15rem;" {
+                                            div."card-body" {
+                                                h5."card-title" {
+                                                    (p.product.name) @if let Some(price) = p.product.price { " - " (price) "$" }
+                                                }
+                                                h6."card-subtitle text-muted" {
+                                                    (types) @if let Some(price) = p.reduced_price() { " - Prix réduit "(price) "$" }
+                                                }
+                                                a."card-link stretched-link" href=(add_one_item_url) {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn add_item(page_data: PageAddOneFactureItemData) -> Markup {
+    let items_url = format!("/factures/{}/items", page_data.facture.id);
+    let is_update = false;
+    let has_event = page_data.event.is_some();
+
+    let box_content = html! {
+        (facture_info_client(&page_data.facture, &page_data.client))
+        br;
+        (facture_info_total(&page_data.facture_computed))
+        (facture_info_actions(page_data.facture.id, false, true, has_event, page_data.facture.cancelled))
+    };
+    let facture_title = format!("Facture #{}", page_data.facture.id);
+
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row" {
+                    div."order-12 col-lg-8 order-lg-1" {
+                        a href=(items_url) {
+                            "Retour aux items de la facture"
+                        }
+                        br;
+                        h3 {
+                            (page_data.item.product.name)
+                        }
+                        (facture_item_form(page_data.facture.id, &items_url, &page_data.client, &page_data.item.product, &page_data.product_type, &page_data.item.item,&page_data.form_config , is_update))
+                    }
+
+                    div."order-1 col-lg-4 order-lg-12" {
+                        (sidebar_info_box("Détails de la facture", Some(&facture_title), box_content))
+                    }
+                }
+            }
+        }
+    }
+}
+
 // pages
 
 fn page(title: &str, body: Markup) -> Markup {
@@ -1741,7 +1896,7 @@ pub fn page_facture_items(page_data: PageFactureItemsData) -> Markup {
     page("Items de la facture", body)
 }
 
-pub fn page_one_facture_item(page_data: &PageOneFactureItemData) -> Markup {
+pub fn page_one_facture_item(page_data: PageOneFactureItemData) -> Markup {
     let body = html! {
         (navbar(MenuConstants::Factures))
         (the_item(page_data))
@@ -1803,4 +1958,23 @@ pub fn page_new_facture_new_event(facture_id: i64) -> Markup {
         (event_form.javascript)
     };
     page("Nouvel événement", body)
+}
+pub fn page_select_item(facture_id: i64, products: Vec<ProductInfo>) -> Markup {
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (select_item(facture_id, products))
+        (footer())
+        (search_products())
+    };
+    page("Nouvel événement", body)
+}
+
+pub fn page_add_item(page_data: PageAddOneFactureItemData) -> Markup {
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (add_item(page_data))
+        (footer())
+        (item_form_scripts())
+    };
+    page("Item de facture", body)
 }
