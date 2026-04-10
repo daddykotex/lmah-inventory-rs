@@ -76,16 +76,13 @@ where
     }
 }
 
-struct EventFormMarkup {
-    body: Markup,
-    javascript: Markup,
+pub struct EventFormMarkup {
+    pub body: Markup,
+    pub javascript: Markup,
 }
 
-fn new_event_form(
-    path: &str,
-    event_types: Vec<String>,
-    maybe_event: Option<EventView>,
-) -> EventFormMarkup {
+pub fn new_event_form(path: &str, maybe_event: Option<EventView>) -> EventFormMarkup {
+    let event_types: Vec<String> = EVENT_TYPES.iter().map(|e| e.to_string()).collect();
     let maybe_name = maybe_event.clone().map(|s| s.name);
     let maybe_date = maybe_event.clone().map(|s| s.date);
     let maybe_type = maybe_event.clone().map(|s| s.event_type);
@@ -296,12 +293,11 @@ const EVENT_TYPES: [&str; 5] = [
 
 pub fn page_one_event(event: EventView) -> Markup {
     let event_name = event.name.clone();
-    let event_types = EVENT_TYPES.iter().map(|e| e.to_string()).collect();
     let update_url = format!("/events/{}/update", event.id);
     let EventFormMarkup {
         body: form_body,
         javascript,
-    } = new_event_form(&update_url, event_types, Some(event));
+    } = new_event_form(&update_url, Some(event));
 
     // TODO retrieve related factures
     let related_factures = related_factures(Vec::new());
@@ -317,11 +313,10 @@ pub fn page_one_event(event: EventView) -> Markup {
 }
 
 pub fn page_new_event() -> Markup {
-    let event_types = EVENT_TYPES.iter().map(|e| e.to_string()).collect();
     let EventFormMarkup {
         body: form_body,
         javascript,
-    } = new_event_form("/events/new", event_types, None);
+    } = new_event_form("/events/new", None);
     let related_factures = related_factures(Vec::new());
     let body = html! {
         (navbar(MenuConstants::Evenements))
