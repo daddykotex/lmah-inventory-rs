@@ -1,14 +1,19 @@
 use axum::{
     Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     routing::get,
 };
 use maud::Markup;
+use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::server::{
+    models::clients::ClientView,
     routes::errors::AppError,
-    services::factures::{select_all, select_one, select_one_facture_item},
+    services::{
+        clients,
+        factures::{select_all, select_one, select_one_facture_item},
+    },
     templates::factures,
 };
 
@@ -39,8 +44,41 @@ async fn the_facture_item(
     Ok(rendered)
 }
 
+#[derive(Deserialize)]
+struct FactureTypeQuery {
+    facture_type: Option<String>,
+}
+
+async fn new_facture_new_client(
+    State(pool): State<SqlitePool>,
+    facture_type: Query<FactureTypeQuery>,
+) -> Result<Markup, AppError> {
+    let clients = clients::select_all(&pool).await?;
+    let clients = clients.into_iter().map(ClientView::from).collect();
+    let rendered = factures::page_new_facture_new_client(
+        facture_type.facture_type.as_ref().map(|a| a.as_str()),
+        clients,
+    );
+    Ok(rendered)
+}
+
+async fn new_facture_the_client(
+    State(pool): State<SqlitePool>,
+    facture_type: Query<FactureTypeQuery>,
+) -> Result<Markup, AppError> {
+    let clients = clients::select_all(&pool).await?;
+    let clients = clients.into_iter().map(ClientView::from).collect();
+    let rendered = factures::page_new_facture_the_client(
+        facture_type.facture_type.as_ref().map(|a| a.as_str()),
+        clients,
+    );
+    Ok(rendered)
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
+        .route("/factures/new", get(new_facture_the_client))
+        .route("/factures/new/new-client", get(new_facture_new_client))
         .route("/factures/{facture_id}/items", get(facture_items))
         .route(
             "/factures/{facture_id}/items/{facture_item_id}",

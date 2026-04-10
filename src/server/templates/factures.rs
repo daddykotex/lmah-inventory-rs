@@ -4,6 +4,7 @@ use crate::server::{
     models::{
         FactureDashboardData, FactureItemEntry, FactureItemsData, PageFactureItemsData,
         PageOneFactureItemData,
+        clients::{ClientView, ClientViewFuzzySearch},
         config::{ExtraLargeAmounts, NoteTemplate},
         events::EventView,
         facture_items::{FactureComputed, FactureItemType},
@@ -11,8 +12,186 @@ use crate::server::{
         product_types::ProductTypeView,
         statuts::{FLOOR_ITEM_INITIAL_TRANSITIONS, State, StateView},
     },
-    templates::utils::*,
+    templates::{
+        clients::{clients_table, find_clients, new_client_form},
+        utils::*,
+    },
 };
+
+struct FuzzySearch {
+    body: Markup,
+    javascript: Markup,
+}
+
+fn fuzzy_search_client(facture_type: &str, clients: Vec<ClientView>) -> FuzzySearch {
+    let clients: Vec<ClientViewFuzzySearch> = clients
+        .into_iter()
+        .map(ClientViewFuzzySearch::from)
+        .collect();
+    let clients_serialized = serde_json::to_string(&clients).unwrap_or("[]".to_string());
+
+    let clients = format!("var clients = {};", clients_serialized);
+    let body = html! {
+        div."d-none" id="result-template" {
+            form action="/factures/new/select-client" method="POST" {
+                input."selected-client" type="hidden" name="selected-client";
+                input name="facture-type" type="hidden" value=(facture_type);
+                div."card item" style="width: 15rem;" {
+                    div."card-body" {
+                        h5."card-title" {}
+                        h6."card-subtitle text-muted" {}
+                        a."card-link stretched-link" href="" {}
+                    }
+                }
+            }
+        }
+        style {
+            (PreEscaped(r#"
+                #fuzzy-results {
+                    display: flex;
+                }
+                #fuzzy-results .item {
+                    flex-basis: 20%;
+                    margin: 5px;
+                }
+            "#))
+        }
+        div."row" id="fuzzy-results" {}
+    };
+    let javascript = html! {
+        script async src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/3.4.5/fuse.min.js" {}
+
+        script type="text/javascript" {
+            (PreEscaped(clients))
+            (PreEscaped(r##"
+                /*
+                list is an array of json object
+                inputIds is a json object representing selectors eg: `{"firstname": "Prenom", "lastname": "Nom"}`
+                */
+                function setupFuse(list, inputIds) {
+                    var keys = Object.values(inputIds);
+                    var options = {
+                        shouldSort: true,
+                        threshold: 0.3,
+                        location: 0,
+                        distance: 100,
+                        maxPatternLength: 32,
+                        minMatchCharLength: 1,
+                        keys
+                    };
+                    var fuse = new Fuse(list, options); // "list" is the item array
+                    function renderResults(results) {
+                        var template$ = $('#result-template');
+                        var node$ = $('#fuzzy-results');
+
+                        node$.empty();
+
+                        results.forEach(function (e) {
+                            var cloned$ = template$.clone();
+                            cloned$.removeClass("d-none");
+                            $('.card-title', cloned$).html([e.Prenom, e.Nom].join(" "));
+                            $('.card-subtitle', cloned$).html(e.Ville);
+                            $('.selected-client', cloned$).attr('value', e.id);
+                            $('.card-link', cloned$).unbind('click').click(function (e) {
+                                e.preventDefault();
+                                $('form', cloned$).submit();
+                            });
+                            node$.append(cloned$);
+                        });
+                    }
+
+                    var selector = Object.keys(inputIds).map((k) => `#${k}`).join(",");
+
+                    $(selector).on("keyup", function () {
+                        var searchTerms = $.makeArray($(selector).map(function (i, o) { return $(o).val(); }));
+                        var search = searchTerms.join(",");
+                        renderResults(fuse.search(search));
+                    });
+                }
+                window.addEventListener('load', function () { //wait for fuse
+                  setupFuse(clients, {"firstname": "Prenom", "lastname": "Nom"});
+                });
+            "##))
+        }
+    };
+    FuzzySearch { body, javascript }
+}
+
+fn search_products() -> Markup {
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(r##"
+                $(document).ready(function () {
+                    function setClass(inputLength) {
+                        if (inputLength > 0) {
+                            $('#facture-items-actions .filtered-warning').removeClass('d-none');
+                            $('#facture-items-actions').addClass('colored-actions');
+                        } else {
+                            $('#facture-items-actions').removeClass('colored-actions');
+                            $('#facture-items-actions .filtered-warning').addClass('d-none');
+                        }
+                    }
+                    function search(value) {
+                        $("div.products-cards .one-product-card:not(.d-none)").filter(function () {
+                            var title = $('.card-title', $(this))
+                                .text()
+                                .toLowerCase()
+                                .normalize('NFD')
+                                .replace(/[\u0300-\u036f]/g, "");
+                            var normalizedValue = value
+                                .toLowerCase()
+                                .normalize('NFD')
+                                .replace(/[\u0300-\u036f]/g, "");
+                            $(this).toggle(title.indexOf(normalizedValue) > -1);
+                        });
+                    }
+                    $("#search").on("keyup", function () {
+                        var value = $(this).val().toLowerCase();
+                        search($(this).val().toLowerCase());
+                        setClass(value.length);
+                    });
+                    search($("#search").val().toLowerCase());
+                    setClass($("#search").val().toLowerCase().length);
+
+                    function filterProducts() {
+                        var showNonAvailable = $('input.product-availability-checkbox').map((i, o) => ($(o).prop("checked"))).toArray().every((v) => v);
+                        var currentStatuses = $("input.product-type-checkbox").map((i, o) => ({ [$(o).val()]: $(o).prop("checked") })).toArray();
+                        var statusByType = currentStatuses.reduce(function (p, c) {
+                            var type = c[0];
+                            var checked = c[1];
+                            return {
+                                ...p,
+                                ...c
+                            }
+                            }, {}
+                        );
+
+                        $('div.products-cards .one-product-card').each(function (i, o) {
+                            var rawTypes = $(o).attr('data-product-types');
+                            var availability = $(o).attr('data-product-availability') === 'true';
+                            var pTypes = rawTypes.split(",").map(s => s.trim())
+                            var typeShow = pTypes.some(s => statusByType[s] === true);
+                            var show = typeShow && (availability || showNonAvailable);
+                            if (show) {
+                                $(o).removeClass("d-none");
+                            } else {
+                                $(o).addClass("d-none");
+                            }
+                        });
+
+                        search($("#search").val().toLowerCase());
+                    }
+                    
+                    $("input.product-type-checkbox, input.product-availability-checkbox").on("change", function () {
+                        filterProducts();
+                    });
+
+                    filterProducts();
+                });
+            "##))
+        }
+    }
+}
 
 fn generate_print_js(for_admin: bool) -> Markup {
     html! {
@@ -904,13 +1083,13 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
                             button."btn btn-secondary" type="button" data-dismiss="modal" {
                                 "Annuler"
                             }
-                            a."btn btn-primary" href="/factures/new?facture-type=alteration" {
+                            a."btn btn-primary" href="/factures/new?facture-type=Alteration" {
                                 "Altération"
                             }
-                            a."btn btn-primary" href="/factures/new?facture-type=products" {
+                            a."btn btn-primary" href="/factures/new?facture-type=Product" {
                                 "Produits"
                             }
-                            a."btn btn-primary" href="/factures/new?facture-type=location" {
+                            a."btn btn-primary" href="/factures/new?facture-type=Location" {
                                 "Location"
                             }
                         }
@@ -1378,6 +1557,81 @@ fn the_item(page_data: &PageOneFactureItemData) -> Markup {
     }
 }
 
+fn make_client_table_action_col(facture_type: &str) -> impl Fn(&ClientView) -> Markup {
+    move |client| {
+        html! {
+            form action="/factures/new/select-client" method="POST" {
+                input name="selected-client" value=(client.id) type="hidden";
+                input name="facture-type" value=(facture_type) type="hidden";
+                button."btn btn-sm btn-primary" type="submit" {
+                    "Choisir"
+                }
+            }
+        }
+    }
+}
+
+fn new_facture_the_client(facture_type: &str, clients: Vec<ClientView>) -> Markup {
+    let action_col = make_client_table_action_col(facture_type);
+    let url = format!("/factures/new/new-client?facture-type={}", facture_type);
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row actions sticky-top" id="client-actions" {
+                    div."col-12 col-sm-4" {
+                        div."row" {
+                            div."col-auto" {
+                                h4 {
+                                    "Choisisser un client existant"
+                                }
+                            }
+                            div."col-auto" {
+                                a."btn btn-primary btn-sm" href=(url) {
+                                    "Nouveau client"
+                                }
+                            }
+                        }
+                    }
+                    div."col-12 col-sm-8" {
+                        input."form-control" id="search" type="text" placeholder="Filtre";
+                    }
+                    div."filtered-warning col-12 d-none" {
+                        span {
+                            b {
+                                "Affichage filtré"
+                            }
+                        }
+                    }
+                }
+                div."row" {
+                    div."col-12" {
+                        (clients_table(clients, action_col))
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn new_facture_new_client(client_form: Markup, fuzzy_search: Markup) -> Markup {
+    html! {
+        main role="main" {
+            div."container-fluid mt-1" {
+                div."row" {
+                    div."col-12 col-md-6" {
+                        (client_form)
+                    }
+                    div."col-12 col-md-6" {
+                        (fuzzy_search)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// pages
+
 fn page(title: &str, body: Markup) -> Markup {
     html! {
         (DOCTYPE)
@@ -1417,6 +1671,33 @@ pub fn page_one_facture_item(page_data: &PageOneFactureItemData) -> Markup {
         (the_item(page_data))
         (footer())
         (item_form_scripts())
+    };
+    page("Item de facture", body)
+}
+
+pub fn page_new_facture_the_client(facture_type: Option<&str>, clients: Vec<ClientView>) -> Markup {
+    let facture_type = facture_type.unwrap_or("Product");
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (new_facture_the_client(facture_type, clients))
+        (footer())
+        (find_clients("clients-actions", "search", "table.find-client", None))
+    };
+    page("Item de facture", body)
+}
+
+pub fn page_new_facture_new_client(facture_type: Option<&str>, clients: Vec<ClientView>) -> Markup {
+    let facture_type = facture_type.unwrap_or("Product");
+    let url = format!("/factures/new/new-client?facture-type={}", facture_type);
+    let client_form = new_client_form(url.as_ref(), None);
+    let fuzzy = fuzzy_search_client(facture_type, clients);
+
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (new_facture_new_client(client_form.body, fuzzy.body))
+        (footer())
+        (client_form.javascript)
+        (fuzzy.javascript)
     };
     page("Item de facture", body)
 }
