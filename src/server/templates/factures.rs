@@ -14,6 +14,7 @@ use crate::server::{
     },
     templates::{
         clients::{clients_table, find_clients, new_client_form},
+        events::events_table,
         utils::*,
     },
 };
@@ -710,7 +711,7 @@ fn facture_actions(
 ) -> Markup {
     let url = format!("/factures/{}/items", facture_id);
     let transactions_url = format!("/factures/{}/transactions", facture_id);
-    let event_url = format!("/factures/{}/select-event", facture_id);
+    let event_url = format!("/factures/{}/select-event?no_event_url={}", facture_id, url);
     let cancel_url = format!("/factures/{}/cancel", facture_id);
     let uncancel_url = format!("/factures/{}/uncancel", facture_id);
     html! {
@@ -1630,6 +1631,66 @@ fn new_facture_new_client(client_form: Markup, fuzzy_search: Markup) -> Markup {
     }
 }
 
+fn make_event_table_action_col(url: &str) -> impl Fn(&EventView) -> Markup {
+    move |event| {
+        html! {
+            form action=(url) method="POST" {
+                input name="selected-event" value=(event.id) type="hidden";
+                button."btn btn-sm btn-primary" type="submit" {
+                    "Choisir"
+                }
+            }
+        }
+    }
+}
+fn new_facture_the_event(facture_id: i64, no_event_url: &str, events: Vec<EventView>) -> Markup {
+    let new_event_url = format!("/factures/{}/select-event", facture_id);
+    let action_col = make_event_table_action_col(&new_event_url);
+    let url = format!("/factures/{}/new-event", facture_id);
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row actions sticky-top" id="events-actions" {
+                    div."col-12 col-sm-5" {
+                        div."row" {
+                            div."col-auto" {
+                                h4 {
+                                    "Choisisser un événement existant"
+                                }
+                            }
+                            div."col-auto" {
+                                a."btn btn-primary btn-sm" href=(url) {
+                                    "Nouvel événement"
+                                }
+                            }
+                            div."col-auto" {
+                                a."btn btn-warning btn-sm" href=(no_event_url) {
+                                    "Aucun événement"
+                                }
+                            }
+                        }
+                    }
+                    div."col-12 col-sm-8" {
+                        input."form-control" id="search" type="text" placeholder="Filtre";
+                    }
+                    div."filtered-warning col-12 d-none" {
+                        span {
+                            b {
+                                "Affichage filtré"
+                            }
+                        }
+                    }
+                }
+                div."row" {
+                    div."col-12" {
+                        (events_table(events, action_col))
+                    }
+                }
+            }
+        }
+    }
+}
+
 // pages
 
 fn page(title: &str, body: Markup) -> Markup {
@@ -1683,7 +1744,7 @@ pub fn page_new_facture_the_client(facture_type: Option<&str>, clients: Vec<Clie
         (footer())
         (find_clients("clients-actions", "search", "table.find-client", None))
     };
-    page("Item de facture", body)
+    page("Sélectionner un client", body)
 }
 
 pub fn page_new_facture_new_client(facture_type: Option<&str>, clients: Vec<ClientView>) -> Markup {
@@ -1699,5 +1760,19 @@ pub fn page_new_facture_new_client(facture_type: Option<&str>, clients: Vec<Clie
         (client_form.javascript)
         (fuzzy.javascript)
     };
-    page("Item de facture", body)
+    page("Nouveau client", body)
+}
+
+pub fn page_new_facture_the_event(
+    facture_id: i64,
+    no_event_url: &str,
+    events: Vec<EventView>,
+) -> Markup {
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (new_facture_the_event(facture_id, no_event_url, events))
+        (footer())
+        (find_clients("events-actions", "search", "table.find-event", None))
+    };
+    page("Sélectionner un événement", body)
 }
