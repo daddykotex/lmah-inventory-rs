@@ -2,7 +2,7 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 
 use crate::server::{models::clients::ClientView, templates::utils::*};
 
-fn find_clients(
+pub fn find_clients(
     container_id: &str,
     input_id: &str,
     table_selector: &str,
@@ -32,7 +32,10 @@ fn action_col(client: &ClientView) -> Markup {
     }
 }
 
-fn clients_table(clients: Vec<ClientView>) -> Markup {
+pub fn clients_table<F>(clients: Vec<ClientView>, action_col_fn: F) -> Markup
+where
+    F: Fn(&ClientView) -> Markup,
+{
     html! {
         table."table table-sm find-client" {
             thead {
@@ -52,7 +55,7 @@ fn clients_table(clients: Vec<ClientView>) -> Markup {
                 @for client in clients {
                     tr {
                         td {
-                            (action_col(&client))
+                            (action_col_fn(&client))
                         }
                         td {
                             (client.last_name)
@@ -67,12 +70,12 @@ fn clients_table(clients: Vec<ClientView>) -> Markup {
     }
 }
 
-struct ClientFormMarkup {
-    body: Markup,
-    javascript: Markup,
+pub struct ClientFormMarkup {
+    pub body: Markup,
+    pub javascript: Markup,
 }
 
-fn new_client_form(path: &str, maybe_client: Option<ClientView>) -> ClientFormMarkup {
+pub fn new_client_form(path: &str, maybe_client: Option<ClientView>) -> ClientFormMarkup {
     let maybe_first_name = maybe_client.clone().map(|s| s.first_name);
     let maybe_last_name = maybe_client.clone().map(|s| s.last_name);
     let maybe_street = maybe_client.clone().and_then(|s| s.street);
@@ -222,7 +225,7 @@ fn list_clients(clients: Vec<ClientView>) -> Markup {
                 }
                 div."row" {
                     div."col-12" {
-                        (clients_table(clients))
+                        (clients_table(clients, action_col))
                     }
                 }
             }
