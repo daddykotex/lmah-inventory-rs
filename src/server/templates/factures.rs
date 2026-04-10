@@ -14,7 +14,7 @@ use crate::server::{
     },
     templates::{
         clients::{clients_table, find_clients, new_client_form},
-        events::events_table,
+        events::{events_table, new_event_form},
         utils::*,
     },
 };
@@ -711,7 +711,7 @@ fn facture_actions(
 ) -> Markup {
     let url = format!("/factures/{}/items", facture_id);
     let transactions_url = format!("/factures/{}/transactions", facture_id);
-    let event_url = format!("/factures/{}/select-event?no_event_url={}", facture_id, url);
+    let event_url = format!("/factures/{}/select-event", facture_id);
     let cancel_url = format!("/factures/{}/cancel", facture_id);
     let uncancel_url = format!("/factures/{}/uncancel", facture_id);
     html! {
@@ -1643,6 +1643,7 @@ fn make_event_table_action_col(url: &str) -> impl Fn(&EventView) -> Markup {
         }
     }
 }
+
 fn new_facture_the_event(facture_id: i64, no_event_url: &str, events: Vec<EventView>) -> Markup {
     let new_event_url = format!("/factures/{}/select-event", facture_id);
     let action_col = make_event_table_action_col(&new_event_url);
@@ -1684,6 +1685,20 @@ fn new_facture_the_event(facture_id: i64, no_event_url: &str, events: Vec<EventV
                 div."row" {
                     div."col-12" {
                         (events_table(events, action_col))
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn new_facture_new_event(event_form: Markup) -> Markup {
+    html! {
+        main role="main" {
+            div."container-fluid mt-1" {
+                div."row" {
+                    div."col-12" {
+                        (event_form)
                     }
                 }
             }
@@ -1775,4 +1790,17 @@ pub fn page_new_facture_the_event(
         (find_clients("events-actions", "search", "table.find-event", None))
     };
     page("Sélectionner un événement", body)
+}
+
+pub fn page_new_facture_new_event(facture_id: i64) -> Markup {
+    let url = format!("/factures/{}/new-event", facture_id);
+    let event_form = new_event_form(url.as_ref(), None);
+
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (new_facture_new_event(event_form.body))
+        (footer())
+        (event_form.javascript)
+    };
+    page("Nouvel événement", body)
 }

@@ -46,6 +46,7 @@ async fn the_facture_item(
 
 #[derive(Deserialize)]
 struct FactureTypeQuery {
+    #[serde(rename = "facture-type")]
     facture_type: Option<String>,
 }
 
@@ -77,6 +78,7 @@ async fn new_facture_the_client(
 
 #[derive(Deserialize)]
 struct NoEventUrl {
+    #[serde(rename = "no-event-url")]
     no_event_url: Option<String>,
 }
 
@@ -99,10 +101,23 @@ async fn new_facture_the_event(
     Ok(rendered)
 }
 
+async fn new_facture_new_event(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+) -> Result<Markup, AppError> {
+    select_one(&pool, facture_id).await?; // ensure the facture exists
+    let rendered = factures::page_new_facture_new_event(facture_id);
+    Ok(rendered)
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
         .route("/factures/new", get(new_facture_the_client))
         .route("/factures/new/new-client", get(new_facture_new_client))
+        .route(
+            "/factures/{facture_id}/new-event",
+            get(new_facture_new_event),
+        )
         .route(
             "/factures/{facture_id}/select-event",
             get(new_facture_the_event),
