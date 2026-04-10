@@ -32,7 +32,10 @@ fn action_col(event: &EventView) -> Markup {
     }
 }
 
-fn events_table(events: Vec<EventView>) -> Markup {
+pub fn events_table<F>(events: Vec<EventView>, action_col_f: F) -> Markup
+where
+    F: Fn(&EventView) -> Markup,
+{
     html! {
         table."table table-sm find-event" {
             thead {
@@ -55,7 +58,7 @@ fn events_table(events: Vec<EventView>) -> Markup {
                 @for event in events {
                     tr {
                         td {
-                            (action_col(&event))
+                            (action_col_f(&event))
                         }
                         td {
                             (event.event_type)
@@ -251,7 +254,7 @@ fn list_events(events: Vec<EventView>) -> Markup {
                 }
                 div."row" {
                     div."col-12" {
-                        (events_table(events))
+                        (events_table(events, action_col))
                     }
                 }
             }

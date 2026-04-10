@@ -8,10 +8,10 @@ use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::server::{
-    models::clients::ClientView,
+    models::{clients::ClientView, events::EventView},
     routes::errors::AppError,
     services::{
-        clients,
+        clients, events,
         factures::{select_all, select_one, select_one_facture_item},
     },
     templates::factures,
@@ -75,10 +75,38 @@ async fn new_facture_the_client(
     Ok(rendered)
 }
 
+#[derive(Deserialize)]
+struct NoEventUrl {
+    no_event_url: Option<String>,
+}
+
+async fn new_facture_the_event(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+    event_url: Query<NoEventUrl>,
+) -> Result<Markup, AppError> {
+    select_one(&pool, facture_id).await?; // ensure the facture exists
+
+    let events = events::select_all(&pool).await?;
+    let events = events.into_iter().map(EventView::from).collect();
+    let default_no_event_url = format!("/factures/{}/items", facture_id);
+    let event_url = event_url
+        .no_event_url
+        .as_ref()
+        .map(|a| a.as_ref())
+        .unwrap_or(default_no_event_url.as_str());
+    let rendered = factures::page_new_facture_the_event(facture_id, event_url, events);
+    Ok(rendered)
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
         .route("/factures/new", get(new_facture_the_client))
         .route("/factures/new/new-client", get(new_facture_new_client))
+        .route(
+            "/factures/{facture_id}/select-event",
+            get(new_facture_the_event),
+        )
         .route("/factures/{facture_id}/items", get(facture_items))
         .route(
             "/factures/{facture_id}/items/{facture_item_id}",
