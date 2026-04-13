@@ -4,10 +4,10 @@ use crate::server::models::clients::ClientInsert;
 use crate::server::models::config::ConfigRow;
 use crate::server::models::events::EventInsert;
 use crate::server::models::facture_items::FactureItemInsert;
-use crate::server::models::payments::PaymentRow;
+use crate::server::models::payments::PaymentInsert;
 use crate::server::models::product_types::ProductTypeRow;
 use crate::server::models::products::{ProductImageInsert, ProductInsert};
-use crate::server::models::refunds::RefundRow;
+use crate::server::models::refunds::RefundInsert;
 use crate::server::models::statuts::StatutInsert;
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -893,7 +893,7 @@ pub struct PaymentFields {
 /// Migration-specific: Payment with unresolved foreign keys
 #[derive(Debug)]
 pub struct PaymentRowWithFKs {
-    pub row: PaymentRow,
+    pub row: PaymentInsert,
     pub airtable_id: String,
     pub facture_airtable_id: String, // Required FK to resolve
 }
@@ -906,14 +906,12 @@ impl From<AirtableRecord<PaymentFields>> for PaymentRowWithFKs {
         PaymentRowWithFKs {
             airtable_id: record.id,
             facture_airtable_id,
-            row: PaymentRow {
+            row: PaymentInsert {
                 facture_id: 0, // Will be resolved from airtable_mapping
                 amount: dollars_to_cents(record.fields.amount),
                 date: record.fields.date,
                 payment_type: record.fields.payment_type,
                 cheque_number: record.fields.cheque_number,
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
@@ -1014,7 +1012,7 @@ pub struct RefundFields {
 /// Migration-specific: Refund with unresolved foreign keys
 #[derive(Debug)]
 pub struct RefundRowWithFKs {
-    pub row: RefundRow,
+    pub row: RefundInsert,
     pub airtable_id: String,
     pub facture_airtable_id: String, // Required FK to resolve
 }
@@ -1027,14 +1025,12 @@ impl From<AirtableRecord<RefundFields>> for RefundRowWithFKs {
         RefundRowWithFKs {
             airtable_id: record.id,
             facture_airtable_id,
-            row: RefundRow {
+            row: RefundInsert {
                 facture_id: 0, // Will be resolved from airtable_mapping
                 amount: dollars_to_cents(record.fields.amount),
                 date: record.fields.date,
                 refund_type: record.fields.refund_type,
                 cheque_number: record.fields.cheque_number,
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
