@@ -78,6 +78,21 @@ pub fn sidebar_info_box(title: &str, subtitle: Option<&str>, content: Markup) ->
         }
     }
 }
+pub fn jquery_ready(content: Markup) -> Markup {
+    let script = format!(
+        r#"
+            $(document).ready(function() {{
+                {}
+            }});
+        "#,
+        content.into_string()
+    );
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(script))
+        }
+    }
+}
 
 pub fn find_table_with(
     container_id: &str,

@@ -6,10 +6,10 @@ use crate::server::models::{
     events::{EventInsert, EventRow},
     facture_items::FactureItemInsert,
     factures::FactureRow,
-    payments::PaymentRow,
+    payments::PaymentInsert,
     product_types::ProductTypeRow,
     products::{ProductImageInsert, ProductInsert},
-    refunds::RefundRow,
+    refunds::RefundInsert,
     statuts::StatutInsert,
 };
 
@@ -306,22 +306,20 @@ impl Insertable for FactureItemInsert {
     }
 }
 
-impl Insertable for PaymentRow {
+impl Insertable for PaymentInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Option<i64>> {
         let result = sqlx::query(
             "INSERT INTO payments (facture_id, amount, date, payment_type, cheque_number, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
         .bind(&self.facture_id)
         .bind(&self.amount)
         .bind(&self.date)
         .bind(&self.payment_type)
         .bind(&self.cheque_number)
-        .bind(&self.created_at)
-        .bind(&self.updated_at)
         .execute(&mut **tx)
         .await
         .with_context(|| {
@@ -337,22 +335,20 @@ impl Insertable for PaymentRow {
     }
 }
 
-impl Insertable for RefundRow {
+impl Insertable for RefundInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Option<i64>> {
         let result = sqlx::query(
             "INSERT INTO refunds (facture_id, amount, date, refund_type, cheque_number, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
         .bind(&self.facture_id)
         .bind(&self.amount)
         .bind(&self.date)
         .bind(&self.refund_type)
         .bind(&self.cheque_number)
-        .bind(&self.created_at)
-        .bind(&self.updated_at)
         .execute(&mut **tx)
         .await
         .with_context(|| {

@@ -2,15 +2,20 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 
 use crate::server::{
     models::{
-        FactureDashboardData, FactureItemEntry, FactureItemFormConfig, FactureItemsData,
-        PageAddOneFactureItemData, PageFactureItemsData, PageOneFactureItemData,
+        FactureDashboardData, FactureInfo, FactureItemEntry, FactureItemFormConfig,
+        FactureItemsData, MaybeTransaction, PAYMENT_TYPES, PageAddOneFactureItemData,
+        PageFactureItemsData, PageOneFactureItemData, PageTransactionsData, REFUND_TYPES,
+        TheTransaction, Transaction,
         clients::{ClientView, ClientViewFuzzySearch},
         config::{ExtraLargeAmounts, NoteTemplate},
         events::EventView,
         facture_items::{FactureComputed, FactureItemType, FactureItemValue, FactureItemView},
         factures::FactureView,
+        initial_payment_amount,
+        payments::{PaymentView, PreCalculatedPayment},
         product_types::ProductTypeView,
         products::{ProductInfo, ProductView},
+        refunds::RefundView,
         statuts::{FLOOR_ITEM_INITIAL_TRANSITIONS, State, StateView},
     },
     templates::{
@@ -19,6 +24,10 @@ use crate::server::{
         utils::*,
     },
 };
+struct TransactionPage {
+    body: Markup,
+    javascript: Markup,
+}
 
 struct FuzzySearch {
     body: Markup,
@@ -317,6 +326,85 @@ fn find_factures() -> Markup {
     }
 }
 
+fn payment_form_script() -> Markup {
+    let setup_transaction_validation = PreEscaped(
+        r#"
+        function setupTransactionValidation(id) {
+            function computeFutureBalance(balance, newValue) {
+                if (newValue.trim().length > 0) {
+                var newBalance = Math.round((balance - parseFloat(newValue)) * 100) / 100;
+                    $(`#${id}-future-balance > span`).html(`Future solde: ${newBalance}`);
+                } else {
+                    $(`#${id}-future-balance > span`).html(`Future solde: ${balance}`);
+                }
+            }
+
+            function showExplicitAmount(newValue) {
+                if (initalValue !== newValue) {
+                    var initalValue = $(`#${id}-payment-amount`).val();
+                    $(`#${id}-explicit-amount-alert`).hide();
+                } else {
+                    $(`#${id}-explicit-amount-alert`).show();
+                }
+            }
+
+            function toggleSave(balance, newValue) {
+                try {
+                    var floatValue = parseFloat(newValue, 10);
+                $('#payment-form form button[type="submit"]').attr("disabled", balance < floatValue);
+                } catch (err) {
+
+                }
+            }
+
+            function processNewAmount(balance, value) {
+                computeFutureBalance(balance, value);
+                showExplicitAmount(value);
+                toggleSave(balance, value);
+            }
+
+            $(`#${id}-payment-amount`).change(function () {
+                processNewAmount($(this).data("balance"), $(this).val());
+            });
+            $(`#${id}-payment-amount`).on('keyup', function () {
+                processNewAmount($(this).data("balance"), $(this).val());
+            });
+            computeFutureBalance($(`#${id}-payment-amount`).data("balance"), $(`#${id}-payment-amount`).val());
+        };
+    "#,
+    );
+    html! {
+        script type="text/javascript" {
+            (setup_transaction_validation)
+        }
+    }
+}
+fn table_transaction_scripts() -> Markup {
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(r##"
+                $(document).ready(function(){
+                    $("table.payments-refunds").tablesorter({
+                        theme : "bootstrap",
+                        widthFixed: true,
+                        sortList : [[3,0]]
+                    });
+
+                    $("button#add-payment").unbind('click').click(function() {
+                        $("#payment-form").removeClass("d-none");
+                        $("#refund-form").addClass("d-none");
+                    });
+
+                    $("button#add-refund").unbind('click').click(function() {
+                        $("#payment-form").addClass("d-none");
+                        $("#refund-form").removeClass("d-none");
+                    });
+                });
+            "##))
+        }
+    }
+}
+
 fn seamstresses(data: Vec<String>) -> Markup {
     match data.as_slice() {
         [] => html! {},
@@ -477,6 +565,7 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
 fn list_the_items(facture_data: &FactureItemsData) -> Markup {
     let default = String::from("Product");
     let facture_type = facture_data
+        .facture_info
         .facture
         .facture_type
         .as_ref()
@@ -840,14 +929,15 @@ fn facture_form(facture: &FactureView) -> Markup {
 }
 
 fn the_items(page_data: &PageFactureItemsData) -> Markup {
-    let has_event = page_data.facture_data.event.is_some();
+    let facture_id = page_data.facture_data.facture_info.facture.id;
+    let has_event = page_data.facture_data.facture_info.event.is_some();
     let box_content = html! {
-        (facture_info_client(&page_data.facture_data.facture, &page_data.facture_data.client))
+        (facture_info_client(&page_data.facture_data.facture_info.facture, &page_data.facture_data.facture_info.client))
         br;
-        (facture_info_total(&page_data.facture_data.facture_computed))
-        (facture_info_actions(page_data.facture_data.facture.id, false, true, has_event, page_data.facture_data.facture.cancelled))
+        (facture_info_total(&page_data.facture_data.facture_info.facture_computed))
+        (facture_info_actions(page_data.facture_data.facture_info.facture.id, false, true, has_event, page_data.facture_data.facture_info.facture.cancelled))
     };
-    let facture_title = format!("Facture #{}", page_data.facture_data.facture.id);
+    let facture_title = format!("Facture #{}", facture_id);
 
     html! {
         main role="main" {
@@ -856,7 +946,7 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
                     div."col-12 order-12 col-lg-8 order-lg-1" {
                         div."row actions sticky-top" {
                             div."col-12" {
-                                (the_items_action_col(page_data.facture_data.facture.id, &page_data.facture_data.facture.facture_type, page_data.location_product.id, page_data.alteration_product.id))
+                                (the_items_action_col(facture_id, &page_data.facture_data.facture_info.facture.facture_type, page_data.location_product.id, page_data.alteration_product.id))
                             }
                         }
 
@@ -864,8 +954,8 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
                     }
                     div."col-12 order-1 col-lg-4 order-lg-12" {
                         (sidebar_info_box("Détails de la facture", Some(&facture_title), box_content))
-                        @if let Some(event) = &page_data.facture_data.event {
-                            (event_details(page_data.facture_data.facture.id, event))
+                        @if let Some(event) = &page_data.facture_data.facture_info.event {
+                            (event_details(facture_id, event))
                         }
                         div."modal fade" id="update-facture" aria-hidden="true" aria-labelledby="update-facture-label" role="dialog" tabindex="-1" {
                             div."modal-dialog" role="document" {
@@ -882,7 +972,7 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
                                             }
                                         }
                                         div."modal-body" {
-                                            (facture_form(&page_data.facture_data.facture))
+                                            (facture_form(&page_data.facture_data.facture_info.facture))
                                         }
                                         div."modal-footer" {
                                             button."btn btn-secondary" type="button" data-dismiss="modal" {
@@ -1825,17 +1915,18 @@ fn select_item(facture_id: i64, products: Vec<ProductInfo>) -> Markup {
 }
 
 fn add_item(page_data: PageAddOneFactureItemData) -> Markup {
-    let items_url = format!("/factures/{}/items", page_data.facture.id);
+    let facture_id = page_data.facture_info.facture.id;
+    let items_url = format!("/factures/{}/items", facture_id);
     let is_update = false;
-    let has_event = page_data.event.is_some();
+    let has_event = page_data.facture_info.event.is_some();
 
     let box_content = html! {
-        (facture_info_client(&page_data.facture, &page_data.client))
+        (facture_info_client(&page_data.facture_info.facture, &page_data.facture_info.client))
         br;
-        (facture_info_total(&page_data.facture_computed))
-        (facture_info_actions(page_data.facture.id, false, true, has_event, page_data.facture.cancelled))
+        (facture_info_total(&page_data.facture_info.facture_computed))
+        (facture_info_actions(facture_id, false, true, has_event, page_data.facture_info.facture.cancelled))
     };
-    let facture_title = format!("Facture #{}", page_data.facture.id);
+    let facture_title = format!("Facture #{}", facture_id);
 
     html! {
         main role="main" {
@@ -1849,7 +1940,7 @@ fn add_item(page_data: PageAddOneFactureItemData) -> Markup {
                         h3 {
                             (page_data.item.product.name)
                         }
-                        (facture_item_form(page_data.facture.id, &items_url, &page_data.client, &page_data.item.product, &page_data.product_type, &page_data.item.item,&page_data.form_config , is_update))
+                        (facture_item_form(facture_id, &items_url, &page_data.facture_info.client, &page_data.item.product, &page_data.product_type, &page_data.item.item,&page_data.form_config , is_update))
                     }
 
                     div."order-1 col-lg-4 order-lg-12" {
@@ -1859,6 +1950,353 @@ fn add_item(page_data: PageAddOneFactureItemData) -> Markup {
             }
         }
     }
+}
+
+fn transaction_form_fields(
+    transaction: &MaybeTransaction,
+    explicit_amount: Option<&PreCalculatedPayment>,
+    balance: i64,
+) -> Markup {
+    let id = match transaction {
+        TheTransaction::Payment(x) => x
+            .as_ref()
+            .map(|a| a.id.to_string())
+            .unwrap_or("new".to_string()),
+        TheTransaction::Refund(x) => x
+            .as_ref()
+            .map(|a| a.id.to_string())
+            .unwrap_or("new".to_string()),
+    };
+    let t_type = match transaction {
+        TheTransaction::Payment(_) => "payment",
+        TheTransaction::Refund(_) => "refund",
+    };
+
+    let id_amount = format!("{}-{}-amount", id, t_type);
+    let id_type = format!("{}-{}-type", id, t_type);
+    let id_date = format!("{}-{}-date", id, t_type);
+    let id_cheque = format!("{}-{}-cheque-no", id, t_type);
+
+    let t_types = match transaction {
+        TheTransaction::Payment(_) => Vec::from(PAYMENT_TYPES),
+        TheTransaction::Refund(_) => Vec::from(REFUND_TYPES),
+    };
+
+    let explicit_amount_value = explicit_amount.and_then(|a| a.calculate());
+    let explicit_amount_label = explicit_amount_value
+        .zip(explicit_amount)
+        .map(|(a, pa)| (pa.label(a), format!("{}-explicit-amount-alert", id)));
+
+    html! {
+        div {
+            div."form-row form-group" {
+                div."col-12" {
+                    @if let Some((ea_label, ea_id)) = explicit_amount_label {
+                        div."alert alert-info" id=(ea_id) {
+                            span { (ea_label) }
+                        }
+                    }
+                    label for=(id_amount) {
+                        "Montant"
+                    }
+                    input."form-control" id=(id_amount) value=[transaction.amount()] type="text" name="amount" required autofocus data-balance=(balance);
+
+                    @if transaction.is_payment() && transaction.is_none() {
+                        div."alert alert-info" id=(format!("{}-future-balance", id))  {
+                            span { "Solde à payer: " (balance) }
+                        }
+                    }
+                }
+            }
+
+            div."form-row form-group" {
+                div."col-12" {
+                    label for=(id_type) {
+                        "Type"
+                    }
+                    select."custom-select" id=(id_type) name="type" required {
+                        option value="" {
+                            "Veuillez choisir"
+                        }
+                        @for t in t_types {
+                            @let selected = if transaction.t_type() == Some(t) { Some(true) } else { None };
+                            option value=(t) selected=[selected]  {
+                                (t)
+                            }
+                        }
+                    }
+                }
+            }
+            div."form-row form-group" {
+                div."col-12" {
+                    label for=(id_date) {
+                        "Date"
+                    }
+                    input."form-control date-picker" id=(id_date) name="date" autocomplete="false" required value=[transaction.date()] type="text";
+                }
+            }
+            @if transaction.is_refund() {
+                div."form-row form-group" {
+                    div."col-12" {
+                        label for=(id_cheque) {
+                            "No. de chèque"
+                        }
+                        input."form-control" id=(id_cheque) type="text" name="cheque-no" value=[transaction.cheque_number()];
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn transaction_form_modal(
+    url: &str,
+    transaction: &Transaction,
+    facture_info: &FactureInfo,
+) -> Markup {
+    let pre_calculated_payment = match transaction {
+        TheTransaction::Payment(_) => Some(initial_payment_amount(facture_info)),
+        TheTransaction::Refund(_) => None,
+    };
+    let maybe_transaction: MaybeTransaction = match transaction {
+        TheTransaction::Payment(p) => TheTransaction::Payment(&Some(p)),
+        TheTransaction::Refund(p) => TheTransaction::Refund(&Some(p)),
+    };
+    html! {
+        form action=(url) method="POST" {
+            div."modal-header" {
+                h5."modal-title" id="transaction-modal-label" {
+                    "Modifier une transaction"
+                }
+                button."close" data-dismiss="modal" type="button" aria-label="Close" {
+                    span aria-hidden="true" {
+                        (PreEscaped("&times;"))
+                    }
+                }
+            }
+            div."modal-body" {
+                (transaction_form_fields(&maybe_transaction, pre_calculated_payment.as_ref(), facture_info.facture_computed.balance))
+            }
+            div."modal-footer" {
+                button."btn btn-secondary" type="button" data-dismiss="modal" {
+                    "Annuler"
+                }
+                button."btn btn-primary" type="submit" {
+                    "Sauvegarder"
+                }
+            }
+        }
+    }
+}
+
+fn table_transaction(
+    facture_info: &FactureInfo,
+    payments: &Vec<PaymentView>,
+    refunds: &Vec<RefundView>,
+) -> (Markup, Vec<Markup>) {
+    let mut scripts = vec![];
+    fn action_col(
+        scripts: &mut Vec<Markup>,
+        transaction: Transaction,
+        facture_info: &FactureInfo,
+    ) -> Markup {
+        if transaction.is_payment() {
+            scripts.push(jquery_ready(PreEscaped(format!(
+                "setupTransactionValidation(\"{}\")",
+                transaction.id()
+            ))));
+        }
+        let base_url = match transaction {
+            Transaction::Payment(payment_view) => format!(
+                "/factures/{}/payments/{}",
+                payment_view.facture_id, payment_view.id
+            ),
+            Transaction::Refund(refund_view) => format!(
+                "/factures/{}/refunds/{}",
+                refund_view.facture_id, refund_view.id
+            ),
+        };
+
+        let delete_url = format!("{}/delete", base_url);
+        let update_url = format!("{}/update", base_url);
+        html! {
+            button."btn btn-primary btn-sm" data-toggle="modal" data-target="#rec123-transaction-modal" {
+                "Modifier"
+            }
+            (" ")
+            form."inline-button" method="POST" action=(delete_url) {
+                button."btn btn-sm btn-danger" type="submit" {
+                    "Retirer"
+                }
+            }
+            div."modal fade" id="rec123-transaction-modal" tabindex="-1" role="dialog" aria-hidden="true" aria-labelledby="transaction-modal-label" {
+                div."modal-dialog" role="document" {
+                    div."modal-content" {
+                        (transaction_form_modal(&update_url, &transaction, facture_info))
+                    }
+                }
+            }
+        }
+    }
+    let body = html! {
+        @if payments.iter().count() > 0 {
+            table."table table-sm payments-refunds" {
+                thead {
+                    tr {
+                        th scope="col" {
+                            "Actions"
+                        }
+                        th scope="col" {
+                            "Type"
+                        }
+                        th scope="col" {
+                            "Montant"
+                        }
+                        th scope="col" {
+                            "Date"
+                        }
+                        th scope="col" {
+                            "Type paiement"
+                        }
+                    }
+                }
+                tbody {
+                    @for p in payments {
+                        tr {
+                            td {
+                                (action_col(&mut scripts, Transaction::Payment(p), facture_info))
+                            }
+                            td {
+                                "Paiement"
+                            }
+                            td {
+                                (p.amount)
+                            }
+                            td {
+                                (p.date)
+                            }
+                            td {
+                                (p.payment_type)
+                            }
+                        }
+
+                    }
+                    @for r in refunds {
+                        tr {
+                            td {
+                                (action_col(&mut scripts, Transaction::Refund(r), facture_info))
+                            }
+                            td {
+                                "Remboursement"
+                            }
+                            td {
+                                (r.amount)
+                            }
+                            td {
+                                (r.date)
+                            }
+                            td {
+                                (r.refund_type)
+                            }
+                        }
+
+                    }
+
+                }
+            }
+        } @else {
+            p { "Il n'y a aucune transaction reliée à la facture." }
+        }
+    };
+    (body, scripts)
+}
+
+fn list_transactions(page_data: PageTransactionsData) -> TransactionPage {
+    let payment_url = format!("/factures/{}/payments", page_data.facture_info.facture.id);
+
+    let refunds_url = format!("/factures/{}/refunds", page_data.facture_info.facture.id);
+    let pre_calculated_payment = initial_payment_amount(&page_data.facture_info);
+
+    let facture_id = page_data.facture_info.facture.id;
+    let has_event = page_data.facture_info.event.is_some();
+
+    let box_content = html! {
+        (facture_info_client(&page_data.facture_info.facture, &page_data.facture_info.client))
+        br;
+        (facture_info_total(&page_data.facture_info.facture_computed))
+        (facture_info_actions(facture_id, false, true, has_event, page_data.facture_info.facture.cancelled))
+    };
+    let main_title = format!("Transactions pour la facture #{}", facture_id);
+    let facture_title = format!("Facture #{}", facture_id);
+
+    let (transaction_list_html, mut scripts) = table_transaction(
+        &page_data.facture_info,
+        &page_data.payments,
+        &page_data.refunds,
+    );
+
+    scripts.insert(0, payment_form_script());
+    scripts.push(jquery_ready(PreEscaped(format!(
+        "setupTransactionValidation(\"{}\")",
+        "new"
+    ))));
+    scripts.push(table_transaction_scripts());
+
+    let body = html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row" {
+                    div."col-12 order-12 col-lg-8 order-lg-1" {
+                        div."row actions sticky-top" {
+                            div."col-auto" {
+                                h4 {
+                                    (main_title)
+                                }
+                            }
+                            div."col-auto" {
+                                button."btn btn-primary btn-sm" id="add-payment" {
+                                    "Ajouter un paiement"
+                                }
+                                (" ")
+                                button."btn btn-primary btn-sm" id="add-refund" {
+                                    "Ajouter un remboursement"
+                                }
+                            }
+                        }
+                        div."row" {
+                            div."col-12" {
+                                (transaction_list_html)
+                            }
+                        }
+                        div."row" {
+                            div."col-12" {
+                                form method="POST" action=(payment_url) {
+                                    div."d-none" id="payment-form" {
+                                        (transaction_form_fields(&TheTransaction::Payment(&None), Some(&pre_calculated_payment), page_data.facture_info.facture_computed.balance))
+                                    }
+                                }
+
+                                form method="POST" action=(refunds_url) {
+                                    div."d-none" id="refund-form" {
+                                        (transaction_form_fields(&TheTransaction::Payment(&None), Some(&pre_calculated_payment), page_data.facture_info.facture_computed.balance))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    div."col-12 order-1 col-lg-4 order-lg-12" {
+                        (sidebar_info_box("Détails de la facture", Some(&facture_title), box_content))
+                    }
+                }
+            }
+        }
+    };
+    let javascript = html! {
+        @for s in scripts {
+            (s)
+        }
+    };
+    TransactionPage { body, javascript }
 }
 
 // pages
@@ -1975,6 +2413,17 @@ pub fn page_add_item(page_data: PageAddOneFactureItemData) -> Markup {
         (add_item(page_data))
         (footer())
         (item_form_scripts())
+    };
+    page("Item de facture", body)
+}
+
+pub fn page_transactions(page_data: PageTransactionsData) -> Markup {
+    let content = list_transactions(page_data);
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (content.body)
+        (footer())
+        (content.javascript)
     };
     page("Item de facture", body)
 }
