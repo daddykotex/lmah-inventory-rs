@@ -4,8 +4,8 @@ use crate::server::{
     models::{
         FactureDashboardData, FactureInfo, FactureItemEntry, FactureItemFormConfig,
         FactureItemsData, MaybeTransaction, PAYMENT_TYPES, PageAddOneFactureItemData,
-        PageFactureItemsData, PageOneFactureItemData, PageTransactionsData, REFUND_TYPES,
-        TheTransaction, Transaction,
+        PageAddProduct, PageFactureItemsData, PageOneFactureItemData, PageTransactionsData,
+        REFUND_TYPES, TheTransaction, Transaction,
         clients::{ClientView, ClientViewFuzzySearch},
         config::{ExtraLargeAmounts, NoteTemplate},
         events::EventView,
@@ -2299,6 +2299,56 @@ fn list_transactions(page_data: PageTransactionsData) -> TransactionPage {
     TransactionPage { body, javascript }
 }
 
+fn add_product(facture_id: i64, product_types: &Vec<ProductTypeView>) -> Markup {
+    let url = format!("/factures/{}/add-product", facture_id);
+    html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row" {
+                    div."col-12" {
+                        form action=(url) method="POST" {
+                            div."form-row form-group" {
+                                div."col-12" {
+                                    label for="type" {
+                                        "Type"
+                                    }
+                                    select."custom-select" id="type" name="type" {
+                                        @for pt in product_types {
+                                            option value=(pt.name) {
+                                                (pt.name)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            div."form-row form-group" {
+                                div."col-12" {
+                                    label for="name" {
+                                        "Nom du produit"
+                                    }
+                                    input."form-control" id="name" type="text" required name="name";
+                                }
+                            }
+                            div."form-row form-group" {
+                                div."col-12" {
+                                    (price_input("price", "Prix unitaire", &None, true))
+                                }
+                            }
+                            div."form-row form-group" {
+                                div."col-2" {
+                                    button."btn btn-primary" type="submit" {
+                                        "Ajouter"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // pages
 
 fn page(title: &str, body: Markup) -> Markup {
@@ -2426,4 +2476,13 @@ pub fn page_transactions(page_data: PageTransactionsData) -> Markup {
         (content.javascript)
     };
     page("Item de facture", body)
+}
+
+pub fn page_add_product(page_data: PageAddProduct) -> Markup {
+    let body = html! {
+        (navbar(MenuConstants::Factures))
+        (add_product(page_data.facture_info.facture.id, &page_data.product_types))
+        (footer())
+    };
+    page("Ajouter un produit", body)
 }

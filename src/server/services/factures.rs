@@ -4,8 +4,8 @@ use crate::server::{
     database::select::Selectable,
     models::{
         FactureDashboardData, FactureInfo, FactureItemEntry, FactureItemFormConfig,
-        FactureItemsData, PageAddOneFactureItemData, PageFactureItemsData, PageOneFactureItemData,
-        PageTransactionsData,
+        FactureItemsData, PageAddOneFactureItemData, PageAddProduct, PageFactureItemsData,
+        PageOneFactureItemData, PageTransactionsData,
         clients::{ClientRow, ClientView},
         events::EventRow,
         facture_items::{
@@ -214,6 +214,19 @@ pub async fn blank_facture_item(
         item: item_entry,
         product_type: ProductTypeView::from(product_type_row),
         form_config,
+    })
+}
+pub async fn load_add_product_data(pool: &SqlitePool, facture_id: i64) -> Result<PageAddProduct> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let (facture_info, _, _, _) = load_facture_info(facture_id, &mut tx).await?;
+    let product_types = ProductTypeRow::select_all(&mut tx).await?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(PageAddProduct {
+        facture_info,
+        product_types: product_types.into_iter().map(|a| a.into()).collect(),
     })
 }
 
@@ -586,6 +599,57 @@ fn computed_facture_fields(
     };
 
     (fc, computed_per_items)
+}
+
+async fn load_facture_info(
+    facture_id: i64,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<(
+    FactureInfo,
+    Vec<FactureItemView>,
+    Vec<PaymentView>,
+    Vec<RefundView>,
+)> {
+    let facture_row = FactureRow::select_one(facture_id, tx)
+        .await?
+        .ok_or(anyhow::Error::msg("Facture not found."))?;
+    let facture_view = FactureView::from(facture_row);
+
+    let client_row = ClientRow::select_one(facture_view.client_id, tx)
+        .await?
+        .ok_or(anyhow::Error::msg("Client related to facture not found."))?;
+
+    let event_row = match facture_view.event_id {
+        Some(e_id) => EventRow::select_one(e_id, tx)
+            .await?
+            .ok_or(anyhow::Error::msg("Event related to facture not found."))
+            .map(Some),
+        None => Ok(None),
+    };
+    let event_row = event_row?;
+
+    let facture_items = FactureItemRow::select_all_for_facture(facture_id, tx).await?;
+    let facture_items: Result<Vec<FactureItemView>> = facture_items
+        .into_iter()
+        .map(FactureItemView::try_from)
+        .collect();
+    let facture_items = facture_items?;
+
+    let payment_rows = PaymentRow::select_all_for_facture(facture_id, tx).await?;
+    let refund_rows = RefundRow::select_all_for_facture(facture_id, tx).await?;
+
+    let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
+    let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
+    let (facture_computed, _) =
+        computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
+
+    let facture_info = FactureInfo {
+        facture: facture_view,
+        facture_computed,
+        event: event_row.map(|e| e.into()),
+        client: ClientView::from(client_row),
+    };
+    Ok((facture_info, facture_items, payment_views, refund_views))
 }
 
 /// The order in the values vector is not guaranteed to be the same as the original iterator I.

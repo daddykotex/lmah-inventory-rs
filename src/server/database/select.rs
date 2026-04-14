@@ -492,6 +492,21 @@ impl RefundRow {
 }
 
 impl ProductTypeRow {
+    pub async fn select_all(
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<ProductTypeRow>> {
+        let table = ProductTypeRow::table();
+        let result: Vec<ProductTypeRow> = sqlx::query_as(&format!(
+            "SELECT * FROM {} ORDER BY name ASC",
+            table.table_name()
+        ))
+        .fetch_all(&mut **tx)
+        .await
+        .context("Failed to retrieve product typ row")?;
+
+        Ok(result)
+    }
+
     pub async fn select_only_products(
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Vec<(i64, String)>> {

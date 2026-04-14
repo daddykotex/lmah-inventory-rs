@@ -78,6 +78,11 @@ pub struct PageAddOneFactureItemData {
     pub form_config: FactureItemFormConfig,
 }
 
+pub struct PageAddProduct {
+    pub facture_info: FactureInfo,
+    pub product_types: Vec<ProductTypeView>,
+}
+
 pub struct PageOneFactureItemData {
     pub facture: FactureView,
     pub client: ClientView,
