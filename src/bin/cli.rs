@@ -8,7 +8,7 @@ use lmah_inventory_rs::cli::migration::{
 };
 use lmah_inventory_rs::server::database::connect_to_path;
 use lmah_inventory_rs::server::models::clients::ClientInsert;
-use lmah_inventory_rs::server::models::config::ConfigRow;
+use lmah_inventory_rs::server::models::config::ConfigInsert;
 use lmah_inventory_rs::server::models::events::EventInsert;
 use lmah_inventory_rs::server::models::product_types::ProductTypeRow;
 use sqlx::sqlite::SqlitePool;
@@ -80,7 +80,7 @@ async fn verify_import(pool: &SqlitePool) -> Result<()> {
     println!("Total config records in database: {}", count);
 
     let type_counts: Vec<(String, i64)> =
-        sqlx::query_as("SELECT type, COUNT(*) as count FROM config GROUP BY type ORDER BY type")
+        sqlx::query_as("SELECT config_type, COUNT(*) as count FROM config GROUP BY config_type ORDER BY config_type")
             .fetch_all(pool)
             .await?;
 
@@ -125,7 +125,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
 
     // ===== INSERT CONFIG =====
     println!("\nStep 4: Inserting config records...");
-    load_records::<ConfigFields, ConfigRow>(&pool, export.config).await?;
+    load_records::<ConfigFields, ConfigInsert>(&pool, export.config).await?;
 
     // ===== INSERT CLIENTS =====
     println!("\nStep 5: Inserting client records...");

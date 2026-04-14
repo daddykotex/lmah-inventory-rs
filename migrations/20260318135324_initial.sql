@@ -49,7 +49,7 @@ CREATE TABLE config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
-    type TEXT NOT NULL,
+    config_type TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

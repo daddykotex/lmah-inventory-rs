@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 
 use crate::server::models::{
     clients::{ClientInsert, ClientRow},
-    config::ConfigRow,
+    config::ConfigInsert,
     events::{EventInsert, EventRow},
     facture_items::FactureItemInsert,
     factures::FactureRow,
@@ -20,20 +20,18 @@ pub trait Insertable {
     ) -> impl Future<Output = Result<Option<i64>>>;
 }
 
-impl Insertable for ConfigRow {
+impl Insertable for ConfigInsert {
     async fn insert_one(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     ) -> Result<Option<i64>> {
         sqlx::query(
-            "INSERT INTO config (key, value, type, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO config (key, value, config_type, created_at, updated_at)
+             VALUES (?, ?, ?, datetime('now'), datetime('now'))",
         )
         .bind(&self.key)
         .bind(&self.value)
         .bind(&self.config_type)
-        .bind(&self.created_at)
-        .bind(&self.updated_at)
         .execute(&mut **tx)
         .await
         .with_context(|| {
