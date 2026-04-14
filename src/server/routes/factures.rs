@@ -13,8 +13,8 @@ use crate::server::{
     services::{
         clients, events,
         factures::{
-            blank_facture_item, load_products_to_add, select_all, select_one,
-            select_one_facture_item, select_transactions,
+            blank_facture_item, load_add_product_data, load_products_to_add, select_all,
+            select_one, select_one_facture_item, select_transactions,
         },
     },
     templates::factures,
@@ -150,6 +150,15 @@ async fn transactions(
     Ok(rendered)
 }
 
+async fn add_product(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+) -> Result<Markup, AppError> {
+    let page_data = load_add_product_data(&pool, facture_id).await?;
+    let rendered = factures::page_add_product(page_data);
+    Ok(rendered)
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
         .route("/factures/new", get(new_facture_the_client))
@@ -167,6 +176,7 @@ pub fn facture_router() -> Router<SqlitePool> {
             "/factures/{facture_id}/add-item/{product_id}",
             get(add_item),
         )
+        .route("/factures/{facture_id}/add-product", get(add_product))
         .route("/factures/{facture_id}/items", get(facture_items))
         .route("/factures/{facture_id}/transactions", get(transactions))
         .route(
