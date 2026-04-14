@@ -4,8 +4,9 @@ use crate::server::{
     database::select::Selectable,
     models::{
         FactureDashboardData, FactureInfo, FactureItemEntry, FactureItemFormConfig,
-        FactureItemsData, PageAddOneFactureItemData, PageAddProduct, PageFactureItemsData,
-        PageOneFactureItemData, PageTransactionsData,
+        FactureItemInfo, FactureItemsData, PageAddOneFactureItemData, PageAddProduct,
+        PageFactureItemsData, PageOneFactureItemData, PagePrintData, PageTransactionsData,
+        PrintConfig,
         clients::{ClientRow, ClientView},
         events::EventRow,
         facture_items::{
@@ -20,7 +21,10 @@ use crate::server::{
         statuts::{State, StateView, StatutRow},
     },
     services::{
-        config::{load_extra_large_amount, load_note_templates, load_seamstresses},
+        config::{
+            load_clauses, load_extra_large_amount, load_note_templates, load_seamstresses,
+            load_signatures,
+        },
         statuts::{load_one_item_statuts_flow, load_statuts_flow},
     },
 };
@@ -216,6 +220,7 @@ pub async fn blank_facture_item(
         form_config,
     })
 }
+
 pub async fn load_add_product_data(pool: &SqlitePool, facture_id: i64) -> Result<PageAddProduct> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
@@ -227,6 +232,50 @@ pub async fn load_add_product_data(pool: &SqlitePool, facture_id: i64) -> Result
     Ok(PageAddProduct {
         facture_info,
         product_types: product_types.into_iter().map(|a| a.into()).collect(),
+    })
+}
+
+pub async fn load_print_data(pool: &SqlitePool, facture_id: i64) -> Result<PagePrintData> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let (facture_info, items, payments, refunds) = load_facture_info(facture_id, &mut tx).await?;
+
+    let signatures = load_signatures(&mut tx).await?;
+    let clauses = load_clauses(&mut tx).await?;
+    let print_config = PrintConfig {
+        signatures,
+        clauses,
+    };
+    let products = ProductRow::select_for_facture(facture_id, &mut tx).await?;
+    let product_types = ProductTypeRow::select_for_facture(facture_id, &mut tx).await?;
+    let products = products.into_iter().map(ProductView::from).collect();
+    let mut products = build_product_info(products, product_types);
+
+    let mut facture_item_info = Vec::with_capacity(items.capacity());
+    for (item, item_computed) in items {
+        let idx = products
+            .iter()
+            .position(|value| value.product.id == item.product_id);
+        let idx = idx.ok_or(anyhow::Error::msg(format!(
+            "Product {} not found for facture item id: {}",
+            item.product_id, item.facture_id
+        )))?;
+        let product_info = products.swap_remove(idx);
+        facture_item_info.push(FactureItemInfo {
+            item,
+            item_computed,
+            product_info,
+        })
+    }
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(PagePrintData {
+        facture_info,
+        items: facture_item_info,
+        payments,
+        refunds,
+        print_config,
     })
 }
 
@@ -435,7 +484,7 @@ fn build_one_facture_data(
     let facture_view = FactureView::from(facture);
     let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
     let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
-    let (facture_computed, items_computed) =
+    let (facture_computed, _) =
         computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
 
     let items: Result<Vec<FactureItemEntry<FactureItemView>>> = facture_items
@@ -470,7 +519,6 @@ fn build_one_facture_data(
     Ok(FactureItemsData {
         facture_info,
         items: items?,
-        items_computed: items_computed.into_values().collect(),
     })
 }
 
@@ -606,7 +654,7 @@ async fn load_facture_info(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<(
     FactureInfo,
-    Vec<FactureItemView>,
+    Vec<(FactureItemView, FactureItemComputed)>,
     Vec<PaymentView>,
     Vec<RefundView>,
 )> {
@@ -640,8 +688,19 @@ async fn load_facture_info(
 
     let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
     let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
-    let (facture_computed, _) =
+
+    let (facture_computed, mut items_computed) =
         computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
+
+    let facture_items_details: Result<Vec<(FactureItemView, FactureItemComputed)>> = facture_items
+        .into_iter()
+        .map(|item| {
+            let item_computed = items_computed.remove(&item.id);
+            let item_computed =
+                item_computed.ok_or(anyhow::Error::msg("Unable to find computed item"));
+            item_computed.map(|ir| (item, ir))
+        })
+        .collect();
 
     let facture_info = FactureInfo {
         facture: facture_view,
@@ -649,7 +708,12 @@ async fn load_facture_info(
         event: event_row.map(|e| e.into()),
         client: ClientView::from(client_row),
     };
-    Ok((facture_info, facture_items, payment_views, refund_views))
+    Ok((
+        facture_info,
+        facture_items_details?,
+        payment_views,
+        refund_views,
+    ))
 }
 
 /// The order in the values vector is not guaranteed to be the same as the original iterator I.

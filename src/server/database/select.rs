@@ -528,6 +528,30 @@ impl ProductTypeRow {
         Ok(result)
     }
 
+    pub async fn select_for_facture(
+        facture_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<(i64, String)>> {
+        let result: Vec<(i64, String)> = sqlx::query_as(
+            r#"
+                SELECT product_product_types.product_id, product_product_types.product_type_name
+                FROM facture_items
+                LEFT JOIN products ON products.id = facture_items.product_id
+                LEFT JOIN product_product_types ON products.id = product_product_types.product_id
+                WHERE facture_items.facture_id = ?
+                ORDER BY product_product_types.product_id ASC;
+            "#,
+        )
+        .bind(facture_id)
+        .fetch_all(&mut **tx)
+        .await
+        .context(format!(
+            "Failed to retrieve product_types for all products but location and alteration"
+        ))?;
+
+        Ok(result)
+    }
+
     pub async fn select_for_product(
         product_id: i64,
         tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,

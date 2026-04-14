@@ -6,7 +6,7 @@ use crate::server::models::{
     factures::FactureView,
     payments::{PaymentView, PreCalculatedPayment},
     product_types::ProductTypeView,
-    products::ProductView,
+    products::{ProductInfo, ProductView},
     refunds::RefundView,
     statuts::{State, StateView},
 };
@@ -50,7 +50,25 @@ impl FactureDashboardData {
 pub struct FactureItemsData {
     pub facture_info: FactureInfo,
     pub items: Vec<FactureItemEntry<FactureItemView>>,
-    pub items_computed: Vec<FactureItemComputed>,
+}
+
+pub struct PagePrintData {
+    pub facture_info: FactureInfo,
+    pub items: Vec<FactureItemInfo>,
+    pub payments: Vec<PaymentView>,
+    pub refunds: Vec<RefundView>,
+    pub print_config: PrintConfig,
+}
+
+pub struct PrintConfig {
+    pub signatures: Vec<String>,
+    pub clauses: Vec<String>,
+}
+
+pub struct FactureItemInfo {
+    pub item: FactureItemView,
+    pub item_computed: FactureItemComputed,
+    pub product_info: ProductInfo,
 }
 
 pub struct FactureItemEntry<Item> {

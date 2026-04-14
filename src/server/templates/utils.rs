@@ -39,7 +39,7 @@ pub fn ask_transition(value: &str) -> String {
     }
 }
 
-fn bootstrap_css() -> Markup {
+pub fn bootstrap_css() -> Markup {
     let url = format!(
         "https://stackpath.bootstrapcdn.com/bootstrap/{}/css/bootstrap.min.css",
         BOOTSTRAP_VERSION

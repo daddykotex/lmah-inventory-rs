@@ -3,9 +3,9 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 use crate::server::{
     models::{
         FactureDashboardData, FactureInfo, FactureItemEntry, FactureItemFormConfig,
-        FactureItemsData, MaybeTransaction, PAYMENT_TYPES, PageAddOneFactureItemData,
-        PageAddProduct, PageFactureItemsData, PageOneFactureItemData, PageTransactionsData,
-        REFUND_TYPES, TheTransaction, Transaction,
+        FactureItemInfo, FactureItemsData, MaybeTransaction, PAYMENT_TYPES,
+        PageAddOneFactureItemData, PageAddProduct, PageFactureItemsData, PageOneFactureItemData,
+        PagePrintData, PageTransactionsData, REFUND_TYPES, TheTransaction, Transaction,
         clients::{ClientView, ClientViewFuzzySearch},
         config::{ExtraLargeAmounts, NoteTemplate},
         events::EventView,
@@ -692,13 +692,13 @@ fn facture_info_client(facture: &FactureView, client: &ClientView) -> Markup {
                 b {
                     "Client: "
                 }
-                (client.first_name) " " (client.last_name)
+                (client.name())
             }
             li {
                 b {
                     "Ville: "
                 }
-                @if let Some(c) = &client.city {
+                @if let Some(c) = &client.street {
                     (c)
                 }
             }
@@ -2485,4 +2485,533 @@ pub fn page_add_product(page_data: PageAddProduct) -> Markup {
         (footer())
     };
     page("Ajouter un produit", body)
+}
+
+pub fn page_print(page_data: PagePrintData) -> Markup {
+    fn print_total(facture_data: &PagePrintData) -> Markup {
+        html! {
+            table."table" {
+                tbody {
+                    tr {
+                        th {
+                            "Sous-total:"
+                        }
+                        td."text-right" {
+                            (facture_data.facture_info.facture_computed.total)
+                        }
+                    }
+                    tr {
+                        th {
+                            "TPS 5%:"
+                        }
+                        td."text-right" {
+                            (facture_data.facture_info.facture_computed.tps)
+                        }
+                    }
+                    tr {
+                        th {
+                            "TVQ 9.975%:"
+                        }
+                        td."text-right" {
+                            (facture_data.facture_info.facture_computed.tvq)
+                        }
+                    }
+                    tr {
+                        th {
+                            "Total:"
+                        }
+                        td."text-right" {
+                            (facture_data.facture_info.facture_computed.tax_total)
+                        }
+                    }
+                    tr {
+                        td colspan="2" {
+                            b {
+                                "La Mariée à l'Honneur Inc.  # TPS: "
+                            }
+                            "786527291"
+                            b {
+                                "# TVQ: "
+                            }
+                            "1223489504"
+                        }
+                    }
+                    tr {
+                        @if facture_data.payments.iter().count() > 0 {
+                            th {
+                                "Paiements reçus:"
+                            }
+                            td."text-right" {
+                                ul style=("list-style-position: inside;") {
+                                    @for p in &facture_data.payments {
+                                        li {
+                                            (p.date) " " (p.payment_type) " - " (p.amount)
+                                        }
+                                    }
+                                }
+                            }
+                        } @else {
+                            span {
+                                "Aucun paiement reçu"
+                            }
+                        }
+                    }
+                    tr {
+                        @if facture_data.refunds.iter().count() > 0 {
+                            th {
+                                "Remboursements reçus:"
+                            }
+                            td."text-right" {
+                                ul style=("list-style-position: inside;") {
+                                    @for r in &facture_data.refunds {
+                                        li {
+                                            (r.date) " " (r.refund_type) " - " (r.amount) @if let Some(c) = r.cheque_number.as_ref() { "No chèque: " (c) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    tr."border-top-lg" {
+                        th {
+                            "Balance à recevoir:"
+                        }
+                        td."text-right" {
+                            (facture_data.facture_info.facture_computed.balance)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    fn display_notes(note: &str) -> Markup {
+        let notes: Vec<&str> = note.split("\n").collect();
+        html! {
+            @for n in notes {
+                li { i { (n) } }
+            }
+        }
+    }
+    fn list_the_items_row(entry: &FactureItemInfo) -> Markup {
+        match &entry.item.value {
+            FactureItemValue::FactureItemProduct(value) => {
+                html! {
+                    tr {
+                        td {
+                            (value.quantity)
+                        }
+                        td {
+                            (entry.product_info.product.name)
+                        }
+                        td {
+                            @if let Some(p) = &value.price {
+                                (p)
+                            }
+                        }
+                        td."details" {
+                            ul."list-unstyled ml-0" {
+                                @if let Some(percent) = &value.rebate_percent.filter(|a| *a > 0) {
+                                    li { b { "Rabais de " (percent) "% appliqué sur le prix unistaire:" } (entry.item_computed.calculated_rebate) }
+                                }
+                                @if let Some(ex) = &value.extra_large_size {
+                                    li { b { "Frais additionnels pour taille forte: " } (ex) }
+                                }
+                                @if entry.product_info.types.iter().any(|pt| pt.is_dress()) && !value.floor_item {
+                                    li { b { "Mesures: " } (entry.item_computed.measurements) }
+                                }
+                                @if value.floor_item {
+                                    li { "Modèle planché" }
+                                }
+                                @if let Some(n) = value.notes.as_ref() {
+                                    (display_notes(&n))
+                                }
+                            }
+                        }
+                        td {
+                            @if let Some(b) = &value.beneficiary {
+                                (b)
+                            }
+                        }
+                        td."text-right" {
+                            (entry.item_computed.total)
+                        }
+                    }
+                }
+            }
+            FactureItemValue::FactureItemLocation(value) => html! {
+                tr {
+                    td {
+                        (value.quantity)
+                    }
+                    td."details" {
+                        ul."list-unstyled ml-0" {
+                            li { b { "Location de vêtements et d'accessoires" } }
+                            @if let Some(ass) = &value.insurance {
+                                li { b { "Frais d'assurances: " } (ass) }
+                            }
+                            @if let Some(oc) = &value.other_costs {
+                                li { b { "Autres frais supplémentaires: " } (oc) }
+                            }
+                            @if let Some(n) = value.notes.as_ref() {
+                                (display_notes(&n))
+                            }
+                        }
+                    }
+                    td {
+                        @if let Some(b) = &value.beneficiary {
+                            (b)
+                        }
+                    }
+                    td {
+                        @if let Some(p) = value.price {
+                            (p)
+                        }
+                    }
+                }
+            },
+            FactureItemValue::FactureItemAlteration(value) => html! {
+
+                tr {
+                    td {
+                        (value.quantity)
+                    }
+                    td {
+                        (entry.product_info.product.name)
+                    }
+                    td {
+                        @if let Some(p) = value.price {
+                            (p)
+                        }
+                    }
+                    td."details" {
+                        ul."list-unstyled ml-0" {
+                            @if let Some(rebate) = &value.rebate_dollar {
+                                li { b { "Rabais appliqué sur le prix unitaire: " } (rebate) }
+                            }
+                            @if let Some(n) = value.notes.as_ref() {
+                                (display_notes(&n))
+                            }
+                        }
+                    }
+                    td."text-right" {
+                        (entry.item_computed.total)
+                    }
+                }
+            },
+        }
+    }
+    fn list_the_items(facture_data: &PagePrintData) -> Markup {
+        let default = String::from("Product");
+        let facture_type = facture_data
+            .facture_info
+            .facture
+            .facture_type
+            .as_ref()
+            .unwrap_or(&default)
+            .as_str();
+        let header = match facture_type {
+            "Location" => html! {
+                thead {
+                    tr {
+                        th scope="col" {
+                            "Quantité"
+                        }
+                        th scope="col" {
+                            "Détails"
+                        }
+                        th scope="col" {
+                            "Bénéficiaire"
+                        }
+                        th scope="col" {
+                            "Prix"
+                        }
+                    }
+                }
+            },
+            "Alteration" => html! {
+                thead {
+                    tr {
+                        th scope="col" {
+                            "Quantité"
+                        }
+                        th scope="col" {
+                            "Nom"
+                        }
+                        th scope="col" {
+                            "Prix unitaire"
+                        }
+                        th scope="col" {
+                            "Details"
+                        }
+                        th scope="col" {
+                            "Prix"
+                        }
+                    }
+                }
+            },
+            _ => html! {
+                thead {
+                    tr {
+                        th scope="col" {
+                            "Quantité"
+                        }
+                        th scope="col" {
+                            "Nom"
+                        }
+                        th scope="col" {
+                            "Prix unitaire"
+                        }
+                        th scope="col" {
+                            "Détails"
+                        }
+                        th scope="col" {
+                            "Bénéficiaire"
+                        }
+                        th scope="col" {
+                            "Prix"
+                        }
+                    }
+                }
+            },
+        };
+        html! {
+            @if facture_data.items.iter().count() > 0 {
+                table."table print-items" {
+                    (header)
+                    tbody {
+                        @for entry in &facture_data.items {
+                            (list_the_items_row(entry))
+                        }
+                    }
+                }
+
+            } @else {
+                p { "Il n'y a aucun item dans la facture." }
+            }
+        }
+    }
+
+    let title_page = format!("Facture #{}", page_data.facture_info.facture.id);
+    html! {
+        (DOCTYPE)
+        html lang="fr" {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no";
+                title {
+                    (title_page)
+                }
+                (bootstrap_css())
+                link href="https://fonts.googleapis.com/css?family=Lobster" rel="stylesheet";
+                style {
+                    (PreEscaped(
+                    "body {
+                        font-size: 0.75rem;
+                    }
+                    /*https://stackoverflow.com/questions/585254/how-to-remove-the-url-from-the-printing-page*/
+                    @page {
+                        size: letter;
+                        margin: 0; /* this affects the margin in the printer settings */
+                    }
+                    .container {
+                        max-width: 8.5in;
+                    }
+                    .print {
+                        margin-top: 0.5in;
+                        margin-right: 0.5in;
+                        margin-left: 0.5in;
+                    }
+                    .brand {
+                        text-align: right;
+                        font-family: \"Lobster\", cursive;
+                        font-size: 2rem;
+                    }
+                    .spacer-100 {
+                        height: 100px;
+                    }
+                    .clauses {
+                        font-size: 0.5rem;
+                    }
+                    .total table tr.border-top-lg td,
+                    .total table tr.border-top-lg th {
+                        border-top: 2px solid black;
+                    }
+                    .table.client tbody th,
+                    .table.client tbody td {
+                        padding: 0;
+                    }
+                    .print .print-items td.details {
+                        max-width: 400px;
+                        word-wrap: break-word;
+                    }
+                    .inline-block {
+                        display: inline-block;
+                    }"
+                    ))
+                }
+            }
+            body {
+                div."container" {
+                    div."print" {
+                        table style="width: 100%;" {
+                            tr {
+                                td style="width: 30%;" {
+                                    ul."list-unstyled" {
+                                        @let facture_str = format!("#{}", page_data.facture_info.facture.id);
+                                        @let paper_ref_str = &page_data.facture_info.facture.paper_ref.as_ref().map(|a| format!("(Réf. ancienne: {})", a));
+
+                                        li {
+                                            b {
+                                                "Facture: "
+                                            }
+                                            (facture_str) " " @if let Some(pr) = paper_ref_str { (pr) }
+                                        }
+                                        li {
+                                            b {
+                                                "Date de facturation: "
+                                            }
+                                            @if let Some(date) = page_data.facture_info.facture.date.as_ref() { (date) }
+                                        }
+                                    }
+                                }
+                                td."text-right" style="width: 70%;" {
+                                    span."brand" {
+                                        "La Mariée à l'Honneur"
+                                    }
+                                }
+                            }
+                            tr {
+                                td style="width: 50%;" {}
+                                td."text-right" style="width: 50%;" {
+                                    img src="data:image/png;base64,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" alt="logo" width="100" height="100";
+                                    (" ")
+                                    div."text-right inline-block" {
+                                        p {
+                                            "2023 route Marie-Victorin"
+                                            br;
+                                            "Varennes, Québec, (J3X 1R3)"
+                                        }
+                                        p {
+                                            "450-652-4771"
+                                            br;
+                                            "514-880-4771"
+                                        }
+                                    }
+                                }
+                            }
+
+                            tr {
+                                td colspan="2" {
+                                    table."table client table-borderless" style="width: 42%;" {
+                                        tbody {
+                                            tr {
+                                                th {
+                                                    "Nom:"
+                                                }
+                                                td {
+                                                    (page_data.facture_info.client.name())
+                                                }
+                                            }
+                                            tr {
+                                                th {
+                                                    "Rue:"
+                                                }
+                                                td {
+                                                    @if let Some(c) = &page_data.facture_info.client.street.as_ref() {
+                                                        (c)
+                                                    }
+                                                }
+                                            }
+                                            tr {
+                                                th {
+                                                    "Ville:"
+                                                }
+                                                td {
+                                                    @if let Some(city) = &page_data.facture_info.client.city.as_ref() {
+                                                        (city)
+                                                    }
+                                                }
+                                            }
+                                            tr {
+                                                th {
+                                                    "Téléphone #1:"
+                                                }
+                                                td {
+                                                    (page_data.facture_info.client.phone1)
+                                                }
+                                            }
+                                            tr {
+                                                th {
+                                                    "Téléphone #2:"
+                                                }
+                                                td {
+                                                    @if let Some(phone2) = &page_data.facture_info.client.phone2.as_ref() {
+                                                        (phone2)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            tr {
+                                td colspan="2" {
+                                    (list_the_items(&page_data))
+                                }
+                            }
+                            tr."spacer-100" {}
+                            tr {
+                                td colspan="2" {
+                                    (print_total(&page_data))
+                                }
+                            }
+                            tr {
+                                td."clauses" colspan="2" {
+                                    @for c in &page_data.print_config.clauses {
+                                        p { (c) }
+                                    }
+                                }
+                            }
+                            @if page_data.print_config.signatures.is_empty() {
+                                tr {
+                                    td."text-right" colspan="2" {
+                                        b {
+                                            "Signature:"
+                                        }
+                                        "_________________________________________"
+                                    }
+                                }
+                            }
+                            @for s in &page_data.print_config.signatures {
+                                tr {
+                                    td colspan="2" {
+                                        span {
+                                            (s)
+                                        }
+                                    }
+                                }
+                                tr."mt-3" {
+                                    td."text-right" colspan="2" {
+                                        b {
+                                            "Signature:"
+                                        }
+                                        "_________________________________________"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            script type="text/javascript" {
+                (PreEscaped(r#"
+                    window.onload = function() {
+                        if (parent && parent.iframeLoaded) {
+                            parent.iframeLoaded();
+                        }
+                    }
+                "#))
+            }
+        }
+    }
 }
