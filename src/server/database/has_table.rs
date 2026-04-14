@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::server::models::{
     clients::{ClientInsert, ClientRow},
-    config::ConfigRow,
+    config::{ConfigInsert, ConfigRow},
     events::{EventInsert, EventRow},
     facture_items::FactureItemRow,
     factures::FactureRow,
@@ -52,6 +52,12 @@ pub trait HasTable {
 }
 
 impl HasTable for ConfigRow {
+    fn table() -> Table {
+        Table::Config
+    }
+}
+
+impl HasTable for ConfigInsert {
     fn table() -> Table {
         Table::Config
     }

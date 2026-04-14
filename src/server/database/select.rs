@@ -4,6 +4,7 @@ use crate::server::{
     database::has_table::{HasTable, TableName},
     models::{
         clients::ClientRow,
+        config::ConfigRow,
         events::EventRow,
         facture_items::{FactureItemRow, ItemFactureFlowType},
         factures::FactureRow,
@@ -564,5 +565,15 @@ impl ProductTypeRow {
         .await?;
 
         Ok(result)
+    }
+}
+
+impl ConfigRow {
+    pub async fn select_all(
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<ConfigRow>> {
+        Ok(sqlx::query_as("SELECT * FROM config")
+            .fetch_all(tx.as_mut())
+            .await?)
     }
 }

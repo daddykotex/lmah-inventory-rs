@@ -1,7 +1,7 @@
 use crate::server::database::has_table::{HasTable, Table, TableName};
 use crate::server::database::insert::Insertable;
 use crate::server::models::clients::ClientInsert;
-use crate::server::models::config::ConfigRow;
+use crate::server::models::config::ConfigInsert;
 use crate::server::models::events::EventInsert;
 use crate::server::models::facture_items::FactureItemInsert;
 use crate::server::models::payments::PaymentInsert;
@@ -122,16 +122,14 @@ pub struct ConfigFields {
 }
 
 /// Unnecessary WithId but kept because most other tabs have one
-impl From<AirtableRecord<ConfigFields>> for WithId<ConfigRow> {
+impl From<AirtableRecord<ConfigFields>> for WithId<ConfigInsert> {
     fn from(record: AirtableRecord<ConfigFields>) -> Self {
         WithId {
             airtable_id: String::from("_N/A_"),
-            row: ConfigRow {
+            row: ConfigInsert {
                 key: record.fields.key,
                 value: record.fields.value,
                 config_type: record.fields.config_type,
-                created_at: record.created_time.clone(),
-                updated_at: record.created_time,
             },
         }
     }
@@ -201,7 +199,7 @@ pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
 }
 
 pub struct ToInsert {
-    pub config: Vec<ConfigRow>,
+    pub config: Vec<ConfigInsert>,
     pub clients: Vec<WithId<ClientInsert>>,
     pub product_types: Vec<ProductTypeRow>,
     pub events: Vec<WithId<EventInsert>>,
@@ -221,14 +219,14 @@ pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
 }
 
 /// Load config records
-async fn load_config_from_export(data: AirtableRecords<ConfigFields>) -> Result<Vec<ConfigRow>> {
+async fn load_config_from_export(data: AirtableRecords<ConfigFields>) -> Result<Vec<ConfigInsert>> {
     let mut rows = Vec::new();
     for (idx, record) in data.records.into_iter().enumerate() {
         validate_config_type(&record.fields.config_type).with_context(|| {
             format!("Invalid config type in record {} (id: {})", idx, record.id)
         })?;
 
-        let row = WithId::<ConfigRow>::from(record).row;
+        let row = WithId::<ConfigInsert>::from(record).row;
 
         rows.push(row);
     }
