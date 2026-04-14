@@ -22,9 +22,24 @@ pub async fn load_extra_large_amount(
         others: -1000,
     })
 }
+
 pub async fn load_seamstresses(
     _tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<Vec<String>> {
     // TODO read db
     Ok(vec![String::from("Rachel")])
+}
+
+pub async fn load_clauses(_tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
+    // TODO read db
+    Ok(Vec::from([
+        "clause 1".into(),
+        "clause 2".into(),
+        "clause 3".into(),
+    ]))
+}
+
+pub async fn load_signatures(_tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
+    // TODO read db
+    Ok(Vec::from(["sign 1".into(), "sign 2".into()]))
 }
