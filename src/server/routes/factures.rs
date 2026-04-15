@@ -11,7 +11,9 @@ use crate::server::{
     models::{clients::ClientView, events::EventView},
     routes::{errors::AppError, redirect::RedirectOr},
     services::{
-        clients, events,
+        clients,
+        config::load_event_types,
+        events,
         factures::{
             blank_facture_item, load_add_product_data, load_print_data, load_products_to_add,
             select_all, select_one, select_one_facture_item, select_transactions,
@@ -109,7 +111,8 @@ async fn new_facture_new_event(
     Path(facture_id): Path<i64>,
 ) -> Result<Markup, AppError> {
     select_one(&pool, facture_id).await?; // ensure the facture exists
-    let rendered = factures::page_new_facture_new_event(facture_id);
+    let event_types = load_event_types(&pool).await?;
+    let rendered = factures::page_new_facture_new_event(facture_id, event_types);
     Ok(rendered)
 }
 

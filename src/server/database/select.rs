@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use sqlx::{Executor, Sqlite};
 
 use crate::server::{
     database::has_table::{HasTable, TableName},
@@ -569,11 +570,10 @@ impl ProductTypeRow {
 }
 
 impl ConfigRow {
-    pub async fn select_all(
-        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-    ) -> Result<Vec<ConfigRow>> {
-        Ok(sqlx::query_as("SELECT * FROM config")
-            .fetch_all(tx.as_mut())
-            .await?)
+    pub async fn select_all<'c, E>(tx: E) -> Result<Vec<ConfigRow>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        Ok(sqlx::query_as("SELECT * FROM config").fetch_all(tx).await?)
     }
 }

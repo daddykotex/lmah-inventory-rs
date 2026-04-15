@@ -81,17 +81,14 @@ pub struct EventFormMarkup {
     pub javascript: Markup,
 }
 
-pub fn new_event_form(path: &str, maybe_event: Option<EventView>) -> EventFormMarkup {
-    let event_types: Vec<String> = EVENT_TYPES.iter().map(|e| e.to_string()).collect();
+pub fn new_event_form(
+    path: &str,
+    maybe_event: Option<EventView>,
+    event_types: &Vec<String>,
+) -> EventFormMarkup {
     let maybe_name = maybe_event.clone().map(|s| s.name);
     let maybe_date = maybe_event.clone().map(|s| s.date);
     let maybe_type = maybe_event.clone().map(|s| s.event_type);
-
-    let event_type_selections: Vec<(bool, String)> = event_types
-        .into_iter()
-        .enumerate()
-        .map(|(i, e)| (maybe_type.as_ref().map_or(i == 0, |e2| e2 == &e), e))
-        .collect();
 
     let body = html! {
         form."evenement-form" autocomplete="false" action=(path) method="POST" {
@@ -101,15 +98,10 @@ pub fn new_event_form(path: &str, maybe_event: Option<EventView>) -> EventFormMa
                         "Type"
                     }
                     select."custom-select" id="type" name="type" {
-                        @for (selected, event_type) in event_type_selections {
-                            @if selected {
-                                option value=(event_type) selected {
-                                    (event_type)
-                                }
-                            } @else {
-                                option value=(event_type) {
-                                    (event_type)
-                                }
+                        @for event_type in event_types {
+                            @let selected = if maybe_type.as_ref().is_some_and(|et| et == event_type)  { Some(true) } else { None };
+                            option value=(event_type) selected=[selected] {
+                                (event_type)
                             }
                         }
                     }
@@ -282,22 +274,13 @@ pub fn page_events(events: Vec<EventView>) -> Markup {
     page("Événements", body)
 }
 
-// todo Load event types from the database
-const EVENT_TYPES: [&str; 5] = [
-    "Bal de graduation",
-    "Fiancailles",
-    "Fiançailles",
-    "Mariage",
-    "Soirée",
-];
-
-pub fn page_one_event(event: EventView) -> Markup {
+pub fn page_one_event(event: EventView, event_types: Vec<String>) -> Markup {
     let event_name = event.name.clone();
     let update_url = format!("/events/{}/update", event.id);
     let EventFormMarkup {
         body: form_body,
         javascript,
-    } = new_event_form(&update_url, Some(event));
+    } = new_event_form(&update_url, Some(event), &event_types);
 
     // TODO retrieve related factures
     let related_factures = related_factures(Vec::new());
@@ -312,11 +295,11 @@ pub fn page_one_event(event: EventView) -> Markup {
     page(&title, body)
 }
 
-pub fn page_new_event() -> Markup {
+pub fn page_new_event(event_types: Vec<String>) -> Markup {
     let EventFormMarkup {
         body: form_body,
         javascript,
-    } = new_event_form("/events/new", None);
+    } = new_event_form("/events/new", None, &event_types);
     let related_factures = related_factures(Vec::new());
     let body = html! {
         (navbar(MenuConstants::Evenements))

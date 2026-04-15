@@ -10,7 +10,10 @@ use sqlx::SqlitePool;
 use crate::server::{
     models::events::{EventForm, EventView},
     routes::errors::AppError,
-    services::events::{insert_event, select_all, select_one, update_event},
+    services::{
+        config::load_event_types,
+        events::{insert_event, select_all, select_one, update_event},
+    },
     templates::events,
 };
 
@@ -22,8 +25,9 @@ async fn list_events(State(pool): State<SqlitePool>) -> Result<Markup, AppError>
     Ok(rendered)
 }
 
-async fn new_event() -> Result<Markup, AppError> {
-    Ok(events::page_new_event())
+async fn new_event(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
+    let event_types = load_event_types(&pool).await?;
+    Ok(events::page_new_event(event_types))
 }
 
 async fn one_event(
@@ -31,12 +35,13 @@ async fn one_event(
     Path(event_id): Path<i64>,
 ) -> Result<Markup, AppError> {
     let maybe_event = select_one(&pool, event_id).await?;
+    let event_types = load_event_types(&pool).await?;
     let event = maybe_event.ok_or(anyhow::Error::msg(format!(
         "event with id {} not found",
         event_id
     )))?;
     let event_view = EventView::from(event);
-    Ok(events::page_one_event(event_view))
+    Ok(events::page_one_event(event_view, event_types))
 }
 
 async fn update_one_event(
