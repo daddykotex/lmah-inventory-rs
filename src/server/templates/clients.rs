@@ -76,12 +76,12 @@ pub struct ClientFormMarkup {
 }
 
 pub fn new_client_form(path: &str, maybe_client: Option<ClientView>) -> ClientFormMarkup {
-    let maybe_first_name = maybe_client.clone().map(|s| s.first_name);
-    let maybe_last_name = maybe_client.clone().map(|s| s.last_name);
-    let maybe_street = maybe_client.clone().and_then(|s| s.street);
-    let maybe_city = maybe_client.clone().and_then(|s| s.city);
-    let maybe_phone = maybe_client.clone().map(|s| s.phone1);
-    let maybe_phone2 = maybe_client.clone().and_then(|s| s.phone2);
+    let maybe_first_name = maybe_client.as_ref().map(|s| &s.first_name);
+    let maybe_last_name = maybe_client.as_ref().map(|s| &s.last_name);
+    let maybe_street = maybe_client.as_ref().and_then(|s| s.street.as_ref());
+    let maybe_city = maybe_client.as_ref().and_then(|s| s.city.as_ref());
+    let maybe_phone = maybe_client.as_ref().map(|s| &s.phone1);
+    let maybe_phone2 = maybe_client.as_ref().and_then(|s| s.phone2.as_ref());
 
     let body = html! {
         form."client-form" autocomplete="false" action=(path) method="POST" {

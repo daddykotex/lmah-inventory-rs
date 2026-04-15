@@ -86,12 +86,12 @@ pub struct EventFormMarkup {
 
 pub fn new_event_form(
     path: &str,
-    maybe_event: Option<EventView>,
+    maybe_event: Option<&EventView>,
     event_types: &Vec<String>,
 ) -> EventFormMarkup {
-    let maybe_name = maybe_event.clone().map(|s| s.name);
-    let maybe_date = maybe_event.clone().map(|s| s.date);
-    let maybe_type = maybe_event.clone().map(|s| s.event_type);
+    let maybe_name = maybe_event.as_ref().map(|s| &s.name);
+    let maybe_date = maybe_event.as_ref().map(|s| &s.date);
+    let maybe_type = maybe_event.as_ref().map(|s| &s.event_type);
 
     let body = html! {
         form."evenement-form" autocomplete="false" action=(path) method="POST" {
@@ -102,7 +102,7 @@ pub fn new_event_form(
                     }
                     select."custom-select" id="type" name="type" {
                         @for event_type in event_types {
-                            @let selected = if maybe_type.as_ref().is_some_and(|et| et == event_type)  { Some(true) } else { None };
+                            @let selected = if maybe_type.as_ref().is_some_and(|et| et == &event_type)  { Some(true) } else { None };
                             option value=(event_type) selected=[selected] {
                                 (event_type)
                             }
@@ -278,14 +278,12 @@ pub fn page_one_event(
     event_types: Vec<String>,
     factures: Vec<FactureAndClient>,
 ) -> Markup {
-    let event_name = event.name.clone();
     let update_url = format!("/events/{}/update", event.id);
     let EventFormMarkup {
         body: form_body,
         javascript,
-    } = new_event_form(&update_url, Some(event), &event_types);
+    } = new_event_form(&update_url, Some(&event), &event_types);
 
-    // TODO retrieve related factures
     let related_factures = related_factures(factures);
 
     let body = html! {
@@ -294,7 +292,7 @@ pub fn page_one_event(
         (footer())
         (javascript)
     };
-    let title = format!("{} - Événements", event_name);
+    let title = format!("{} - Événements", &event.name);
     page(&title, body)
 }
 

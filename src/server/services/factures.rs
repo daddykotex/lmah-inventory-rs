@@ -524,7 +524,7 @@ fn build_one_facture_data(
 
 fn build_facture_dashboard_data(
     factures: Vec<FactureRow>,
-    clients: Vec<ClientRow>,
+    mut clients: Vec<ClientRow>,
     facture_item_flows: Vec<ItemFactureFlowType>,
     statuts: Vec<StatutRow>,
 ) -> Result<Vec<FactureDashboardData>> {
@@ -534,17 +534,12 @@ fn build_facture_dashboard_data(
     let mut res = Vec::new();
 
     for facture in factures {
-        let found_client: Option<ClientRow> = clients.iter().find_map(|c| {
-            if c.id == facture.client_id {
-                Some(c.clone())
-            } else {
-                None
-            }
-        });
-        let client = found_client.ok_or(anyhow::Error::msg(format!(
+        let idx = clients.iter().position(|c| c.id == facture.client_id);
+        let idx = idx.ok_or(anyhow::Error::msg(format!(
             "No client found for facture {}",
             facture.id
         )))?;
+        let client = clients.swap_remove(idx);
 
         let state_per_item = state_per_facture.remove(&facture.id).unwrap_or(Vec::new());
 
