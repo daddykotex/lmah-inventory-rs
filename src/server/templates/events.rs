@@ -1,6 +1,9 @@
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 
-use crate::server::{models::events::EventView, templates::utils::*};
+use crate::server::{
+    models::{FactureAndClient, events::EventView},
+    templates::utils::*,
+};
 
 fn find_events(
     container_id: &str,
@@ -136,13 +139,7 @@ pub fn new_event_form(
     EventFormMarkup { body, javascript }
 }
 
-struct Facture {
-    id: i64,
-    date: String,
-    client_name: String,
-}
-
-fn related_factures(items: Vec<Facture>) -> Markup {
+fn related_factures(items: Vec<FactureAndClient>) -> Markup {
     html! {
         @if items.is_empty() {
             p { "Aucune factures liées" }
@@ -169,7 +166,7 @@ fn related_factures(items: Vec<Facture>) -> Markup {
                 }
                 tbody {
                     @for item in items {
-                        @let url = format!("/factures/{}/items", item.id);
+                        @let url = format!("/factures/{}/items", item.facture.id);
                         tr {
                             td {
                                 a."btn btn-sm btn-primary" href=(url) {
@@ -177,13 +174,15 @@ fn related_factures(items: Vec<Facture>) -> Markup {
                                 }
                             }
                             td {
-                                (item.id)
+                                (item.facture.id)
                             }
                             td {
-                                (item.date)
+                                @if let Some(date) = item.facture.date {
+                                    (date)
+                                }
                             }
                             td {
-                                (item.client_name)
+                                (item.client.name())
                             }
                         }
                     }
@@ -274,7 +273,11 @@ pub fn page_events(events: Vec<EventView>) -> Markup {
     page("Événements", body)
 }
 
-pub fn page_one_event(event: EventView, event_types: Vec<String>) -> Markup {
+pub fn page_one_event(
+    event: EventView,
+    event_types: Vec<String>,
+    factures: Vec<FactureAndClient>,
+) -> Markup {
     let event_name = event.name.clone();
     let update_url = format!("/events/{}/update", event.id);
     let EventFormMarkup {
@@ -283,7 +286,7 @@ pub fn page_one_event(event: EventView, event_types: Vec<String>) -> Markup {
     } = new_event_form(&update_url, Some(event), &event_types);
 
     // TODO retrieve related factures
-    let related_factures = related_factures(Vec::new());
+    let related_factures = related_factures(factures);
 
     let body = html! {
         (navbar(MenuConstants::Evenements))
