@@ -2435,9 +2435,9 @@ pub fn page_new_facture_the_event(
     page("Sélectionner un événement", body)
 }
 
-pub fn page_new_facture_new_event(facture_id: i64) -> Markup {
+pub fn page_new_facture_new_event(facture_id: i64, event_types: Vec<String>) -> Markup {
     let url = format!("/factures/{}/new-event", facture_id);
-    let event_form = new_event_form(url.as_ref(), None);
+    let event_form = new_event_form(url.as_ref(), None, &event_types);
 
     let body = html! {
         (navbar(MenuConstants::Factures))

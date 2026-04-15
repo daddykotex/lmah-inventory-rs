@@ -1,11 +1,12 @@
 use anyhow::{Ok, Result};
+use sqlx::{Executor, Sqlite};
 
 use crate::server::models::config::{ConfigRow, ExtraLargeAmounts, NoteTemplate};
 
 pub async fn load_note_templates(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<Vec<NoteTemplate>> {
-    let rows = ConfigRow::select_all(tx).await?;
+    let rows = ConfigRow::select_all(&mut **tx).await?;
 
     let templates = rows
         .into_iter()
@@ -23,7 +24,7 @@ pub async fn load_note_templates(
 pub async fn load_extra_large_amount(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<ExtraLargeAmounts> {
-    let rows = ConfigRow::select_all(tx).await?;
+    let rows = ConfigRow::select_all(&mut **tx).await?;
 
     let mut wedding = None;
     let mut others = None;
@@ -47,7 +48,7 @@ pub async fn load_extra_large_amount(
 pub async fn load_seamstresses(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(tx).await?;
+    let rows = ConfigRow::select_all(&mut **tx).await?;
 
     let seamstresses = rows
         .into_iter()
@@ -59,7 +60,7 @@ pub async fn load_seamstresses(
 }
 
 pub async fn load_clauses(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(tx).await?;
+    let rows = ConfigRow::select_all(&mut **tx).await?;
 
     let clauses = rows
         .into_iter()
@@ -71,7 +72,7 @@ pub async fn load_clauses(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Resul
 }
 
 pub async fn load_signatures(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(tx).await?;
+    let rows = ConfigRow::select_all(&mut **tx).await?;
 
     let signatures = rows
         .into_iter()
@@ -80,4 +81,19 @@ pub async fn load_signatures(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Re
         .collect();
 
     Ok(signatures)
+}
+
+pub async fn load_event_types<'c, E>(e: E) -> Result<Vec<String>>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows = ConfigRow::select_all(e).await?;
+
+    let event_types = rows
+        .into_iter()
+        .filter(|row| row.config_type == "event-type")
+        .map(|row| row.value)
+        .collect();
+
+    Ok(event_types)
 }
