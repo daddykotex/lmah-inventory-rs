@@ -12,7 +12,7 @@ use crate::server::{
     routes::errors::AppError,
     services::{
         config::load_event_types,
-        events::{insert_event, select_all, select_one, update_event},
+        events::{insert_event, load_one_event, select_all, update_event},
     },
     templates::events,
 };
@@ -34,14 +34,12 @@ async fn one_event(
     State(pool): State<SqlitePool>,
     Path(event_id): Path<i64>,
 ) -> Result<Markup, AppError> {
-    let maybe_event = select_one(&pool, event_id).await?;
-    let event_types = load_event_types(&pool).await?;
-    let event = maybe_event.ok_or(anyhow::Error::msg(format!(
-        "event with id {} not found",
-        event_id
-    )))?;
-    let event_view = EventView::from(event);
-    Ok(events::page_one_event(event_view, event_types))
+    let page_data = load_one_event(&pool, event_id).await?;
+    Ok(events::page_one_event(
+        page_data.event,
+        page_data.event_types,
+        page_data.related_factures,
+    ))
 }
 
 async fn update_one_event(

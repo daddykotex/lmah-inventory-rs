@@ -88,6 +88,25 @@ impl Selectable<EventRow> for EventRow {
     }
 }
 
+impl FactureRow {
+    pub async fn select_for_event(
+        event_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<FactureRow>> {
+        let table = FactureRow::table();
+        let result: Vec<FactureRow> = sqlx::query_as(&format!(
+            "SELECT * FROM {} WHERE event_id = ?",
+            table.table_name()
+        ))
+        .bind(event_id)
+        .fetch_all(&mut **tx)
+        .await
+        .context(format!("Failed to retrieve factures with id {}", event_id))?;
+
+        Ok(result)
+    }
+}
+
 impl Selectable<FactureRow> for FactureRow {
     async fn select_one(
         id: i64,
@@ -368,6 +387,24 @@ impl ClientRow {
         .fetch_all(&mut **tx)
         .await
         .context("Failed to retrieve clients")?;
+
+        Ok(result)
+    }
+
+    pub async fn select_for_facture_event(
+        event_id: i64,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Vec<ClientRow>> {
+        let result: Vec<ClientRow> = sqlx::query_as(
+            "SELECT clients.* 
+            FROM factures 
+            LEFT JOIN clients ON factures.client_id = clients.id 
+            WHERE factures.event_id = ?",
+        )
+        .bind(event_id)
+        .fetch_all(&mut **tx)
+        .await
+        .context("Failed to retrieve clients for facture")?;
 
         Ok(result)
     }

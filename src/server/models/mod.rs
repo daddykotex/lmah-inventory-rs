@@ -121,6 +121,17 @@ pub struct FactureInfo {
     pub client: ClientView,
 }
 
+pub struct FactureAndClient {
+    pub facture: FactureView,
+    pub client: ClientView,
+}
+
+pub struct PageOneEvent {
+    pub event: EventView,
+    pub event_types: Vec<String>,
+    pub related_factures: Vec<FactureAndClient>,
+}
+
 pub const PAYMENT_TYPES: [&str; 5] = [
     "Mastercard",
     "Visa",
