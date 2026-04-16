@@ -2273,12 +2273,18 @@ fn list_transactions(page_data: PageTransactionsData) -> TransactionPage {
                                 form method="POST" action=(payment_url) {
                                     div."d-none" id="payment-form" {
                                         (transaction_form_fields(&TheTransaction::Payment(&None), Some(&pre_calculated_payment), page_data.facture_info.facture_computed.balance))
+                                        button."btn btn-primary" type="submit" {
+                                            "Sauvegarder"
+                                        }
                                     }
                                 }
 
                                 form method="POST" action=(refunds_url) {
                                     div."d-none" id="refund-form" {
                                         (transaction_form_fields(&TheTransaction::Refund(&None), None, page_data.facture_info.facture_computed.balance))
+                                        button."btn btn-primary" type="submit" {
+                                            "Sauvegarder"
+                                        }
                                     }
                                 }
                             }
