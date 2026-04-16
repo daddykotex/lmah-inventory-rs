@@ -5,17 +5,17 @@ use axum::{
     routing::{get, post},
 };
 use maud::Markup;
-use sqlx::SqlitePool;
+use toasty::Db;
 
 use crate::server::{
-    models::clients::{ClientForm, ClientView},
+    models::clients::{Client, ClientForm, ClientView},
     routes::errors::AppError,
-    services::clients::{insert_client, select_all, select_one, update_client},
+    services::clients::{insert_client, update_client},
     templates::clients,
 };
 
-async fn list_clients(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
-    let clients = select_all(&pool).await?;
+async fn list_clients(State(mut db): State<Db>) -> Result<Markup, AppError> {
+    let clients = Client::all().exec(&mut db).await?;
     let client_views = clients.into_iter().map(ClientView::from).collect();
     let rendered = clients::page_clients(client_views);
 
@@ -27,10 +27,10 @@ async fn new_client() -> Result<Markup, AppError> {
 }
 
 async fn one_client(
-    State(pool): State<SqlitePool>,
-    Path(client_id): Path<i64>,
+    State(mut db): State<Db>,
+    Path(client_id): Path<u64>,
 ) -> Result<Markup, AppError> {
-    let maybe_client = select_one(&pool, client_id).await?;
+    let maybe_client = Client::filter_by_id(client_id).first().exec(&mut db).await?;
     let client = maybe_client.ok_or(anyhow::Error::msg(format!(
         "Client with id {} not found",
         client_id
@@ -40,25 +40,25 @@ async fn one_client(
 }
 
 async fn update_one_client(
-    State(pool): State<SqlitePool>,
-    Path(client_id): Path<i64>,
+    State(mut db): State<Db>,
+    Path(client_id): Path<u64>,
     Form(update): Form<ClientForm>,
 ) -> Result<Redirect, AppError> {
-    update_client(&pool, client_id, update).await?;
+    update_client(&mut db, client_id, update).await?;
     let url = format!("/clients/{}?success=true", client_id);
     Ok(Redirect::to(&url))
 }
 
 async fn create_one_client(
-    State(pool): State<SqlitePool>,
+    State(mut db): State<Db>,
     Form(create): Form<ClientForm>,
 ) -> Result<Redirect, AppError> {
-    let id = insert_client(&pool, create).await?;
+    let id = insert_client(&mut db, create).await?;
     let url = format!("/clients/{}?success=true", id);
     Ok(Redirect::to(&url))
 }
 
-pub fn client_router() -> Router<SqlitePool> {
+pub fn client_router() -> Router<Db> {
     Router::new()
         .route("/clients", get(list_clients))
         .route("/clients/new", get(new_client))

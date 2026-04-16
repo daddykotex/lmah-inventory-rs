@@ -1,18 +1,19 @@
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 
-/// Database row structure for clients table
-#[derive(Debug, FromRow, Clone)]
-pub struct ClientRow {
-    pub id: i64,
-    pub first_name: String,
-    pub last_name: String,
-    pub street: Option<String>,
-    pub city: Option<String>,
-    pub phone1: String,
-    pub phone2: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+#[derive(Debug, toasty::Model)]
+pub struct Client {
+    #[key]
+    #[auto]
+    id: u64,
+
+    first_name: String,
+    last_name: String,
+    street: Option<String>,
+    city: Option<String>,
+    phone1: String,
+    phone2: Option<String>,
+    created_at: String,
+    updated_at: String,
 }
 
 /// Used to do an insert in the database, omit fields like created_at and updated_ad
@@ -56,7 +57,7 @@ pub struct ClientForm {
 /// Very close if not the same to the ClientRow
 #[derive(Clone)]
 pub struct ClientView {
-    pub id: i64,
+    pub id: u64,
     pub first_name: String,
     pub last_name: String,
     pub street: Option<String>,
@@ -73,8 +74,8 @@ impl ClientView {
     }
 }
 
-impl From<ClientRow> for ClientView {
-    fn from(value: ClientRow) -> Self {
+impl From<Client> for ClientView {
+    fn from(value: Client) -> Self {
         ClientView {
             id: value.id,
             first_name: value.first_name,
@@ -91,7 +92,7 @@ impl From<ClientRow> for ClientView {
 
 #[derive(Serialize, Debug)]
 pub struct ClientViewFuzzySearch {
-    pub id: i64,
+    pub id: u64,
     #[serde(rename = "Prenom")]
     pub first_name: String,
     #[serde(rename = "Nom")]
