@@ -1,7 +1,25 @@
-use sqlx::prelude::FromRow;
+/// Payment model with Toasty ORM
+#[derive(Debug, toasty::Model)]
+pub struct Payment {
+    #[key]
+    #[auto]
+    id: u64,
 
-/// Database row structure for payments table
-#[derive(Debug, FromRow)]
+    #[index]
+    facture_id: u64,
+    #[belongs_to(key = facture_id, references = id)]
+    facture: toasty::BelongsTo<crate::server::models::factures::Facture>,
+
+    amount: i64,     // Amount in cents
+    date: String,
+    payment_type: String,
+    cheque_number: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+/// Database row structure for payments table (kept for migration)
+#[derive(Debug)]
 pub struct PaymentRow {
     pub id: i64,
     pub facture_id: i64, // Required FK to factures
@@ -15,8 +33,8 @@ pub struct PaymentRow {
 
 #[derive(Debug)]
 pub struct PaymentView {
-    pub id: i64,
-    pub facture_id: i64, // Required FK to factures
+    pub id: u64,
+    pub facture_id: u64, // Required FK to factures
     pub amount: i64,     // Amount in cents
     pub date: String,
     pub payment_type: String,
@@ -27,7 +45,7 @@ pub struct PaymentView {
 
 #[derive(Debug)]
 pub struct PaymentInsert {
-    pub facture_id: i64, // Required FK to factures
+    pub facture_id: u64, // Required FK to factures
     pub amount: i64,     // Amount in cents
     pub date: String,
     pub payment_type: String,
@@ -36,6 +54,21 @@ pub struct PaymentInsert {
 
 impl From<PaymentRow> for PaymentView {
     fn from(value: PaymentRow) -> Self {
+        PaymentView {
+            id: value.id as u64,
+            facture_id: value.facture_id as u64,
+            amount: value.amount,
+            date: value.date,
+            payment_type: value.payment_type,
+            cheque_number: value.cheque_number,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+impl From<Payment> for PaymentView {
+    fn from(value: Payment) -> Self {
         PaymentView {
             id: value.id,
             facture_id: value.facture_id,

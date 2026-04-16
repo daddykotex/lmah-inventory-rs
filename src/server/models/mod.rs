@@ -2,13 +2,13 @@
 pub mod clients;
 pub mod config;
 pub mod events;
-// pub mod facture_items;
+pub mod facture_items;
 pub mod factures;
-// pub mod payments;
+pub mod payments;
 pub mod product_types;
 pub mod products;
-// pub mod refunds;
-// pub mod statuts;
+pub mod refunds;
+pub mod statuts;
 
 // pub struct FactureDashboardData {
 //     pub facture: FactureView,

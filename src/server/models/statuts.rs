@@ -1,8 +1,31 @@
 use anyhow::Result;
-use sqlx::prelude::FromRow;
 
-/// Database row structure for statuts table
-#[derive(Debug, FromRow)]
+/// Statut model with Toasty ORM
+#[derive(Debug, toasty::Model)]
+pub struct Statut {
+    #[key]
+    #[auto]
+    id: u64,
+
+    #[index]
+    facture_id: u64,
+    #[belongs_to(key = facture_id, references = id)]
+    facture: toasty::BelongsTo<crate::server::models::factures::Facture>,
+
+    #[index]
+    facture_item_id: u64,
+    #[belongs_to(key = facture_item_id, references = id)]
+    facture_item: toasty::BelongsTo<crate::server::models::facture_items::FactureItem>,
+
+    statut_type: String,
+    date: String,
+    seamstress: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+/// Database row structure for statuts table (kept for migration)
+#[derive(Debug)]
 pub struct StatutRow {
     pub id: i64,
     pub facture_id: i64,      // Required FK to factures
@@ -16,8 +39,8 @@ pub struct StatutRow {
 
 #[derive(Debug)]
 pub struct StatutInsert {
-    pub facture_id: i64,      // Required FK to factures
-    pub facture_item_id: i64, // Required FK to facture_items
+    pub facture_id: u64,      // Required FK to factures
+    pub facture_item_id: u64, // Required FK to facture_items
     pub statut_type: String,  // Type of status
     pub date: String,
     pub seamstress: Option<String>,
@@ -162,7 +185,7 @@ impl State<String, String> {
     }
 }
 
-pub enum Statut {
+pub enum StatutTransition {
     PlaceOrder,
     RecordExpectedDeliveryDate,
     RecordReceptionDate,
@@ -254,14 +277,29 @@ impl StateView {
     }
 }
 
-#[derive(Debug, FromRow)]
+#[derive(Debug)]
 pub struct StatutsView {
-    pub id: i64,
-    pub facture_id: i64,      // Required FK to factures
-    pub facture_item_id: i64, // Required FK to facture_items
+    pub id: u64,
+    pub facture_id: u64,      // Required FK to factures
+    pub facture_item_id: u64, // Required FK to facture_items
     pub statut_type: String,  // Type of status
     pub date: String,
     pub seamstress: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+impl From<Statut> for StatutsView {
+    fn from(value: Statut) -> Self {
+        StatutsView {
+            id: value.id,
+            facture_id: value.facture_id,
+            facture_item_id: value.facture_item_id,
+            statut_type: value.statut_type,
+            date: value.date,
+            seamstress: value.seamstress,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
 }

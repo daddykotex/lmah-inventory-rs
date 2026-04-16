@@ -5,9 +5,13 @@ use std::path::Path;
 use crate::server::models::clients::Client;
 use crate::server::models::config::Config;
 use crate::server::models::events::Event;
+use crate::server::models::facture_items::FactureItem;
 use crate::server::models::factures::Facture;
+use crate::server::models::payments::Payment;
 use crate::server::models::product_types::ProductType;
 use crate::server::models::products::{Product, ProductImage, ProductProductType};
+use crate::server::models::refunds::Refund;
+use crate::server::models::statuts::Statut;
 
 // pub mod has_table;
 // pub mod insert;
@@ -28,10 +32,14 @@ pub async fn connect_to_url(db_url: &String) -> Result<Db> {
             Config,
             Event,
             Facture,
+            FactureItem,
+            Payment,
             Product,
             ProductImage,
             ProductProductType,
-            ProductType
+            ProductType,
+            Refund,
+            Statut
         ))
         .connect(db_url)
         .await?;
