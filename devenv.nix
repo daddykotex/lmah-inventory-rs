@@ -12,9 +12,10 @@
   };
 
   packages = [
-    pkgs.watchexec
-    pkgs.sqlite
     pkgs.cargo-insta
+    pkgs.sqlite
+    pkgs.systemfd
+    pkgs.watchexec
   ];
 
   # See full reference at https://devenv.sh/reference/options/
