@@ -3,6 +3,7 @@ use toasty::Db;
 use std::path::Path;
 
 use crate::server::models::clients::Client;
+use crate::server::models::config::Config;
 use crate::server::models::events::Event;
 use crate::server::models::factures::Facture;
 
@@ -20,7 +21,7 @@ pub async fn connect_to_path(db_path: &Path) -> Result<Db> {
 pub async fn connect_to_url(db_url: &String) -> Result<Db> {
     println!("Connecting to database: {}", db_url);
     let db = toasty::Db::builder()
-        .models(toasty::models!(Client, Event, Facture))
+        .models(toasty::models!(Client, Config, Event, Facture))
         .connect(db_url)
         .await?;
 

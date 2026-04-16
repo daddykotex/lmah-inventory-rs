@@ -1,43 +1,38 @@
-use anyhow::{Ok, Result};
-use sqlx::{Executor, Sqlite};
+use anyhow::Result;
+use toasty::Db;
 
-use crate::server::{
-    database::select::Selectable,
-    models::config::{ConfigRow, ExtraLargeAmounts, NoteTemplate},
-};
+use crate::server::models::config::{Config, ConfigView, ExtraLargeAmounts, NoteTemplate};
 
-pub async fn load_note_templates(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> Result<Vec<NoteTemplate>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_note_templates(db: &mut Db) -> Result<Vec<NoteTemplate>> {
+    let configs = Config::all().exec(db).await?;
+    let config_views: Vec<ConfigView> = configs.into_iter().map(ConfigView::from).collect();
 
-    let templates = rows
+    let templates = config_views
         .into_iter()
-        .filter(|row| row.config_type.starts_with("formule-type"))
-        .map(|row| NoteTemplate {
-            note_type: row.config_type,
-            key: row.key,
-            value: row.value,
+        .filter(|config| config.config_type.starts_with("formule-type"))
+        .map(|config| NoteTemplate {
+            note_type: config.config_type,
+            key: config.key,
+            value: config.value,
         })
         .collect();
 
     Ok(templates)
 }
 
-pub async fn load_extra_large_amount(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> Result<ExtraLargeAmounts> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_extra_large_amount(db: &mut Db) -> Result<ExtraLargeAmounts> {
+    let configs = Config::all().exec(db).await?;
+    let config_views: Vec<ConfigView> = configs.into_iter().map(ConfigView::from).collect();
 
     let mut wedding = None;
     let mut others = None;
 
-    for row in rows {
-        if row.config_type == "extra-taille-forte" {
-            if row.key == "robes-de-mariées" {
-                wedding = Some(row.value.parse::<i64>()?);
-            } else if row.key == "autres-robes" {
-                others = Some(row.value.parse::<i64>()?);
+    for config in config_views {
+        if config.config_type == "extra-taille-forte" {
+            if config.key == "robes-de-mariées" {
+                wedding = Some(config.value.parse::<i64>()?);
+            } else if config.key == "autres-robes" {
+                others = Some(config.value.parse::<i64>()?);
             }
         }
     }
@@ -48,54 +43,53 @@ pub async fn load_extra_large_amount(
     })
 }
 
-pub async fn load_seamstresses(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_seamstresses(db: &mut Db) -> Result<Vec<String>> {
+    let configs = Config::all().exec(db).await?;
+    let config_views: Vec<ConfigView> = configs.into_iter().map(ConfigView::from).collect();
 
-    let seamstresses = rows
+    let seamstresses = config_views
         .into_iter()
-        .filter(|row| row.config_type == "couturiere")
-        .map(|row| row.value)
+        .filter(|config| config.config_type == "couturiere")
+        .map(|config| config.value)
         .collect();
 
     Ok(seamstresses)
 }
 
-pub async fn load_clauses(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_clauses(db: &mut Db) -> Result<Vec<String>> {
+    let configs = Config::all().exec(db).await?;
+    let config_views: Vec<ConfigView> = configs.into_iter().map(ConfigView::from).collect();
 
-    let clauses = rows
+    let clauses = config_views
         .into_iter()
-        .filter(|row| row.config_type == "clause-facture")
-        .map(|row| row.value)
+        .filter(|config| config.config_type == "clause-facture")
+        .map(|config| config.value)
         .collect();
 
     Ok(clauses)
 }
 
-pub async fn load_signatures(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_signatures(db: &mut Db) -> Result<Vec<String>> {
+    let configs = Config::all().exec(db).await?;
+    let config_views: Vec<ConfigView> = configs.into_iter().map(ConfigView::from).collect();
 
-    let signatures = rows
+    let signatures = config_views
         .into_iter()
-        .filter(|row| row.config_type == "signature-facture")
-        .map(|row| row.value)
+        .filter(|config| config.config_type == "signature-facture")
+        .map(|config| config.value)
         .collect();
 
     Ok(signatures)
 }
 
-pub async fn load_event_types<'c, E>(e: E) -> Result<Vec<String>>
-where
-    E: Executor<'c, Database = Sqlite>,
-{
-    let rows = ConfigRow::select_all(e).await?;
+pub async fn load_event_types(db: &mut Db) -> Result<Vec<String>> {
+    let configs = Config::all().exec(db).await?;
+    let config_views: Vec<ConfigView> = configs.into_iter().map(ConfigView::from).collect();
 
-    let event_types = rows
+    let event_types = config_views
         .into_iter()
-        .filter(|row| row.config_type == "event-type")
-        .map(|row| row.value)
+        .filter(|config| config.config_type == "event-type")
+        .map(|config| config.value)
         .collect();
 
     Ok(event_types)

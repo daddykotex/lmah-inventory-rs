@@ -11,7 +11,7 @@ use crate::server::{
     models::events::{EventForm, EventView},
     routes::errors::AppError,
     services::{
-        // config::load_event_types,
+        config::load_event_types,
         events::{insert_event, /* load_one_event, */ select_all, update_event},
     },
     templates::events,
@@ -25,10 +25,8 @@ async fn list_events(State(mut db): State<Db>) -> Result<Markup, AppError> {
     Ok(rendered)
 }
 
-async fn new_event(State(_db): State<Db>) -> Result<Markup, AppError> {
-    // TODO: Re-enable when config is migrated
-    // let event_types = load_event_types(&db).await?;
-    let event_types = vec!["Mariage".to_string(), "Bal".to_string()]; // Temporary hardcoded
+async fn new_event(State(mut db): State<Db>) -> Result<Markup, AppError> {
+    let event_types = load_event_types(&mut db).await?;
     Ok(events::page_new_event(event_types))
 }
 

@@ -1,6 +1,6 @@
 
 pub mod clients;
-// pub mod config;
+pub mod config;
 pub mod events;
 // pub mod facture_items;
 pub mod factures;
