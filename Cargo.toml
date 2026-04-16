@@ -18,7 +18,6 @@ anyhow = "1.0"
 maud = { version = "*", features = ["axum"] } # templates
 tower-http = { version = "0.6.8", features = ["fs", "util"] } # static files
 listenfd = "1.0.2" # file descriptor listen (paired with systemfd)
-itertools = "0.14.0"
 
 # dev
 [dev-dependencies]
