@@ -1,17 +1,15 @@
-use std::path::PathBuf;
-
 use axum::Router;
 use clap::Parser;
-use lmah_inventory_rs::server::{database::connect_to_path, routes::bootstrap::setup_routes};
+use lmah_inventory_rs::server::{database::connect_to_url, routes::bootstrap::setup_routes};
 use tokio::net::TcpListener;
 
 /// Options for starting the server
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct Config {
+struct ServerConfig {
     /// Location of the SQLite database
-    #[arg(short, long)]
-    db_path: PathBuf,
+    #[arg(short, long, env = "DATABASE_URL")]
+    db_url: String,
 
     /// Port of the HTTP server
     #[arg(short, long, default_value = "3000")]
@@ -20,9 +18,9 @@ struct Config {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::parse();
+    let config = ServerConfig::parse();
 
-    let pool = connect_to_path(&config.db_path).await?;
+    let pool = connect_to_url(&config.db_url).await?;
     let app: Router = setup_routes().await?.with_state(pool);
 
     let mut listenfd = listenfd::ListenFd::from_env();

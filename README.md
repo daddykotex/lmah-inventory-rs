@@ -35,7 +35,8 @@ To migrate off Airtable, I've exported the data as JSON (from the other app), an
 You can run it like:
 
 ```bash
-cargo run --bin cli -- load --src data/db.json --target data/lmah.db
+# target is also loaded from the env var DATABASE_URL
+cargo run --bin cli -- load --src data/db.json --target "sqlite://data/lmah.db"
 ```
 
 You want to start from a clean database every time you run the import:
@@ -43,6 +44,8 @@ You want to start from a clean database every time you run the import:
 ```bash
 rm data/lmah.db && sqlx database create && sqlx migrate run
 ```
+
+> Note: by default, `sqlx database create` uses `DATABASE_URL`
 
 ## Development
 
@@ -59,7 +62,7 @@ cargo install systemfd
 Run the server in development mode with:
 
 ```bash
-systemfd --no-pid -s http::3000 -- watchexec -r -- cargo run --bin server -- --db-path data/lmah.db
+systemfd --no-pid -s http::3000 -- watchexec -r -- cargo run --bin server -- --db-url "sqlite://data/lmah.db
 ```
 
 
