@@ -1,7 +1,14 @@
-use sqlx::prelude::FromRow;
+/// ProductType model with Toasty ORM
+/// Note: Uses `name` as the primary key (TEXT, not INTEGER)
+#[derive(Debug, toasty::Model)]
+#[table = "product_types"]
+pub struct ProductType {
+    #[key]
+    name: String,
+}
 
-/// Database row structure for product_types table
-#[derive(Debug, FromRow)]
+/// Database row structure for product_types table (kept for migration)
+#[derive(Debug)]
 pub struct ProductTypeRow {
     pub name: String,
 }
@@ -13,6 +20,12 @@ pub struct ProductTypeView {
 
 impl From<ProductTypeRow> for ProductTypeView {
     fn from(value: ProductTypeRow) -> Self {
+        ProductTypeView { name: value.name }
+    }
+}
+
+impl From<ProductType> for ProductTypeView {
+    fn from(value: ProductType) -> Self {
         ProductTypeView { name: value.name }
     }
 }

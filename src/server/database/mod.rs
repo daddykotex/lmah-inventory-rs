@@ -6,6 +6,8 @@ use crate::server::models::clients::Client;
 use crate::server::models::config::Config;
 use crate::server::models::events::Event;
 use crate::server::models::factures::Facture;
+use crate::server::models::product_types::ProductType;
+use crate::server::models::products::{Product, ProductImage, ProductProductType};
 
 // pub mod has_table;
 // pub mod insert;
@@ -21,7 +23,16 @@ pub async fn connect_to_path(db_path: &Path) -> Result<Db> {
 pub async fn connect_to_url(db_url: &String) -> Result<Db> {
     println!("Connecting to database: {}", db_url);
     let db = toasty::Db::builder()
-        .models(toasty::models!(Client, Config, Event, Facture))
+        .models(toasty::models!(
+            Client,
+            Config,
+            Event,
+            Facture,
+            Product,
+            ProductImage,
+            ProductProductType,
+            ProductType
+        ))
         .connect(db_url)
         .await?;
 

@@ -1,10 +1,66 @@
-use sqlx::prelude::FromRow;
-
 use crate::server::models::product_types::ProductTypeView;
 
-/// Database row structure for products table
-/// Note: Airtable ID mapping is stored in the airtable_mapping table
-#[derive(Debug, FromRow)]
+/// Product model with Toasty ORM
+#[derive(Debug, toasty::Model)]
+pub struct Product {
+    #[key]
+    #[auto]
+    id: u64,
+
+    name: String,
+    price: Option<i64>, // Price in cents
+    liquidation: bool,
+    visible_on_site: bool,
+    created_at: String,
+    updated_at: String,
+
+    #[has_many]
+    images: toasty::HasMany<ProductImage>,
+
+    #[has_many]
+    product_types: toasty::HasMany<ProductProductType>,
+}
+
+/// ProductImage model with Toasty ORM
+#[derive(Debug, toasty::Model)]
+#[table = "product_images"]
+pub struct ProductImage {
+    #[key]
+    #[auto]
+    id: u64,
+
+    #[index]
+    product_id: u64,
+    #[belongs_to(key = product_id, references = id)]
+    product: toasty::BelongsTo<Product>,
+
+    url: String,
+    filename: String,
+    position: String, // "front" or "back"
+    created_at: String,
+}
+
+/// Junction table model for Product <-> ProductType M:N relationship
+#[derive(Debug, toasty::Model)]
+#[table = "product_product_types"]
+pub struct ProductProductType {
+    #[key]
+    #[auto]
+    id: u64,
+
+    #[index]
+    product_id: u64,
+    #[belongs_to(key = product_id, references = id)]
+    product: toasty::BelongsTo<Product>,
+
+    #[index]
+    product_type_name: String,
+    #[belongs_to(key = product_type_name, references = name)]
+    product_type: toasty::BelongsTo<crate::server::models::product_types::ProductType>,
+}
+
+/// Database row structure for products table (kept for migration)
+#[derive(Debug)]
 pub struct ProductRow {
     pub id: i64,
     pub name: String,
@@ -23,8 +79,8 @@ pub struct ProductInsert {
     pub visible_on_site: bool,
 }
 
-/// Database row structure for product_images table
-#[derive(Debug, FromRow)]
+/// Database row structure for product_images table (kept for migration)
+#[derive(Debug)]
 pub struct ProductImageRow {
     pub id: i64,
     pub product_id: i64,
@@ -44,7 +100,7 @@ pub struct ProductImageInsert {
 
 #[derive(Debug, PartialEq)]
 pub struct ProductView {
-    pub id: i64,
+    pub id: u64,
     pub name: String,
     pub price: Option<i64>, // Price in cents
     pub liquidation: bool,
@@ -55,6 +111,20 @@ pub struct ProductView {
 
 impl From<ProductRow> for ProductView {
     fn from(value: ProductRow) -> Self {
+        ProductView {
+            id: value.id as u64,
+            name: value.name,
+            price: value.price,
+            liquidation: value.liquidation,
+            visible_on_site: value.visible_on_site,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+impl From<Product> for ProductView {
+    fn from(value: Product) -> Self {
         ProductView {
             id: value.id,
             name: value.name,
