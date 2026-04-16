@@ -6,7 +6,7 @@ use lmah_inventory_rs::cli::migration::{
     load_and_insert_products, load_and_insert_refunds, load_and_insert_statuts, load_data,
     load_records, sort_export_by_created_time,
 };
-use lmah_inventory_rs::server::database::connect_to_path;
+use lmah_inventory_rs::server::database::connect_to_url;
 use lmah_inventory_rs::server::models::clients::ClientInsert;
 use lmah_inventory_rs::server::models::config::ConfigInsert;
 use lmah_inventory_rs::server::models::events::EventInsert;
@@ -33,8 +33,8 @@ enum Commands {
 #[derive(Args, Debug)]
 struct MigrateArgs {
     /// Location of the SQLite database
-    #[arg(short, long)]
-    target: PathBuf,
+    #[arg(short, long, env = "DATABASE_URL")]
+    db_url: String,
 }
 
 /// Options for the load command
@@ -45,8 +45,8 @@ struct LoadArgs {
     src: PathBuf,
 
     /// Location of the SQLite database
-    #[arg(short, long)]
-    target: PathBuf,
+    #[arg(short, long, env = "DATABASE_URL")]
+    target: String,
 }
 
 fn assert_args(args: &LoadArgs) {
@@ -57,18 +57,6 @@ fn assert_args(args: &LoadArgs) {
             .expect("No extension on the source JSON file.")
             == "json",
         "The extension is not `.json`."
-    );
-
-    assert!(
-        args.target.exists(),
-        "The target SQLite database file does not exist."
-    );
-    assert!(
-        args.target
-            .extension()
-            .expect("No extension on the target file.")
-            == "db",
-        "The extension is not `.db`."
     );
 }
 
@@ -108,7 +96,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
     println!("LMAH Inventory - Data Loader");
     println!("===========================");
     println!("Source: {}", args.src.display());
-    println!("Target: {}", args.target.display());
+    println!("Target: {}", args.target);
     println!();
 
     // ===== LOAD JSON =====
@@ -119,7 +107,7 @@ async fn load(args: &LoadArgs) -> Result<()> {
 
     // ===== CONNECT TO DATABASE =====
     println!("\nStep 2: Connecting to database...");
-    let pool = connect_to_path(&args.target).await?;
+    let pool = connect_to_url(&args.target).await?;
     check_counts(&pool).await?;
     println!("✓ Database connection established");
 
