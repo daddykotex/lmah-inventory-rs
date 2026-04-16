@@ -12,7 +12,7 @@ use crate::server::{
     routes::errors::AppError,
     services::{
         config::load_event_types,
-        events::{insert_event, /* load_one_event, */ select_all, update_event},
+        events::{insert_event, load_one_event, select_all, update_event},
     },
     templates::events,
 };
@@ -31,17 +31,15 @@ async fn new_event(State(mut db): State<Db>) -> Result<Markup, AppError> {
 }
 
 async fn one_event(
-    State(_db): State<Db>,
-    Path(_event_id): Path<u64>,
+    State(mut db): State<Db>,
+    Path(event_id): Path<u64>,
 ) -> Result<Markup, AppError> {
-    // TODO: Re-enable when Factures and Config are migrated
-    // let page_data = load_one_event(&db, event_id).await?;
-    // Ok(events::page_one_event(
-    //     page_data.event,
-    //     page_data.event_types,
-    //     page_data.related_factures,
-    // ))
-    Err(anyhow::Error::msg("Event detail page not yet migrated").into())
+    let page_data = load_one_event(&mut db, event_id).await?;
+    Ok(events::page_one_event(
+        page_data.event,
+        page_data.event_types,
+        page_data.related_factures,
+    ))
 }
 
 async fn update_one_event(

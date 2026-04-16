@@ -90,6 +90,22 @@ impl From<Client> for ClientView {
     }
 }
 
+impl From<&Client> for ClientView {
+    fn from(value: &Client) -> Self {
+        ClientView {
+            id: value.id,
+            first_name: value.first_name.clone(),
+            last_name: value.last_name.clone(),
+            street: value.street.clone(),
+            city: value.city.clone(),
+            phone1: value.phone1.clone(),
+            phone2: value.phone2.clone(),
+            created_at: value.created_at.clone(),
+            updated_at: value.updated_at.clone(),
+        }
+    }
+}
+
 #[derive(Serialize, Debug)]
 pub struct ClientViewFuzzySearch {
     pub id: u64,

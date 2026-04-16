@@ -114,11 +114,11 @@ pub struct FactureAndClient {
     pub client: clients::ClientView,
 }
 
-// pub struct PageOneEvent {
-//     pub event: EventView,
-//     pub event_types: Vec<String>,
-//     pub related_factures: Vec<FactureAndClient>,
-// }
+pub struct PageOneEvent {
+    pub event: events::EventView,
+    pub event_types: Vec<String>,
+    pub related_factures: Vec<FactureAndClient>,
+}
 
 // pub const PAYMENT_TYPES: [&str; 5] = [
 //     "Mastercard",

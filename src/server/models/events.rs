@@ -14,7 +14,7 @@ pub struct Event {
     updated_at: String,
 
     #[has_many]
-    factures: toasty::HasMany<crate::server::models::factures::Facture>,
+    pub factures: toasty::HasMany<crate::server::models::factures::Facture>,
 }
 
 impl From<EventForm> for EventInsert {

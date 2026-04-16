@@ -1,11 +1,9 @@
 use crate::server::{
     models::{
-        // FactureAndClient, PageOneEvent,
-        // clients::Client,
-        events::{Event, EventForm, EventView},
-        // factures::Facture,
+        FactureAndClient, PageOneEvent,
+        events::{Event, EventForm, EventView}, factures::Facture,
     },
-    // services::config::load_event_types,
+    services::config::load_event_types,
 };
 use anyhow::{Context, Result};
 use toasty::Db;
@@ -33,42 +31,34 @@ pub async fn select_one(db: &mut Db, id: u64) -> Result<Option<EventView>> {
     Ok(event.map(|e|e.into()))
 }
 
-// TODO: Re-enable this when Factures is migrated
-// pub async fn load_one_event(db: &Db, event_id: u64) -> Result<PageOneEvent> {
-//     let mut tx = db.transaction().await.context("Failed to begin transaction")?;
+pub async fn load_one_event(db: &mut Db, event_id: u64) -> Result<PageOneEvent> {
+    // Get the event
+    let event = Event::filter_by_id(event_id)
+        .include(Event::fields().factures())
+        .include(Event::fields().factures().client())
+        .first()
+        .exec(db)
+        .await?
+        .ok_or(anyhow::Error::msg(format!(
+            "event with id {} not found",
+            event_id,
+        )))?;
 
-//     let event = Event::filter_by_id(event_id)
-//         .get(&db)
-//         .await?
-//         .ok_or(anyhow::Error::msg(format!(
-//             "event with id {} not found",
-//             event_id,
-//         )))?;
-//     let event_types = load_event_types(&mut *tx).await?;
-//     let related_factures = Facture::select_for_event(event_id, &mut *tx).await?;
-//     let mut related_clients = Client::select_for_facture_event(event_id, &mut *tx).await?;
+    let event_types = load_event_types(db).await?;
 
-//     let related_factures: Result<Vec<FactureAndClient>> = related_factures
-//         .into_iter()
-//         .map(|f| {
-//             let idx = related_clients.iter().position(|c| c.id == f.client_id);
-//             idx.ok_or(anyhow::Error::msg("Unable to find client for facture"))
-//                 .map(|i| {
-//                     let client = related_clients.swap_remove(i);
-//                     FactureAndClient {
-//                         facture: f.into(),
-//                         client: client.into(),
-//                     }
-//                 })
-//         })
-//         .collect();
+    let factures_with_clients = event.factures.get().iter().map(|f| {
+        FactureAndClient {
+            facture: f.into(),
+            client: f.client.get().into(),
+        }
+    }).collect();
 
-//     Ok(PageOneEvent {
-//         event: event.into(),
-//         event_types,
-//         related_factures: related_factures?,
-//     })
-// }
+    Ok(PageOneEvent {
+        event: EventView::from(event),
+        event_types,
+        related_factures: factures_with_clients,
+    })
+}
 
 pub async fn select_all(db: &mut Db) -> Result<Vec<Event>> {
     let events = Event::all()

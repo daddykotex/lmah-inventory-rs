@@ -8,7 +8,7 @@ pub struct Facture {
     #[index]
     client_id: u64,
     #[belongs_to(key = client_id, references = id)]
-    client: toasty::BelongsTo<crate::server::models::clients::Client>,
+    pub client: toasty::BelongsTo<crate::server::models::clients::Client>,
 
     facture_type: Option<String>,
     date: Option<String>,
@@ -110,3 +110,21 @@ impl From<Facture> for FactureView {
         }
     }
 }
+
+impl From<&Facture> for FactureView {
+    fn from(value: &Facture) -> Self {
+        FactureView {
+            id: value.id,
+            client_id: value.client_id,
+            facture_type: value.facture_type.clone(),
+            date: value.date.clone(),
+            event_id: value.event_id,
+            fixed_total: value.fixed_total,
+            cancelled: value.cancelled,
+            paper_ref: value.paper_ref.clone(),
+            created_at: value.created_at.clone(),
+            updated_at: value.updated_at.clone(),
+        }
+    }
+}
+
