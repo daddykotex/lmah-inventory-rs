@@ -16,22 +16,16 @@ pub async fn insert_client(pool: &SqlitePool, form: ClientForm) -> Result<i64> {
 }
 
 pub async fn select_one(pool: &SqlitePool, id: i64) -> Result<Option<ClientRow>> {
-    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
-    let res = ClientRow::select_one(id, &mut tx).await;
-    tx.commit().await.context("Failed to commit transaction")?;
-    res
+    Ok(ClientRow::select_one(id, pool).await?)
 }
 
 pub async fn select_all(pool: &SqlitePool) -> Result<Vec<ClientRow>> {
-    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
-    let res = ClientRow::select_all(&mut tx).await;
-    tx.commit().await.context("Failed to commit transaction")?;
-    res
+    Ok(ClientRow::select_all(pool).await?)
 }
 
 pub async fn update_client(pool: &SqlitePool, id: i64, form: ClientForm) -> Result<u64> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
-    let maybe_client: Option<ClientRow> = ClientRow::select_one(id, &mut tx).await?;
+    let maybe_client: Option<ClientRow> = ClientRow::select_one(id, &mut *tx).await?;
 
     let client =
         maybe_client.ok_or(anyhow::Error::msg(format!("User with id {} not found", id)))?;

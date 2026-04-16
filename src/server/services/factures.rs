@@ -50,18 +50,18 @@ pub async fn load_products_to_add(
 
     let result: ProductsOrRedirect = match facture_type {
         "Alteration" => {
-            let product = ProductRow::select_by_name("Altération", &mut tx).await?;
+            let product = ProductRow::select_by_name("Altération", &mut *tx).await?;
             let product = product.ok_or(anyhow::Error::msg("Alteration product not found"))?;
             Err(ProductView::from(product))
         }
         "Location" => {
-            let product = ProductRow::select_by_name("Location", &mut tx).await?;
+            let product = ProductRow::select_by_name("Location", &mut *tx).await?;
             let product = product.ok_or(anyhow::Error::msg("Location product not found"))?;
             Err(ProductView::from(product))
         }
         "Product" => {
-            let products = ProductRow::select_only_products(&mut tx).await?;
-            let product_types = ProductTypeRow::select_only_products(&mut tx).await?;
+            let products = ProductRow::select_only_products(&mut *tx).await?;
+            let product_types = ProductTypeRow::select_only_products(&mut *tx).await?;
             let products = products.into_iter().map(ProductView::from).collect();
             let products = build_product_info(products, product_types);
             Ok(products)
@@ -137,17 +137,17 @@ pub async fn blank_facture_item(
 ) -> Result<PageAddOneFactureItemData> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
-    let facture_row = FactureRow::select_one(facture_id, &mut tx)
+    let facture_row = FactureRow::select_one(facture_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Facture not found."))?;
     let facture_view = FactureView::from(facture_row);
 
-    let client_row = ClientRow::select_one(facture_view.client_id, &mut tx)
+    let client_row = ClientRow::select_one(facture_view.client_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Client related to facture not found."))?;
 
     let event_row = match facture_view.event_id {
-        Some(e_id) => EventRow::select_one(e_id, &mut tx)
+        Some(e_id) => EventRow::select_one(e_id, &mut *tx)
             .await?
             .ok_or(anyhow::Error::msg("Event related to facture not found."))
             .map(Some),
@@ -155,15 +155,15 @@ pub async fn blank_facture_item(
     };
     let event_row = event_row?;
 
-    let facture_items = FactureItemRow::select_all_for_facture(facture_id, &mut tx).await?;
+    let facture_items = FactureItemRow::select_all_for_facture(facture_id, &mut *tx).await?;
     let facture_items: Result<Vec<FactureItemView>> = facture_items
         .into_iter()
         .map(FactureItemView::try_from)
         .collect();
     let facture_items = facture_items?;
 
-    let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut tx).await?;
-    let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut tx).await?;
+    let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut *tx).await?;
+    let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut *tx).await?;
 
     let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
     let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
@@ -171,7 +171,7 @@ pub async fn blank_facture_item(
         computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
 
     let product_row =
-        ProductRow::select_one(product_id, &mut tx)
+        ProductRow::select_one(product_id, &mut *tx)
             .await?
             .ok_or(anyhow::Error::msg(
                 "Product related to facture item not found.",
@@ -186,7 +186,7 @@ pub async fn blank_facture_item(
         item_flow: String::from(item_flow),
     };
 
-    let product_type_row = ProductTypeRow::select_for_product(product_row.id, &mut tx).await?;
+    let product_type_row = ProductTypeRow::select_for_product(product_row.id, &mut *tx).await?;
 
     let config_note_templates = load_note_templates(&mut tx).await?;
     let config_extra_large_amount = load_extra_large_amount(&mut tx).await?;
@@ -225,7 +225,7 @@ pub async fn load_add_product_data(pool: &SqlitePool, facture_id: i64) -> Result
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     let (facture_info, _, _, _) = load_facture_info(facture_id, &mut tx).await?;
-    let product_types = ProductTypeRow::select_all(&mut tx).await?;
+    let product_types = ProductTypeRow::select_all(&mut *tx).await?;
 
     tx.commit().await.context("Failed to commit transaction")?;
 
@@ -246,8 +246,8 @@ pub async fn load_print_data(pool: &SqlitePool, facture_id: i64) -> Result<PageP
         signatures,
         clauses,
     };
-    let products = ProductRow::select_for_facture(facture_id, &mut tx).await?;
-    let product_types = ProductTypeRow::select_for_facture(facture_id, &mut tx).await?;
+    let products = ProductRow::select_for_facture(facture_id, &mut *tx).await?;
+    let product_types = ProductTypeRow::select_for_facture(facture_id, &mut *tx).await?;
     let products = products.into_iter().map(ProductView::from).collect();
     let mut products = build_product_info(products, product_types);
 
@@ -285,17 +285,17 @@ pub async fn select_transactions(
 ) -> Result<PageTransactionsData> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
-    let facture_row = FactureRow::select_one(facture_id, &mut tx)
+    let facture_row = FactureRow::select_one(facture_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Facture not found."))?;
     let facture_view = FactureView::from(facture_row);
 
-    let client_row = ClientRow::select_one(facture_view.client_id, &mut tx)
+    let client_row = ClientRow::select_one(facture_view.client_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Client related to facture not found."))?;
 
     let event_row = match facture_view.event_id {
-        Some(e_id) => EventRow::select_one(e_id, &mut tx)
+        Some(e_id) => EventRow::select_one(e_id, &mut *tx)
             .await?
             .ok_or(anyhow::Error::msg("Event related to facture not found."))
             .map(Some),
@@ -303,15 +303,15 @@ pub async fn select_transactions(
     };
     let event_row = event_row?;
 
-    let facture_items = FactureItemRow::select_all_for_facture(facture_id, &mut tx).await?;
+    let facture_items = FactureItemRow::select_all_for_facture(facture_id, &mut *tx).await?;
     let facture_items: Result<Vec<FactureItemView>> = facture_items
         .into_iter()
         .map(FactureItemView::try_from)
         .collect();
     let facture_items = facture_items?;
 
-    let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut tx).await?;
-    let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut tx).await?;
+    let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut *tx).await?;
+    let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut *tx).await?;
 
     let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
     let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
@@ -340,30 +340,30 @@ pub async fn select_one_facture_item(
 ) -> Result<PageOneFactureItemData> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
-    let facture_row = FactureRow::select_one(facture_id, &mut tx)
+    let facture_row = FactureRow::select_one(facture_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Facture not found."))?;
 
-    let client_row = ClientRow::select_one(facture_row.client_id, &mut tx)
+    let client_row = ClientRow::select_one(facture_row.client_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Client related to facture not found."))?;
 
-    let facture_item_row = FactureItemRow::select_one(facture_item_id, &mut tx)
+    let facture_item_row = FactureItemRow::select_one(facture_item_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Facture item not found."))?;
 
-    let product_row = ProductRow::select_one(facture_item_row.product_id, &mut tx)
+    let product_row = ProductRow::select_one(facture_item_row.product_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg(
             "Product related to facture item not found.",
         ))?;
 
     let facture_item_flow =
-        ItemFactureFlowType::select_one_facture_item_flow_types(facture_item_id, &mut tx).await?;
+        ItemFactureFlowType::select_one_facture_item_flow_types(facture_item_id, &mut *tx).await?;
 
-    let statut_rows = StatutRow::select_all_for_facture_item(facture_item_id, &mut tx).await?;
+    let statut_rows = StatutRow::select_all_for_facture_item(facture_item_id, &mut *tx).await?;
 
-    let product_type_row = ProductTypeRow::select_for_product(product_row.id, &mut tx).await?;
+    let product_type_row = ProductTypeRow::select_for_product(product_row.id, &mut *tx).await?;
 
     let config_note_templates = load_note_templates(&mut tx).await?;
     let config_extra_large_amount = load_extra_large_amount(&mut tx).await?;
@@ -395,16 +395,16 @@ pub async fn select_one_facture_item(
 pub async fn select_one(pool: &SqlitePool, facture_id: i64) -> Result<PageFactureItemsData> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
-    let facture_row = FactureRow::select_one(facture_id, &mut tx)
+    let facture_row = FactureRow::select_one(facture_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Facture not found."))?;
 
-    let client_row = ClientRow::select_one(facture_row.client_id, &mut tx)
+    let client_row = ClientRow::select_one(facture_row.client_id, &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Client related to facture not found."))?;
 
     let event_row = match facture_row.event_id {
-        Some(e_id) => EventRow::select_one(e_id, &mut tx)
+        Some(e_id) => EventRow::select_one(e_id, &mut *tx)
             .await?
             .ok_or(anyhow::Error::msg("Event related to facture not found."))
             .map(Some),
@@ -412,21 +412,21 @@ pub async fn select_one(pool: &SqlitePool, facture_id: i64) -> Result<PageFactur
     };
     let event_row = event_row?;
 
-    let alteration_product_row = ProductRow::select_by_name("Altération", &mut tx)
+    let alteration_product_row = ProductRow::select_by_name("Altération", &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Unable to locate Alteration product"))?;
-    let location_product_row = ProductRow::select_by_name("Location", &mut tx)
+    let location_product_row = ProductRow::select_by_name("Location", &mut *tx)
         .await?
         .ok_or(anyhow::Error::msg("Unable to locate Location product"))?;
-    let product_rows = ProductRow::select_for_facture(facture_id, &mut tx).await?;
+    let product_rows = ProductRow::select_for_facture(facture_id, &mut *tx).await?;
 
-    let facture_item_rows = FactureItemRow::select_all_for_facture(facture_id, &mut tx).await?;
+    let facture_item_rows = FactureItemRow::select_all_for_facture(facture_id, &mut *tx).await?;
     let facture_item_flows =
-        ItemFactureFlowType::select_one_facture_flow_types(facture_id, &mut tx).await?;
-    let statut_rows = StatutRow::select_all_for_facture(facture_id, &mut tx).await?;
+        ItemFactureFlowType::select_one_facture_flow_types(facture_id, &mut *tx).await?;
+    let statut_rows = StatutRow::select_all_for_facture(facture_id, &mut *tx).await?;
 
-    let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut tx).await?;
-    let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut tx).await?;
+    let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut *tx).await?;
+    let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut *tx).await?;
 
     tx.commit().await.context("Failed to commit transaction")?;
 
@@ -451,10 +451,10 @@ pub async fn select_one(pool: &SqlitePool, facture_id: i64) -> Result<PageFactur
 pub async fn select_all(pool: &SqlitePool) -> Result<Vec<FactureDashboardData>> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
-    let facture_rows = FactureRow::select_all(&mut tx).await?;
-    let client_rows = ClientRow::select_with_facture(&mut tx).await?;
-    let facture_item_flows = ItemFactureFlowType::select_all_flow_types(&mut tx).await?;
-    let statut_rows = StatutRow::select_all(&mut tx).await?;
+    let facture_rows = FactureRow::select_all(&mut *tx).await?;
+    let client_rows = ClientRow::select_with_facture(&mut *tx).await?;
+    let facture_item_flows = ItemFactureFlowType::select_all_flow_types(&mut *tx).await?;
+    let statut_rows = StatutRow::select_all(&mut *tx).await?;
 
     tx.commit().await.context("Failed to commit transaction")?;
 
@@ -653,17 +653,17 @@ async fn load_facture_info(
     Vec<PaymentView>,
     Vec<RefundView>,
 )> {
-    let facture_row = FactureRow::select_one(facture_id, tx)
+    let facture_row = FactureRow::select_one(facture_id, &mut **tx)
         .await?
         .ok_or(anyhow::Error::msg("Facture not found."))?;
     let facture_view = FactureView::from(facture_row);
 
-    let client_row = ClientRow::select_one(facture_view.client_id, tx)
+    let client_row = ClientRow::select_one(facture_view.client_id, &mut **tx)
         .await?
         .ok_or(anyhow::Error::msg("Client related to facture not found."))?;
 
     let event_row = match facture_view.event_id {
-        Some(e_id) => EventRow::select_one(e_id, tx)
+        Some(e_id) => EventRow::select_one(e_id, &mut **tx)
             .await?
             .ok_or(anyhow::Error::msg("Event related to facture not found."))
             .map(Some),
@@ -671,15 +671,15 @@ async fn load_facture_info(
     };
     let event_row = event_row?;
 
-    let facture_items = FactureItemRow::select_all_for_facture(facture_id, tx).await?;
+    let facture_items = FactureItemRow::select_all_for_facture(facture_id, &mut **tx).await?;
     let facture_items: Result<Vec<FactureItemView>> = facture_items
         .into_iter()
         .map(FactureItemView::try_from)
         .collect();
     let facture_items = facture_items?;
 
-    let payment_rows = PaymentRow::select_all_for_facture(facture_id, tx).await?;
-    let refund_rows = RefundRow::select_all_for_facture(facture_id, tx).await?;
+    let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut **tx).await?;
+    let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut **tx).await?;
 
     let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
     let refund_views = refund_rows.into_iter().map(RefundView::from).collect();

@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 pub mod has_table;
 pub mod insert;
+pub mod queries;
 pub mod select;
 pub mod update;
 
