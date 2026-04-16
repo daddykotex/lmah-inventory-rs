@@ -5,63 +5,67 @@ use axum::{
     routing::{get, post},
 };
 use maud::Markup;
-use sqlx::SqlitePool;
+use toasty::Db;
 
 use crate::server::{
     models::events::{EventForm, EventView},
     routes::errors::AppError,
     services::{
-        config::load_event_types,
-        events::{insert_event, load_one_event, select_all, update_event},
+        // config::load_event_types,
+        events::{insert_event, /* load_one_event, */ select_all, update_event},
     },
     templates::events,
 };
 
-async fn list_events(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
-    let events = select_all(&pool).await?;
+async fn list_events(State(mut db): State<Db>) -> Result<Markup, AppError> {
+    let events = select_all(&mut db).await?;
     let event_views = events.into_iter().map(EventView::from).collect();
     let rendered = events::page_events(event_views);
 
     Ok(rendered)
 }
 
-async fn new_event(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
-    let event_types = load_event_types(&pool).await?;
+async fn new_event(State(_db): State<Db>) -> Result<Markup, AppError> {
+    // TODO: Re-enable when config is migrated
+    // let event_types = load_event_types(&db).await?;
+    let event_types = vec!["Mariage".to_string(), "Bal".to_string()]; // Temporary hardcoded
     Ok(events::page_new_event(event_types))
 }
 
 async fn one_event(
-    State(pool): State<SqlitePool>,
-    Path(event_id): Path<i64>,
+    State(_db): State<Db>,
+    Path(_event_id): Path<u64>,
 ) -> Result<Markup, AppError> {
-    let page_data = load_one_event(&pool, event_id).await?;
-    Ok(events::page_one_event(
-        page_data.event,
-        page_data.event_types,
-        page_data.related_factures,
-    ))
+    // TODO: Re-enable when Factures and Config are migrated
+    // let page_data = load_one_event(&db, event_id).await?;
+    // Ok(events::page_one_event(
+    //     page_data.event,
+    //     page_data.event_types,
+    //     page_data.related_factures,
+    // ))
+    Err(anyhow::Error::msg("Event detail page not yet migrated").into())
 }
 
 async fn update_one_event(
-    State(pool): State<SqlitePool>,
-    Path(event_id): Path<i64>,
+    State(mut db): State<Db>,
+    Path(event_id): Path<u64>,
     Form(update): Form<EventForm>,
 ) -> Result<Redirect, AppError> {
-    update_event(&pool, event_id, update).await?;
+    update_event(&mut db, event_id, update).await?;
     let url = format!("/events/{}?success=true", event_id);
     Ok(Redirect::to(&url))
 }
 
 async fn create_one_event(
-    State(pool): State<SqlitePool>,
+    State(mut db): State<Db>,
     Form(create): Form<EventForm>,
 ) -> Result<Redirect, AppError> {
-    let id = insert_event(&pool, create).await?;
+    let id = insert_event(&mut db, create).await?;
     let url = format!("/events/{}?success=true", id);
     Ok(Redirect::to(&url))
 }
 
-pub fn event_router() -> Router<SqlitePool> {
+pub fn event_router() -> Router<Db> {
     Router::new()
         .route("/events", get(list_events))
         .route("/events/new", get(new_event))

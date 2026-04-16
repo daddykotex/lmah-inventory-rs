@@ -1,15 +1,20 @@
 use serde::Deserialize;
-use sqlx::prelude::FromRow;
 
-/// Database row structure for events table
-#[derive(Debug, FromRow)]
-pub struct EventRow {
-    pub id: i64,
-    pub name: String,
-    pub event_type: String,
-    pub date: String,
-    pub created_at: String,
-    pub updated_at: String,
+/// Event model with Toasty ORM
+#[derive(Debug, toasty::Model)]
+pub struct Event {
+    #[key]
+    #[auto]
+    id: u64,
+
+    name: String,
+    event_type: String,
+    date: String,
+    created_at: String,
+    updated_at: String,
+
+    #[has_many]
+    factures: toasty::HasMany<crate::server::models::factures::Facture>,
 }
 
 impl From<EventForm> for EventInsert {
@@ -40,17 +45,17 @@ pub struct EventForm {
 }
 
 /// Used in the UI to display Event information
-/// Very close if not the same to the EventRow
+/// Very close if not the same to the Event model
 #[derive(Clone)]
 pub struct EventView {
-    pub id: i64,
+    pub id: u64,
     pub name: String,
     pub event_type: String,
     pub date: String,
 }
 
-impl From<EventRow> for EventView {
-    fn from(value: EventRow) -> Self {
+impl From<Event> for EventView {
+    fn from(value: Event) -> Self {
         EventView {
             id: value.id,
             name: value.name,

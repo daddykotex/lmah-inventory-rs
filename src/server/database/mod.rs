@@ -1,8 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use toasty::Db;
 use std::path::Path;
 
 use crate::server::models::clients::Client;
+use crate::server::models::events::Event;
+use crate::server::models::factures::Facture;
 
 // pub mod has_table;
 // pub mod insert;
@@ -18,7 +20,7 @@ pub async fn connect_to_path(db_path: &Path) -> Result<Db> {
 pub async fn connect_to_url(db_url: &String) -> Result<Db> {
     println!("Connecting to database: {}", db_url);
     let db = toasty::Db::builder()
-        .models(toasty::models!(Client))
+        .models(toasty::models!(Client, Event, Facture))
         .connect(db_url)
         .await?;
 

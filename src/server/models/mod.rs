@@ -1,9 +1,9 @@
 
 pub mod clients;
 // pub mod config;
-// pub mod events;
+pub mod events;
 // pub mod facture_items;
-// pub mod factures;
+pub mod factures;
 // pub mod payments;
 // pub mod product_types;
 // pub mod products;
@@ -109,10 +109,10 @@ pub mod clients;
 //     pub client: ClientView,
 // }
 
-// pub struct FactureAndClient {
-//     pub facture: FactureView,
-//     pub client: ClientView,
-// }
+pub struct FactureAndClient {
+    pub facture: factures::FactureView,
+    pub client: clients::ClientView,
+}
 
 // pub struct PageOneEvent {
 //     pub event: EventView,

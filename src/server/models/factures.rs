@@ -1,7 +1,29 @@
-use sqlx::prelude::FromRow;
+/// Facture model with Toasty ORM (stub for relationship with Event)
+/// Will be fully migrated in Phase 3
+#[derive(Debug, toasty::Model)]
+pub struct Facture {
+    #[key]
+    #[auto]
+    id: u64,
 
-/// Database row structure for factures table
-#[derive(Debug, FromRow)]
+    client_id: u64,
+    facture_type: Option<String>,
+    date: Option<String>,
+
+    #[index]
+    event_id: Option<u64>,
+    #[belongs_to(key = event_id, references = id)]
+    event: toasty::BelongsTo<Option<crate::server::models::events::Event>>,
+
+    fixed_total: Option<i64>,
+    cancelled: bool,
+    paper_ref: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+/// Database row structure for factures table (kept for migration)
+#[derive(Debug)]
 pub struct FactureRow {
     pub id: i64,
     pub client_id: i64,               // Required FK to clients
