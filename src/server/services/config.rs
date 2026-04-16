@@ -1,7 +1,10 @@
 use anyhow::{Ok, Result};
 use sqlx::{Executor, Sqlite};
 
-use crate::server::models::config::{ConfigRow, ExtraLargeAmounts, NoteTemplate};
+use crate::server::{
+    database::select::Selectable,
+    models::config::{ConfigRow, ExtraLargeAmounts, NoteTemplate},
+};
 
 pub async fn load_note_templates(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
