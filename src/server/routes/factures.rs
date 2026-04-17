@@ -9,7 +9,7 @@ use sqlx::SqlitePool;
 
 use crate::server::{
     models::{clients::ClientView, events::EventView},
-    routes::{errors::AppError, redirect::RedirectOr},
+    routes::{bootstrap::AppState, errors::AppError, redirect::RedirectOr},
     services::{
         clients,
         config::load_event_types,
@@ -171,7 +171,7 @@ async fn print(
     Ok(rendered)
 }
 
-pub fn facture_router() -> Router<SqlitePool> {
+pub fn facture_router() -> Router<AppState> {
     Router::new()
         .route("/factures/new", get(new_facture_the_client))
         .route("/factures/new/new-client", get(new_facture_new_client))

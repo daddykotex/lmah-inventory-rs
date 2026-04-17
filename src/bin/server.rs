@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = ServerConfig::parse();
 
     let pool = connect_to_url(&config.db_url).await?;
-    let app: Router = setup_routes().await?.with_state(pool);
+    let app: Router = setup_routes(pool);
 
     let mut listenfd = listenfd::ListenFd::from_env();
     match listenfd.take_tcp_listener(0)? {

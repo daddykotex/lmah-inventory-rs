@@ -9,7 +9,7 @@ use sqlx::SqlitePool;
 
 use crate::server::{
     models::events::{EventForm, EventView},
-    routes::errors::AppError,
+    routes::{bootstrap::AppState, errors::AppError},
     services::{
         config::load_event_types,
         events::{insert_event, load_one_event, select_all, update_event},
@@ -61,7 +61,7 @@ async fn create_one_event(
     Ok(Redirect::to(&url))
 }
 
-pub fn event_router() -> Router<SqlitePool> {
+pub fn event_router() -> Router<AppState> {
     Router::new()
         .route("/events", get(list_events))
         .route("/events/new", get(new_event))

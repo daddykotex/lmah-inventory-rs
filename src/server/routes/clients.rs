@@ -9,7 +9,7 @@ use sqlx::SqlitePool;
 
 use crate::server::{
     models::clients::{ClientForm, ClientView},
-    routes::errors::AppError,
+    routes::{bootstrap::AppState, errors::AppError},
     services::clients::{insert_client, select_all, select_one, update_client},
     templates::clients,
 };
@@ -58,7 +58,7 @@ async fn create_one_client(
     Ok(Redirect::to(&url))
 }
 
-pub fn client_router() -> Router<SqlitePool> {
+pub fn client_router() -> Router<AppState> {
     Router::new()
         .route("/clients", get(list_clients))
         .route("/clients/new", get(new_client))
