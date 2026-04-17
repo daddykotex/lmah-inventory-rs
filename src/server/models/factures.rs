@@ -72,3 +72,10 @@ pub struct SelectClientForm {
     #[serde(rename = "facture-type")]
     pub facture_type: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct FactureUpdateForm {
+    pub date: String,
+    #[serde(rename = "paper-ref")]
+    pub paper_ref: Option<String>,
+}
