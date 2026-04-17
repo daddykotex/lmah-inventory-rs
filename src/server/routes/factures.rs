@@ -1,13 +1,17 @@
+use anyhow::Context;
 use axum::{
-    Router,
+    Form, Router,
     extract::{Path, Query, State},
-    routing::get,
+    response::Redirect,
+    routing::{get, post},
 };
 use maud::Markup;
 use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::server::{
+    database::select::Selectable,
+    models::factures::{FactureRow, SelectEventForm},
     models::{clients::ClientView, events::EventView},
     routes::{bootstrap::AppState, errors::AppError, redirect::RedirectOr},
     services::{
@@ -15,8 +19,9 @@ use crate::server::{
         config::load_event_types,
         events,
         factures::{
-            blank_facture_item, load_add_product_data, load_print_data, load_products_to_add,
-            select_all, select_one, select_one_facture_item, select_transactions,
+            blank_facture_item, link_event, load_add_product_data, load_print_data,
+            load_products_to_add, select_all, select_one, select_one_facture_item,
+            select_transactions,
         },
     },
     templates::factures,
@@ -81,28 +86,15 @@ async fn new_facture_the_client(
     Ok(rendered)
 }
 
-#[derive(Deserialize)]
-struct NoEventUrl {
-    #[serde(rename = "no-event-url")]
-    no_event_url: Option<String>,
-}
-
 async fn new_facture_the_event(
     State(pool): State<SqlitePool>,
     Path(facture_id): Path<i64>,
-    event_url: Query<NoEventUrl>,
 ) -> Result<Markup, AppError> {
     select_one(&pool, facture_id).await?; // ensure the facture exists
 
     let events = events::select_all(&pool).await?;
     let events = events.into_iter().map(EventView::from).collect();
-    let default_no_event_url = format!("/factures/{}/items", facture_id);
-    let event_url = event_url
-        .no_event_url
-        .as_ref()
-        .map(|a| a.as_ref())
-        .unwrap_or(default_no_event_url.as_str());
-    let rendered = factures::page_new_facture_the_event(facture_id, event_url, events);
+    let rendered = factures::page_new_facture_the_event(facture_id, events);
     Ok(rendered)
 }
 
@@ -171,8 +163,72 @@ async fn print(
     Ok(rendered)
 }
 
+async fn cancel_facture_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+) -> Result<Redirect, AppError> {
+    crate::server::services::factures::cancel_facture(&pool, facture_id).await?;
+    let url = format!("/factures/{}/items?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn uncancel_facture_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+) -> Result<Redirect, AppError> {
+    crate::server::services::factures::uncancel_facture(&pool, facture_id).await?;
+    let url = format!("/factures/{}/items?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn unlink_event_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+) -> Result<Redirect, AppError> {
+    let facture_id = facture_id;
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    sqlx::query("UPDATE factures SET event_id = NULL, updated_at = datetime('now') WHERE id = ?")
+        .bind(facture_id)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("Failed to unlink event from facture {}", facture_id))?;
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    let url = format!("/factures/{}/items?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn link_event_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+    Form(form): Form<SelectEventForm>,
+) -> Result<Redirect, AppError> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    link_event(&mut tx, facture_id, form.selected_event).await?;
+
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    let url = format!("/factures/{}/items", facture_id);
+    Ok(Redirect::to(&url))
+}
+
 pub fn facture_router() -> Router<AppState> {
     Router::new()
+        // GET routes
         .route("/factures/new", get(new_facture_the_client))
         .route("/factures/new/new-client", get(new_facture_new_client))
         .route(
@@ -197,4 +253,21 @@ pub fn facture_router() -> Router<AppState> {
             get(the_facture_item),
         )
         .route("/factures", get(list_factures))
+        // POST routes
+        .route(
+            "/factures/{facture_id}/cancel",
+            post(cancel_facture_handler),
+        )
+        .route(
+            "/factures/{facture_id}/uncancel",
+            post(uncancel_facture_handler),
+        )
+        .route(
+            "/factures/{facture_id}/unlink-event",
+            post(unlink_event_handler),
+        )
+        .route(
+            "/factures/{facture_id}/select-event",
+            post(link_event_handler),
+        )
 }

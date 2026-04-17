@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
 /// Database row structure for factures table
@@ -55,4 +56,12 @@ impl From<FactureRow> for FactureView {
             updated_at: value.updated_at,
         }
     }
+}
+
+// Form structures for POST endpoints
+
+#[derive(Deserialize, Debug)]
+pub struct SelectEventForm {
+    #[serde(rename = "selected-event")]
+    pub selected_event: i64,
 }
