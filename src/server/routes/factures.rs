@@ -16,6 +16,7 @@ use crate::server::{
         events::{EventForm, EventView},
         facture_items::FactureItemForm,
         factures::{FactureRow, FactureUpdateForm, SelectClientForm, SelectEventForm},
+        payments::PaymentForm,
         products::ProductForm,
         statuts::StatusForm,
     },
@@ -29,6 +30,7 @@ use crate::server::{
             link_event, load_add_product_data, load_print_data, load_products_to_add, select_all,
             select_one, select_one_facture_item, select_transactions, update_facture_item,
         },
+        payments::{delete_payment, insert_payment, update_payment},
         products,
         statuts::insert_status,
     },
@@ -356,6 +358,35 @@ async fn update_item_state_handler(
     Ok(Redirect::to(&url))
 }
 
+async fn create_payment_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+    Form(form): Form<PaymentForm>,
+) -> Result<Redirect, AppError> {
+    insert_payment(&pool, facture_id, form).await?;
+    let url = format!("/factures/{}/transactions?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn update_payment_handler(
+    State(pool): State<SqlitePool>,
+    Path((facture_id, payment_id)): Path<(i64, i64)>,
+    Form(form): Form<PaymentForm>,
+) -> Result<Redirect, AppError> {
+    update_payment(&pool, payment_id, form).await?;
+    let url = format!("/factures/{}/transactions?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn delete_payment_handler(
+    State(pool): State<SqlitePool>,
+    Path((facture_id, payment_id)): Path<(i64, i64)>,
+) -> Result<Redirect, AppError> {
+    delete_payment(&pool, payment_id).await?;
+    let url = format!("/factures/{}/transactions?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
         // GET routes
@@ -436,5 +467,18 @@ pub fn facture_router() -> Router<SqlitePool> {
         .route(
             "/factures/{facture_id}/items/{item_id}/update-state",
             post(update_item_state_handler),
+        )
+        // Phase 7: Payments
+        .route(
+            "/factures/{facture_id}/payments",
+            post(create_payment_handler),
+        )
+        .route(
+            "/factures/{facture_id}/payments/{payment_id}/update",
+            post(update_payment_handler),
+        )
+        .route(
+            "/factures/{facture_id}/payments/{payment_id}/delete",
+            post(delete_payment_handler),
         )
 }
