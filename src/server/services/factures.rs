@@ -1,7 +1,7 @@
 use std::{collections::HashMap, hash::Hash, vec};
 
 use crate::server::{
-    database::select::Selectable,
+    database::{insert::Insertable, select::Selectable},
     models::{
         FactureDashboardData, FactureInfo, FactureItemEntry, FactureItemFormConfig,
         FactureItemInfo, FactureItemsData, PageAddOneFactureItemData, PageAddProduct,
@@ -13,7 +13,7 @@ use crate::server::{
             FactureComputed, FactureItemComputed, FactureItemRow, FactureItemValue,
             FactureItemView, ItemFactureFlowType,
         },
-        factures::{FactureRow, FactureView},
+        factures::{FactureInsert, FactureRow, FactureView},
         payments::{PaymentRow, PaymentView},
         product_types::{ProductTypeRow, ProductTypeView},
         products::{ProductInfo, ProductRow, ProductView},
@@ -958,4 +958,26 @@ pub async fn get_facture_type(pool: &SqlitePool, facture_id: i64) -> Result<Stri
     Ok(facture
         .facture_type
         .unwrap_or_else(|| "Product".to_string()))
+}
+
+pub async fn insert_facture(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    client_id: i64,
+    facture_type: String,
+) -> Result<i64> {
+    let to_insert = FactureInsert {
+        client_id,
+        facture_type: Some(facture_type),
+        event_id: None,
+        fixed_total: None,
+        cancelled: false,
+        paper_ref: None,
+    };
+
+    let inserted_id = to_insert
+        .insert_one(&mut *tx)
+        .await?
+        .expect("An ID should be generated for a new Facture");
+
+    Ok(inserted_id)
 }
