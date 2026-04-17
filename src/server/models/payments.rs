@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
 /// Database row structure for payments table
@@ -73,4 +74,15 @@ impl PreCalculatedPayment {
             None
         }
     }
+}
+
+// Form structure for POST endpoints
+#[derive(Deserialize, Debug)]
+pub struct PaymentForm {
+    pub amount: i64,
+    pub date: String,
+    #[serde(rename = "payment-type")]
+    pub payment_type: String,
+    #[serde(rename = "cheque-number")]
+    pub cheque_number: Option<String>,
 }
