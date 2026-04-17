@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
 /// Database row structure for statuts table
@@ -264,4 +265,13 @@ pub struct StatutsView {
     pub seamstress: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+// Form structure for POST endpoint
+#[derive(Deserialize, Debug)]
+pub struct StatusForm {
+    #[serde(rename = "statut-type")]
+    pub statut_type: String,
+    pub date: String,
+    pub seamstress: Option<String>,
 }
