@@ -881,9 +881,9 @@ fn event_details(facture_id: i64, event: &EventView) -> Markup {
                 p."card-text" {
                     span {
                         b {
-                            "Type:"
+                            "Type: "
                         }
-                        "Mariage"
+                        (event.event_type)
                     }
                 }
                 div."row" {
