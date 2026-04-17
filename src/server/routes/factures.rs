@@ -14,7 +14,8 @@ use crate::server::{
     models::{
         clients::{ClientForm, ClientView},
         events::{EventForm, EventView},
-        factures::{FactureRow, SelectClientForm, SelectEventForm},
+        factures::{FactureRow, FactureUpdateForm, SelectClientForm, SelectEventForm},
+        products::ProductForm,
     },
     routes::{errors::AppError, redirect::RedirectOr},
     services::{
@@ -26,6 +27,7 @@ use crate::server::{
             load_products_to_add, select_all, select_one, select_one_facture_item,
             select_transactions,
         },
+        products,
     },
     templates::factures,
 };
@@ -283,6 +285,35 @@ async fn create_and_link_event_handler(
     Ok(Redirect::to(&url))
 }
 
+async fn update_facture_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+    Form(form): Form<FactureUpdateForm>,
+) -> Result<Redirect, AppError> {
+    crate::server::services::factures::update_facture_details(
+        &pool,
+        facture_id,
+        form.date,
+        form.paper_ref,
+    )
+    .await?;
+    let url = format!("/factures/{}/items?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn create_product_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+    Form(form): Form<ProductForm>,
+) -> Result<Redirect, AppError> {
+    let product_id = products::insert_product(&pool, form).await?;
+    let url = format!(
+        "/factures/{}/add-item/{}?success=true",
+        facture_id, product_id
+    );
+    Ok(Redirect::to(&url))
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
         // GET routes
@@ -338,5 +369,13 @@ pub fn facture_router() -> Router<SqlitePool> {
         .route(
             "/factures/{facture_id}/new-event",
             post(create_and_link_event_handler),
+        )
+        .route(
+            "/factures/{facture_id}/update",
+            post(update_facture_handler),
+        )
+        .route(
+            "/factures/{facture_id}/add-product",
+            post(create_product_handler),
         )
 }

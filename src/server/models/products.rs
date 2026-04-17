@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
 use crate::server::models::product_types::ProductTypeView;
@@ -86,4 +87,14 @@ impl ProductInfo {
             None
         }
     }
+}
+
+// Form structure for POST endpoint
+#[derive(Deserialize, Debug)]
+pub struct ProductForm {
+    pub name: String,
+    pub price: Option<i64>,
+    pub liquidation: Option<bool>,
+    #[serde(rename = "visible-on-site")]
+    pub visible_on_site: Option<bool>,
 }

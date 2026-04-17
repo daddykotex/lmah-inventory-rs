@@ -981,3 +981,34 @@ pub async fn insert_facture(
 
     Ok(inserted_id)
 }
+
+/// Update facture details (date and paper_ref)
+pub async fn update_facture_details(
+    pool: &SqlitePool,
+    facture_id: i64,
+    date: String,
+    paper_ref: Option<String>,
+) -> Result<u64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Verify facture exists
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    let result = sqlx::query(
+        "UPDATE factures SET date = ?, paper_ref = ?, updated_at = datetime('now') WHERE id = ?",
+    )
+    .bind(date)
+    .bind(paper_ref)
+    .bind(facture_id)
+    .execute(&mut *tx)
+    .await
+    .with_context(|| format!("Failed to update facture {}", facture_id))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(result.rows_affected())
+}
