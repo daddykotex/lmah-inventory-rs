@@ -1751,10 +1751,11 @@ fn make_event_table_action_col(url: &str) -> impl Fn(&EventView) -> Markup {
     }
 }
 
-fn new_facture_the_event(facture_id: i64, no_event_url: &str, events: Vec<EventView>) -> Markup {
-    let new_event_url = format!("/factures/{}/select-event", facture_id);
-    let action_col = make_event_table_action_col(&new_event_url);
-    let url = format!("/factures/{}/new-event", facture_id);
+fn new_facture_the_event(facture_id: i64, events: Vec<EventView>) -> Markup {
+    let items_url = format!("/factures/{}/items", facture_id);
+    let select_event_url = format!("/factures/{}/select-event", facture_id);
+    let action_col = make_event_table_action_col(&select_event_url);
+    let new_event_url = format!("/factures/{}/new-event", facture_id);
     html! {
         main role="main" {
             div."container-fluid" {
@@ -1767,12 +1768,12 @@ fn new_facture_the_event(facture_id: i64, no_event_url: &str, events: Vec<EventV
                                 }
                             }
                             div."col-auto" {
-                                a."btn btn-primary btn-sm" href=(url) {
+                                a."btn btn-primary btn-sm" href=(new_event_url) {
                                     "Nouvel événement"
                                 }
                             }
                             div."col-auto" {
-                                a."btn btn-warning btn-sm" href=(no_event_url) {
+                                a."btn btn-warning btn-sm" href=(items_url) {
                                     "Aucun événement"
                                 }
                             }
@@ -2427,14 +2428,10 @@ pub fn page_new_facture_new_client(facture_type: Option<&str>, clients: Vec<Clie
     page("Nouveau client", body)
 }
 
-pub fn page_new_facture_the_event(
-    facture_id: i64,
-    no_event_url: &str,
-    events: Vec<EventView>,
-) -> Markup {
+pub fn page_new_facture_the_event(facture_id: i64, events: Vec<EventView>) -> Markup {
     let body = html! {
         (navbar(MenuConstants::Factures))
-        (new_facture_the_event(facture_id, no_event_url, events))
+        (new_facture_the_event(facture_id, events))
         (footer())
         (find_clients("events-actions", "search", "table.find-event", None))
     };

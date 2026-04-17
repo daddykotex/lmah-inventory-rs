@@ -834,3 +834,128 @@ fn test_build_product_info_more_types_than_product() {
     let result = build_product_info(products, types);
     assert_eq!(result, expected)
 }
+
+// Phase 1 POST endpoint service functions
+
+/// Mark a facture as cancelled
+pub async fn cancel_facture(pool: &SqlitePool, facture_id: i64) -> Result<u64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Verify facture exists
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    let result =
+        sqlx::query("UPDATE factures SET cancelled = 1, updated_at = datetime('now') WHERE id = ?")
+            .bind(facture_id)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| format!("Failed to cancel facture {}", facture_id))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(result.rows_affected())
+}
+
+/// Unmark a facture as cancelled
+pub async fn uncancel_facture(pool: &SqlitePool, facture_id: i64) -> Result<u64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Verify facture exists
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    let result =
+        sqlx::query("UPDATE factures SET cancelled = 0, updated_at = datetime('now') WHERE id = ?")
+            .bind(facture_id)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| format!("Failed to uncancel facture {}", facture_id))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(result.rows_affected())
+}
+
+/// Remove event link from a facture
+pub async fn unlink_event(pool: &SqlitePool, facture_id: i64) -> Result<u64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Verify facture exists
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    let result = sqlx::query(
+        "UPDATE factures SET event_id = NULL, updated_at = datetime('now') WHERE id = ?",
+    )
+    .bind(facture_id)
+    .execute(&mut *tx)
+    .await
+    .with_context(|| format!("Failed to unlink event from facture {}", facture_id))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(result.rows_affected())
+}
+
+/// Link an existing event to a facture (within an existing transaction)
+pub async fn link_event(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    facture_id: i64,
+    event_id: i64,
+) -> Result<u64> {
+    // Verify facture exists
+    let maybe_facture = FactureRow::select_one(facture_id, &mut **tx).await?;
+    maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    // Verify event exists
+    let maybe_event = EventRow::select_one(event_id, &mut **tx).await?;
+    maybe_event.ok_or(anyhow::Error::msg(format!(
+        "Event with id {} not found",
+        event_id
+    )))?;
+
+    let result =
+        sqlx::query("UPDATE factures SET event_id = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(event_id)
+            .bind(facture_id)
+            .execute(&mut **tx)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed to link event {} to facture {}",
+                    event_id, facture_id
+                )
+            })?;
+
+    Ok(result.rows_affected())
+}
+
+/// Get the facture type for a given facture
+pub async fn get_facture_type(pool: &SqlitePool, facture_id: i64) -> Result<String> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    let facture = maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(facture
+        .facture_type
+        .unwrap_or_else(|| "Product".to_string()))
+}
