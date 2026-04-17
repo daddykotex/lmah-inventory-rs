@@ -5,13 +5,12 @@ use crate::server::{
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
 
-pub async fn insert_client(pool: &SqlitePool, form: ClientForm) -> Result<i64> {
+pub async fn insert_client(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    form: ClientForm,
+) -> Result<i64> {
     let to_insert = ClientInsert::from(form);
-
-    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
-    let inserted_id = to_insert.insert_one(&mut tx).await?;
-    tx.commit().await.context("Failed to commit transaction")?;
-
+    let inserted_id = to_insert.insert_one(&mut *tx).await?;
     Ok(inserted_id.expect("An ID should be generated for a new Client"))
 }
 

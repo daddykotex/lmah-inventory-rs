@@ -5,7 +5,7 @@ use crate::server::models::{
     config::ConfigInsert,
     events::{EventInsert, EventRow},
     facture_items::FactureItemInsert,
-    factures::FactureRow,
+    factures::{FactureInsert, FactureRow},
     payments::PaymentInsert,
     product_types::ProductTypeRow,
     products::{ProductImageInsert, ProductInsert},
@@ -238,6 +238,37 @@ impl Insertable for FactureRow {
         .bind(&self.paper_ref)
         .bind(&self.created_at)
         .bind(&self.updated_at)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to insert facture for client_id={}",
+                self.client_id
+            )
+        })?;
+
+        // Get the database ID
+        let db_id = result.last_insert_rowid();
+
+        return Ok(Some(db_id));
+    }
+}
+
+impl Insertable for FactureInsert {
+    async fn insert_one(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<Option<i64>> {
+        // Insert facture
+        let result = sqlx::query(
+            "INSERT INTO factures (client_id, facture_type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
+             VALUES (?, ?, date('now'), ?, ?, ?, ?, datetime('now'), datetime('now'))",
+        )
+        .bind(&self.client_id)
+        .bind(&self.facture_type)
+        .bind(&self.fixed_total)
+        .bind(if self.cancelled { 1 } else { 0 })
+        .bind(&self.paper_ref)
         .execute(&mut **tx)
         .await
         .with_context(|| {

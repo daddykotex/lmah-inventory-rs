@@ -12,9 +12,9 @@ use sqlx::SqlitePool;
 use crate::server::{
     database::select::Selectable,
     models::{
-        clients::ClientView,
-        events::EventView,
-        factures::{FactureRow, SelectEventForm},
+        clients::{ClientForm, ClientView},
+        events::{EventForm, EventView},
+        factures::{FactureRow, SelectClientForm, SelectEventForm},
     },
     routes::{errors::AppError, redirect::RedirectOr},
     services::{
@@ -22,7 +22,7 @@ use crate::server::{
         config::load_event_types,
         events,
         factures::{
-            blank_facture_item, link_event, load_add_product_data, load_print_data,
+            blank_facture_item, insert_facture, link_event, load_add_product_data, load_print_data,
             load_products_to_add, select_all, select_one, select_one_facture_item,
             select_transactions,
         },
@@ -229,6 +229,60 @@ async fn link_event_handler(
     Ok(Redirect::to(&url))
 }
 
+async fn create_facture_with_client_handler(
+    State(pool): State<SqlitePool>,
+    Form(form): Form<SelectClientForm>,
+) -> Result<Redirect, AppError> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let facture_id = insert_facture(&mut tx, form.selected_client, form.facture_type).await?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    let url = format!("/factures/{}/select-event?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn create_facture_with_new_client_handler(
+    State(pool): State<SqlitePool>,
+    Query(facture_type_query): Query<FactureTypeQuery>,
+    Form(client_form): Form<ClientForm>,
+) -> Result<Redirect, AppError> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let client_id = clients::insert_client(&mut tx, client_form).await?;
+
+    let facture_type = facture_type_query
+        .facture_type
+        .unwrap_or_else(|| "Product".to_string());
+    let facture_id = insert_facture(&mut tx, client_id, facture_type).await?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    let url = format!("/factures/{}/select-event?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn create_and_link_event_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+    Form(event_form): Form<EventForm>,
+) -> Result<Redirect, AppError> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Create the event
+    let event_id = events::insert_event(&pool, event_form).await?;
+
+    // Link it to the facture
+    link_event(&mut tx, facture_id, event_id).await?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    // Redirect to items page
+    let url = format!("/factures/{}/items?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
 pub fn facture_router() -> Router<SqlitePool> {
     Router::new()
         // GET routes
@@ -272,5 +326,17 @@ pub fn facture_router() -> Router<SqlitePool> {
         .route(
             "/factures/{facture_id}/select-event",
             post(link_event_handler),
+        )
+        .route(
+            "/factures/new/select-client",
+            post(create_facture_with_client_handler),
+        )
+        .route(
+            "/factures/new/new-client",
+            post(create_facture_with_new_client_handler),
+        )
+        .route(
+            "/factures/{facture_id}/new-event",
+            post(create_and_link_event_handler),
         )
 }
