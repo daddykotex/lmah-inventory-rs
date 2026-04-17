@@ -18,7 +18,7 @@ pub struct Product {
     images: toasty::HasMany<ProductImage>,
 
     #[has_many]
-    product_types: toasty::HasMany<ProductProductType>,
+    pub product_types: toasty::HasMany<ProductProductType>,
 }
 
 /// ProductImage model with Toasty ORM
@@ -54,9 +54,9 @@ pub struct ProductProductType {
     product: toasty::BelongsTo<Product>,
 
     #[index]
-    product_type_name: String,
+    pub product_type_name: String,
     #[belongs_to(key = product_type_name, references = name)]
-    product_type: toasty::BelongsTo<crate::server::models::product_types::ProductType>,
+    pub product_type: toasty::BelongsTo<crate::server::models::product_types::ProductType>,
 }
 
 /// Database row structure for products table (kept for migration)

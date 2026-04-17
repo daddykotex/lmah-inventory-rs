@@ -422,10 +422,10 @@ fn seamstresses(data: Vec<String>) -> Markup {
 }
 
 fn the_items_action_col(
-    facture_id: i64,
+    facture_id: u64,
     facture_type: &Option<String>,
-    location_item_id: i64,
-    alteration_item_id: i64,
+    location_item_id: u64,
+    alteration_item_id: u64,
 ) -> Markup {
     let default = String::from("Product");
     let f = facture_type.as_ref().unwrap_or(&default);
@@ -442,7 +442,7 @@ fn the_items_action_col(
     }
 }
 
-fn item_row_action_col(facture_id: i64, facture_item_id: i64) -> Markup {
+fn item_row_action_col(facture_id: u64, facture_item_id: u64) -> Markup {
     let item_url = format!("/factures/{}/items/{}", facture_id, facture_item_id);
     let delete_url = format!("{}/delete", item_url);
 
@@ -800,7 +800,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
 }
 
 fn facture_info_actions(
-    facture_id: i64,
+    facture_id: u64,
     show_items_button: bool,
     show_transactions: bool,
     has_event: bool,
@@ -866,7 +866,7 @@ fn facture_info_actions(
     }
 }
 
-fn event_details(facture_id: i64, event: &EventView) -> Markup {
+fn event_details(facture_id: u64, event: &EventView) -> Markup {
     let unlink_url = format!("/factures/{}/unlink-event", facture_id);
     let event_url = format!("/events/{}", event.id);
     html! {
@@ -1200,7 +1200,7 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
 }
 
 fn facture_item_form(
-    facture_id: i64,
+    facture_id: u64,
     url: &str,
     client: &ClientView,
     product: &ProductView,
@@ -1532,8 +1532,8 @@ fn status_history_table(state: &StateView) -> Markup {
 }
 
 fn state_modal(
-    facture_id: i64,
-    facture_item_id: i64,
+    facture_id: u64,
+    facture_item_id: u64,
     state: &StateView,
     seamstresses: &Vec<String>,
 ) -> Markup {
@@ -1751,7 +1751,7 @@ fn make_event_table_action_col(url: &str) -> impl Fn(&EventView) -> Markup {
     }
 }
 
-fn new_facture_the_event(facture_id: i64, no_event_url: &str, events: Vec<EventView>) -> Markup {
+fn new_facture_the_event(facture_id: u64, no_event_url: &str, events: Vec<EventView>) -> Markup {
     let new_event_url = format!("/factures/{}/select-event", facture_id);
     let action_col = make_event_table_action_col(&new_event_url);
     let url = format!("/factures/{}/new-event", facture_id);
@@ -1813,7 +1813,7 @@ fn new_facture_new_event(event_form: Markup) -> Markup {
     }
 }
 
-fn select_item(facture_id: i64, products: Vec<ProductInfo>) -> Markup {
+fn select_item(facture_id: u64, products: Vec<ProductInfo>) -> Markup {
     let add_product_url = format!("/factures/{}/add-product", facture_id);
     let add_item_form_url = format!("/factures/{}/add-item", facture_id);
     html! {
@@ -2305,7 +2305,7 @@ fn list_transactions(page_data: PageTransactionsData) -> TransactionPage {
     TransactionPage { body, javascript }
 }
 
-fn add_product(facture_id: i64, product_types: &Vec<ProductTypeView>) -> Markup {
+fn add_product(facture_id: u64, product_types: &Vec<ProductTypeView>) -> Markup {
     let url = format!("/factures/{}/add-product", facture_id);
     html! {
         main role="main" {
@@ -2428,7 +2428,7 @@ pub fn page_new_facture_new_client(facture_type: Option<&str>, clients: Vec<Clie
 }
 
 pub fn page_new_facture_the_event(
-    facture_id: i64,
+    facture_id: u64,
     no_event_url: &str,
     events: Vec<EventView>,
 ) -> Markup {
@@ -2441,7 +2441,7 @@ pub fn page_new_facture_the_event(
     page("Sélectionner un événement", body)
 }
 
-pub fn page_new_facture_new_event(facture_id: i64, event_types: Vec<String>) -> Markup {
+pub fn page_new_facture_new_event(facture_id: u64, event_types: Vec<String>) -> Markup {
     let url = format!("/factures/{}/new-event", facture_id);
     let event_form = new_event_form(url.as_ref(), None, &event_types);
 
@@ -2453,7 +2453,7 @@ pub fn page_new_facture_new_event(facture_id: i64, event_types: Vec<String>) -> 
     };
     page("Nouvel événement", body)
 }
-pub fn page_select_item(facture_id: i64, products: Vec<ProductInfo>) -> Markup {
+pub fn page_select_item(facture_id: u64, products: Vec<ProductInfo>) -> Markup {
     let body = html! {
         (navbar(MenuConstants::Factures))
         (select_item(facture_id, products))

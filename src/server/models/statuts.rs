@@ -17,10 +17,10 @@ pub struct Statut {
     #[belongs_to(key = facture_item_id, references = id)]
     facture_item: toasty::BelongsTo<crate::server::models::facture_items::FactureItem>,
 
-    statut_type: String,
-    date: String,
-    seamstress: Option<String>,
-    created_at: String,
+    pub statut_type: String,
+    pub date: String,
+    pub seamstress: Option<String>,
+    pub created_at: String,
     updated_at: String,
 }
 

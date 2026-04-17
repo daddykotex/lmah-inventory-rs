@@ -1,4 +1,4 @@
 pub mod clients;
 pub mod events;
-// pub mod factures;
+pub mod factures;
 pub mod utils;

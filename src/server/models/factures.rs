@@ -25,16 +25,13 @@ pub struct Facture {
     updated_at: String,
 
     #[has_many]
-    facture_items: toasty::HasMany<crate::server::models::facture_items::FactureItem>,
+    pub facture_items: toasty::HasMany<crate::server::models::facture_items::FactureItem>,
 
     #[has_many]
     payments: toasty::HasMany<crate::server::models::payments::Payment>,
 
     #[has_many]
     refunds: toasty::HasMany<crate::server::models::refunds::Refund>,
-
-    #[has_many]
-    statuts: toasty::HasMany<crate::server::models::statuts::Statut>,
 }
 
 /// Database row structure for factures table (kept for migration)
@@ -127,4 +124,3 @@ impl From<&Facture> for FactureView {
         }
     }
 }
-

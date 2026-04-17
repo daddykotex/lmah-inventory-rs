@@ -1,7 +1,7 @@
 use crate::server::{
     models::{
         FactureAndClient, PageOneEvent,
-        events::{Event, EventForm, EventView}, factures::Facture,
+        events::{Event, EventForm, EventView},
     },
     services::config::load_event_types,
 };
@@ -9,7 +9,10 @@ use anyhow::{Context, Result};
 use toasty::Db;
 
 pub async fn insert_event(db: &mut Db, form: EventForm) -> Result<u64> {
-    let mut tx = db.transaction().await.context("Failed to begin transaction")?;
+    let mut tx = db
+        .transaction()
+        .await
+        .context("Failed to begin transaction")?;
     let event = toasty::create!(Event {
         name: form.name,
         event_type: form.event_type,
@@ -24,11 +27,8 @@ pub async fn insert_event(db: &mut Db, form: EventForm) -> Result<u64> {
 }
 
 pub async fn select_one(db: &mut Db, id: u64) -> Result<Option<EventView>> {
-    let event = Event::filter_by_id(id)
-        .first()
-        .exec(db)
-        .await?;
-    Ok(event.map(|e|e.into()))
+    let event = Event::filter_by_id(id).first().exec(db).await?;
+    Ok(event.map(|e| e.into()))
 }
 
 pub async fn load_one_event(db: &mut Db, event_id: u64) -> Result<PageOneEvent> {
@@ -46,12 +46,15 @@ pub async fn load_one_event(db: &mut Db, event_id: u64) -> Result<PageOneEvent> 
 
     let event_types = load_event_types(db).await?;
 
-    let factures_with_clients = event.factures.get().iter().map(|f| {
-        FactureAndClient {
+    let factures_with_clients = event
+        .factures
+        .get()
+        .iter()
+        .map(|f| FactureAndClient {
             facture: f.into(),
             client: f.client.get().into(),
-        }
-    }).collect();
+        })
+        .collect();
 
     Ok(PageOneEvent {
         event: EventView::from(event),
@@ -61,14 +64,15 @@ pub async fn load_one_event(db: &mut Db, event_id: u64) -> Result<PageOneEvent> 
 }
 
 pub async fn select_all(db: &mut Db) -> Result<Vec<Event>> {
-    let events = Event::all()
-        .exec(db)
-        .await?;
+    let events = Event::all().exec(db).await?;
     Ok(events)
 }
 
 pub async fn update_event(db: &mut Db, id: u64, form: EventForm) -> Result<u64> {
-    let mut tx = db.transaction().await.context("Failed to begin transaction")?;
+    let mut tx = db
+        .transaction()
+        .await
+        .context("Failed to begin transaction")?;
     Event::filter_by_id(id)
         .update()
         .name(form.name)

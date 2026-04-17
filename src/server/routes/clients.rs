@@ -30,7 +30,10 @@ async fn one_client(
     State(mut db): State<Db>,
     Path(client_id): Path<u64>,
 ) -> Result<Markup, AppError> {
-    let maybe_client = Client::filter_by_id(client_id).first().exec(&mut db).await?;
+    let maybe_client = Client::filter_by_id(client_id)
+        .first()
+        .exec(&mut db)
+        .await?;
     let client = maybe_client.ok_or(anyhow::Error::msg(format!(
         "Client with id {} not found",
         client_id

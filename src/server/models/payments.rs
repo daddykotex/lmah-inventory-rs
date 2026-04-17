@@ -10,7 +10,7 @@ pub struct Payment {
     #[belongs_to(key = facture_id, references = id)]
     facture: toasty::BelongsTo<crate::server::models::factures::Facture>,
 
-    amount: i64,     // Amount in cents
+    amount: i64, // Amount in cents
     date: String,
     payment_type: String,
     cheque_number: Option<String>,

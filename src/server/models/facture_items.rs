@@ -5,7 +5,7 @@
 pub struct FactureItem {
     #[key]
     #[auto]
-    id: u64,
+    pub id: u64,
 
     #[index]
     facture_id: u64,
@@ -15,9 +15,9 @@ pub struct FactureItem {
     #[index]
     product_id: u64,
     #[belongs_to(key = product_id, references = id)]
-    product: toasty::BelongsTo<crate::server::models::products::Product>,
+    pub product: toasty::BelongsTo<crate::server::models::products::Product>,
 
-    item_type: String, // "Produit", "Location", or "Alteration"
+    pub item_type: String, // "Produit", "Location", or "Alteration"
 
     // Common fields (all types)
     price: Option<i64>, // in cents
@@ -33,7 +33,7 @@ pub struct FactureItem {
     hips: Option<i64>,
     color: Option<String>,
     beneficiary: Option<String>,
-    floor_item: bool, // Default false
+    pub floor_item: bool, // Default false
 
     // Location-specific fields
     insurance: Option<i64>,   // in cents
@@ -46,7 +46,7 @@ pub struct FactureItem {
     updated_at: String,
 
     #[has_many]
-    statuts: toasty::HasMany<crate::server::models::statuts::Statut>,
+    pub statuts: toasty::HasMany<crate::server::models::statuts::Statut>,
 }
 
 /// Database row structure for facture_items table (kept for migration)

@@ -4,7 +4,7 @@
 #[table = "product_types"]
 pub struct ProductType {
     #[key]
-    name: String,
+    pub name: String,
 }
 
 /// Database row structure for product_types table (kept for migration)

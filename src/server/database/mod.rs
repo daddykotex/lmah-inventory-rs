@@ -1,6 +1,6 @@
 use anyhow::Result;
-use toasty::Db;
 use std::path::Path;
+use toasty::Db;
 
 use crate::server::models::clients::Client;
 use crate::server::models::config::Config;
