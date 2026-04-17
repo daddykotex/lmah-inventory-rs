@@ -1,9 +1,11 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use sqlx::SqlitePool;
 use std::{collections::HashMap, vec};
 
+use crate::server::database::insert::Insertable;
 use crate::server::models::{
     facture_items::ItemFactureFlowType,
-    statuts::{State, StateView, StatutRow},
+    statuts::{State, StateView, StatusForm, StatutInsert, StatutRow},
 };
 
 pub fn load_one_item_statuts_flow(
@@ -146,6 +148,33 @@ fn apply_statut(old_state: &StateView, statut: &StatutRow) -> Result<StateView> 
         previous_states: previous_states,
         ..old_state
     })
+}
+
+/// Insert a new status record for a facture item
+pub async fn insert_status(
+    pool: &SqlitePool,
+    facture_id: i64,
+    facture_item_id: i64,
+    form: StatusForm,
+) -> Result<i64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let to_insert = StatutInsert {
+        facture_id,
+        facture_item_id,
+        statut_type: form.statut_type,
+        date: form.date,
+        seamstress: form.seamstress,
+    };
+
+    let inserted_id = to_insert
+        .insert_one(&mut tx)
+        .await?
+        .expect("An ID should be generated for a new Status");
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(inserted_id)
 }
 
 #[cfg(test)]
