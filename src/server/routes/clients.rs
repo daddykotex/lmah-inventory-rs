@@ -1,3 +1,4 @@
+use anyhow::Context;
 use axum::{
     Form, Router,
     extract::{Path, State},
@@ -53,7 +54,9 @@ async fn create_one_client(
     State(pool): State<SqlitePool>,
     Form(create): Form<ClientForm>,
 ) -> Result<Redirect, AppError> {
-    let id = insert_client(&pool, create).await?;
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+    let id = insert_client(&mut tx, create).await?;
+    tx.commit().await.context("Failed to commit transaction")?;
     let url = format!("/clients/{}?success=true", id);
     Ok(Redirect::to(&url))
 }
