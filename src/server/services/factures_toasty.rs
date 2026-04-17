@@ -137,13 +137,6 @@ pub async fn select_all(db: &mut Db) -> Result<Vec<FactureDashboardData>> {
         .include(Facture::fields().facture_items().product())
         .include(Facture::fields().facture_items().statuts())
         .include(Facture::fields().facture_items().product().product_types())
-        .include(
-            Facture::fields()
-                .facture_items()
-                .product()
-                .product_types()
-                .product_type(),
-        )
         .exec(db)
         .await?;
 
@@ -162,7 +155,7 @@ pub async fn select_all(db: &mut Db) -> Result<Vec<FactureDashboardData>> {
                         .product_types
                         .get()
                         .iter()
-                        .map(|pt| pt.product_type.get().name.clone())
+                        .map(|pt| pt.product_type_name.clone())
                         .collect();
 
                     // Calculate flow type

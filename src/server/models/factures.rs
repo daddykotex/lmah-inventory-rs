@@ -32,6 +32,9 @@ pub struct Facture {
 
     #[has_many]
     refunds: toasty::HasMany<crate::server::models::refunds::Refund>,
+
+    #[has_many]
+    statuts: toasty::HasMany<crate::server::models::statuts::Statut>,
 }
 
 /// Database row structure for factures table (kept for migration)

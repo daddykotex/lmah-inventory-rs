@@ -55,8 +55,6 @@ pub struct ProductProductType {
 
     #[index]
     pub product_type_name: String,
-    #[belongs_to(key = product_type_name, references = name)]
-    pub product_type: toasty::BelongsTo<crate::server::models::product_types::ProductType>,
 }
 
 /// Database row structure for products table (kept for migration)
