@@ -14,6 +14,14 @@ struct ServerConfig {
     /// Port of the HTTP server
     #[arg(short, long, default_value = "3000")]
     port: u16,
+
+    /// OAuth key for Google OAuth2 flow
+    #[arg(long, env = "LMAH_GOOGLE_OAUTH_KEY")]
+    lmah_google_oauth_key: String,
+
+    /// OAuth secret for Google OAuth2 flow
+    #[arg(long, env = "LMAH_GOOGLE_OAUTH_SECRET")]
+    lmah_google_oauth_secret: String,
 }
 
 #[tokio::main]
