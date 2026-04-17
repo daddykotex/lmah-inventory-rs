@@ -1012,3 +1012,166 @@ pub async fn update_facture_details(
 
     Ok(result.rows_affected())
 }
+
+// Phase 6: Facture Items CRUD operations
+
+use crate::server::models::facture_items::{FactureItemForm, FactureItemInsert};
+
+/// Insert a new facture item
+pub async fn insert_facture_item(
+    pool: &SqlitePool,
+    facture_id: i64,
+    form: FactureItemForm,
+) -> Result<i64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Verify facture exists and get its type
+    let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
+    let facture = maybe_facture.ok_or(anyhow::Error::msg(format!(
+        "Facture with id {} not found",
+        facture_id
+    )))?;
+
+    let item_type = facture
+        .facture_type
+        .unwrap_or_else(|| "Product".to_string());
+
+    let to_insert = FactureItemInsert {
+        facture_id,
+        product_id: form.product_id,
+        item_type: item_type.clone(),
+        price: form.price,
+        notes: form.notes,
+        quantity: form.quantity.unwrap_or(1),
+        extra_large_size: form.extra_large_size,
+        rebate_percent: form.rebate_percent,
+        size: form.size,
+        chest: form.chest,
+        waist: form.waist,
+        hips: form.hips,
+        color: form.color,
+        beneficiary: form.beneficiary,
+        floor_item: form.floor_item.unwrap_or(false),
+        insurance: form.insurance,
+        other_costs: form.other_costs,
+        rebate_dollar: form.rebate_dollar,
+    };
+
+    let inserted_id = to_insert
+        .insert_one(&mut tx)
+        .await?
+        .expect("An ID should be generated for a new FactureItem");
+
+    // If floor_item is true, create initial status record
+    if to_insert.floor_item {
+        use crate::server::models::statuts::StatutInsert;
+
+        // Get today's date from SQLite
+        let today: (String,) = sqlx::query_as("SELECT date('now')")
+            .fetch_one(&mut *tx)
+            .await
+            .context("Failed to get current date")?;
+
+        let initial_status = StatutInsert {
+            facture_id,
+            facture_item_id: inserted_id,
+            statut_type: "RecordingOutDate".to_string(), // Initial status for floor items
+            date: today.0,
+            seamstress: None,
+        };
+        initial_status.insert_one(&mut tx).await?;
+    }
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(inserted_id)
+}
+
+/// Update an existing facture item
+pub async fn update_facture_item(
+    pool: &SqlitePool,
+    item_id: i64,
+    form: FactureItemForm,
+) -> Result<u64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Verify item exists
+    let maybe_item = FactureItemRow::select_one(item_id, &mut *tx).await?;
+    let _existing_item = maybe_item.ok_or(anyhow::Error::msg(format!(
+        "Facture item with id {} not found",
+        item_id
+    )))?;
+
+    let floor_item = form.floor_item.unwrap_or(false);
+
+    // If floor_item changes to true, sanitize detail fields
+    let (size, chest, waist, hips, color) = if floor_item {
+        (None, None, None, None, None)
+    } else {
+        (form.size, form.chest, form.waist, form.hips, form.color)
+    };
+
+    let result = sqlx::query(
+        "UPDATE facture_items SET
+            product_id = ?, quantity = ?, price = ?, notes = ?,
+            size = ?, chest = ?, waist = ?, hips = ?, color = ?,
+            beneficiary = ?, floor_item = ?, extra_large_size = ?, rebate_percent = ?,
+            insurance = ?, other_costs = ?, rebate_dollar = ?,
+            updated_at = datetime('now')
+         WHERE id = ?",
+    )
+    .bind(form.product_id)
+    .bind(form.quantity.unwrap_or(1))
+    .bind(form.price)
+    .bind(form.notes)
+    .bind(size)
+    .bind(chest)
+    .bind(waist)
+    .bind(hips)
+    .bind(color)
+    .bind(form.beneficiary)
+    .bind(if floor_item { 1 } else { 0 })
+    .bind(form.extra_large_size)
+    .bind(form.rebate_percent)
+    .bind(form.insurance)
+    .bind(form.other_costs)
+    .bind(form.rebate_dollar)
+    .bind(item_id)
+    .execute(&mut *tx)
+    .await
+    .with_context(|| format!("Failed to update facture item {}", item_id))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(result.rows_affected())
+}
+
+/// Delete a facture item and its associated status records
+pub async fn delete_facture_item(pool: &SqlitePool, item_id: i64) -> Result<u64> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    // Verify item exists
+    let maybe_item = FactureItemRow::select_one(item_id, &mut *tx).await?;
+    maybe_item.ok_or(anyhow::Error::msg(format!(
+        "Facture item with id {} not found",
+        item_id
+    )))?;
+
+    // Delete associated status records first
+    sqlx::query("DELETE FROM statuts WHERE facture_item_id = ?")
+        .bind(item_id)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("Failed to delete statuses for facture item {}", item_id))?;
+
+    // Delete facture item
+    let result = sqlx::query("DELETE FROM facture_items WHERE id = ?")
+        .bind(item_id)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("Failed to delete facture item {}", item_id))?;
+
+    tx.commit().await.context("Failed to commit transaction")?;
+
+    Ok(result.rows_affected())
+}

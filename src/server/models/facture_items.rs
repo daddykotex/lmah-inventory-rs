@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
 /// Database row structure for facture_items table
@@ -241,4 +242,37 @@ pub struct FactureItemComputed {
     pub calculated_rebate: i64,
     pub total: i64,
     pub measurements: String,
+}
+
+// Form structure for POST endpoints
+#[derive(Deserialize, Debug)]
+pub struct FactureItemForm {
+    #[serde(rename = "product-id")]
+    pub product_id: i64,
+    pub quantity: Option<i64>,
+    pub price: Option<i64>,
+    pub notes: Option<String>,
+
+    // Product-specific
+    pub size: Option<String>,
+    pub chest: Option<i64>,
+    pub waist: Option<i64>,
+    pub hips: Option<i64>,
+    pub color: Option<String>,
+    pub beneficiary: Option<String>,
+    #[serde(rename = "floor-item")]
+    pub floor_item: Option<bool>,
+    #[serde(rename = "extra-large-size")]
+    pub extra_large_size: Option<i64>,
+    #[serde(rename = "rebate-percent")]
+    pub rebate_percent: Option<i64>,
+
+    // Location-specific
+    pub insurance: Option<i64>,
+    #[serde(rename = "other-costs")]
+    pub other_costs: Option<i64>,
+
+    // Alteration-specific
+    #[serde(rename = "rebate-dollar")]
+    pub rebate_dollar: Option<i64>,
 }
