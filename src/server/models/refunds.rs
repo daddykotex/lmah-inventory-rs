@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
 /// Database row structure for refunds table
@@ -47,4 +48,15 @@ impl From<RefundRow> for RefundView {
             updated_at: value.updated_at,
         }
     }
+}
+
+// Form structure for POST endpoints
+#[derive(Deserialize, Debug)]
+pub struct RefundForm {
+    pub amount: i64,
+    pub date: String,
+    #[serde(rename = "refund-type")]
+    pub refund_type: String,
+    #[serde(rename = "cheque-number")]
+    pub cheque_number: Option<String>,
 }
