@@ -18,6 +18,7 @@ use crate::server::{
         factures::{FactureRow, FactureUpdateForm, SelectClientForm, SelectEventForm},
         payments::PaymentForm,
         products::ProductForm,
+        refunds::RefundForm,
         statuts::StatusForm,
     },
     routes::{bootstrap::AppState, errors::AppError, redirect::RedirectOr},
@@ -32,6 +33,7 @@ use crate::server::{
         },
         payments::{delete_payment, insert_payment, update_payment},
         products,
+        refunds::{delete_refund, insert_refund, update_refund},
         statuts::insert_status,
     },
     templates::factures,
@@ -387,6 +389,35 @@ async fn delete_payment_handler(
     Ok(Redirect::to(&url))
 }
 
+async fn create_refund_handler(
+    State(pool): State<SqlitePool>,
+    Path(facture_id): Path<i64>,
+    Form(form): Form<RefundForm>,
+) -> Result<Redirect, AppError> {
+    insert_refund(&pool, facture_id, form).await?;
+    let url = format!("/factures/{}/transactions?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn update_refund_handler(
+    State(pool): State<SqlitePool>,
+    Path((facture_id, refund_id)): Path<(i64, i64)>,
+    Form(form): Form<RefundForm>,
+) -> Result<Redirect, AppError> {
+    update_refund(&pool, refund_id, form).await?;
+    let url = format!("/factures/{}/transactions?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
+async fn delete_refund_handler(
+    State(pool): State<SqlitePool>,
+    Path((facture_id, refund_id)): Path<(i64, i64)>,
+) -> Result<Redirect, AppError> {
+    delete_refund(&pool, refund_id).await?;
+    let url = format!("/factures/{}/transactions?success=true", facture_id);
+    Ok(Redirect::to(&url))
+}
+
 pub fn facture_router() -> Router<AppState> {
     Router::new()
         // GET routes
@@ -480,5 +511,18 @@ pub fn facture_router() -> Router<AppState> {
         .route(
             "/factures/{facture_id}/payments/{payment_id}/delete",
             post(delete_payment_handler),
+        )
+        // Phase 8: Refunds
+        .route(
+            "/factures/{facture_id}/refunds",
+            post(create_refund_handler),
+        )
+        .route(
+            "/factures/{facture_id}/refunds/{refund_id}/update",
+            post(update_refund_handler),
+        )
+        .route(
+            "/factures/{facture_id}/refunds/{refund_id}/delete",
+            post(delete_refund_handler),
         )
 }
