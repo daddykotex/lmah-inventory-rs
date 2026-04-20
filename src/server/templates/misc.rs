@@ -1,20 +1,21 @@
 use maud::{DOCTYPE, Markup, html};
 
-use crate::server::templates::utils::{bootstrap_css};
+use crate::server::templates::utils::bootstrap_css;
 
-
-fn signin() -> Markup {
+fn signin(url: &str) -> Markup {
+    let url = format!("/signin?redirect_url={}", url);
     html! {
         body."text-center" {
-            div."form-signin" {
-                a."btn btn-lg btn-primary btn-block" href="/signin" {
-                    "Se connecter"
+            form method="POST" action=(url) {
+                div."form-signin" {
+                    button."btn btn-lg btn-primary btn-block" type="submit" {
+                        "Se connecter"
+                    }
                 }
             }
         }
     }
 }
-
 
 fn head_signin() -> Markup {
     html! {
@@ -57,15 +58,14 @@ fn head_signin() -> Markup {
     }
 }
 
-
-pub fn page_signin() -> Markup {
+pub fn page_signin(url: &str) -> Markup {
     html! {
         (DOCTYPE)
         html lang="fr" {
             (head_signin())
 
             body {
-                (signin())
+                (signin(url))
             }
         }
     }

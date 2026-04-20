@@ -1,12 +1,15 @@
 use axum::Router;
 use clap::Parser;
-use lmah_inventory_rs::server::{database::connect_to_url, routes::bootstrap::setup_routes};
+use lmah_inventory_rs::server::{
+    database::connect_to_url,
+    routes::{RouterConfig, bootstrap::setup_routes},
+};
 use tokio::net::TcpListener;
 
 /// Options for starting the server
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct ServerConfig {
+pub struct ServerConfig {
     /// Location of the SQLite database
     #[arg(short, long, env = "DATABASE_URL")]
     db_url: String,
@@ -15,6 +18,10 @@ struct ServerConfig {
     #[arg(short, long, default_value = "3000")]
     port: u16,
 
+    /// Key used to encrypt/decrypt cookies
+    #[arg(long, env = "LMAH_COOKIE_KEY")]
+    lmah_cookie_key: String,
+
     /// OAuth key for Google OAuth2 flow
     #[arg(long, env = "LMAH_GOOGLE_OAUTH_KEY")]
     lmah_google_oauth_key: String,
@@ -22,6 +29,10 @@ struct ServerConfig {
     /// OAuth secret for Google OAuth2 flow
     #[arg(long, env = "LMAH_GOOGLE_OAUTH_SECRET")]
     lmah_google_oauth_secret: String,
+
+    /// OAuth secret for Google OAuth2 flow
+    #[arg(long, env = "LMAH_EXTERNAL_URL")]
+    lmah_external_url: String,
 }
 
 #[tokio::main]
@@ -29,7 +40,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = ServerConfig::parse();
 
     let pool = connect_to_url(&config.db_url).await?;
-    let app: Router = setup_routes(pool);
+
+    let router_config = RouterConfig::new(
+        config.lmah_external_url,
+        config.lmah_google_oauth_key,
+        config.lmah_google_oauth_secret,
+        config.lmah_cookie_key,
+    );
+    let app: Router = setup_routes(pool, router_config);
 
     let mut listenfd = listenfd::ListenFd::from_env();
     match listenfd.take_tcp_listener(0)? {
