@@ -277,9 +277,17 @@ CREATE TABLE statuts (
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE "users" (
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+    "email" text UNIQUE
+);
+
 -- ============================================================================
 -- INDEXES (for query performance)
 -- ============================================================================
+
+-- Clients indexes
+CREATE INDEX idx_users_email ON users(email);
 
 -- Clients indexes
 CREATE INDEX idx_clients_name ON clients(last_name, first_name);

@@ -4,6 +4,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Redirect},
 };
+use axum_extra::extract::PrivateCookieJar;
 
 use crate::server::routes::{auth::UserData, errors::AppError};
 
@@ -21,4 +22,15 @@ pub async fn check_auth(request: Request<Body>, next: Next) -> Result<impl IntoR
         let login_url = "/signin?return_url=".to_owned() + &*request.uri().to_string();
         Ok(Redirect::to(login_url.as_str()).into_response())
     }
+}
+
+pub async fn inject_user_data(
+    cookie_jar: PrivateCookieJar,
+    mut request: Request<Body>,
+    next: Next,
+) -> Result<impl IntoResponse, AppError> {
+    if let Some(_) = cookie_jar.get("user") {
+        request.extensions_mut().insert(Some(UserData {}));
+    }
+    Ok(next.run(request).await)
 }

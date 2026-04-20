@@ -3,3 +3,4 @@ pub mod config;
 pub mod events;
 pub mod factures;
 pub mod statuts;
+pub mod users;
