@@ -1,6 +1,9 @@
 use maud::{DOCTYPE, Markup, html};
 
-use crate::server::templates::utils::bootstrap_css;
+use crate::server::{
+    models::config::ExtraLargeAmounts,
+    templates::utils::{MenuConstants, bootstrap_css, head, navbar},
+};
 
 fn signin(url: &str) -> Markup {
     let url = format!("/signin?redirect_url={}", url);
@@ -66,6 +69,55 @@ pub fn page_signin(url: &str) -> Markup {
 
             body {
                 (signin(url))
+            }
+        }
+    }
+}
+
+pub fn page_help(event_types: Vec<String>, extra: ExtraLargeAmounts) -> Markup {
+    let version = option_env!("VERSION").unwrap_or("dev-build");
+    html! {
+        (DOCTYPE)
+        html lang="fr" {
+            (head("Aide"))
+
+            body {
+                (navbar(MenuConstants::Help))
+                main role="main" {
+                    div."container-fluid help" {
+                        div."row" {
+                            div."col-12 col-md-6" {
+                                h2 {
+                                    "Info"
+                                }
+                                pre {
+                                    code {
+                                        "Version: " (version) "\n"
+                                        "Types d'évènements: \n"
+                                        @for et in event_types {
+                                            (et) "\n"
+                                        }
+                                        "Taille forte: \n"
+                                        "   Robe de mariées: " (&extra.wedding) "\n"
+                                        "   Autres: " (&extra.others)
+                                    }
+                                }
+                            }
+                            div."col-12 col-md-6" {
+                                h2 {
+                                    "Lien utiles"
+                                }
+                                ul {
+                                    li {
+                                        a href="/admin" {
+                                            "Administration"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

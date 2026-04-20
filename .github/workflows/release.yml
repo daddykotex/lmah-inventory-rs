@@ -61,6 +61,8 @@ jobs:
       run: devenv shell cargo test
 
     - name: Cargo build
+      env:
+        VERSION: ${{ github.ref_name }}
       run: devenv shell cargo build --release
 
     - name: Upload artifact
