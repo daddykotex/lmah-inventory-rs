@@ -5,6 +5,7 @@ pub mod errors;
 pub mod events;
 pub mod factures;
 pub mod middleware;
+pub mod misc;
 pub mod redirect;
 
 #[derive(Clone)]
