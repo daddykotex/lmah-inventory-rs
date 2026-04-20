@@ -188,9 +188,9 @@ pub async fn blank_facture_item(
 
     let product_type_row = ProductTypeRow::select_for_product(product_row.id, &mut *tx).await?;
 
-    let config_note_templates = load_note_templates(&mut tx).await?;
-    let config_extra_large_amount = load_extra_large_amount(&mut tx).await?;
-    let config_seamstresses = load_seamstresses(&mut tx).await?;
+    let config_note_templates = load_note_templates(&mut *tx).await?;
+    let config_extra_large_amount = load_extra_large_amount(&mut *tx).await?;
+    let config_seamstresses = load_seamstresses(&mut *tx).await?;
 
     let form_config = FactureItemFormConfig {
         note_templates: config_note_templates,
@@ -240,8 +240,8 @@ pub async fn load_print_data(pool: &SqlitePool, facture_id: i64) -> Result<PageP
 
     let (facture_info, items, payments, refunds) = load_facture_info(facture_id, &mut tx).await?;
 
-    let signatures = load_signatures(&mut tx).await?;
-    let clauses = load_clauses(&mut tx).await?;
+    let signatures = load_signatures(&mut *tx).await?;
+    let clauses = load_clauses(&mut *tx).await?;
     let print_config = PrintConfig {
         signatures,
         clauses,
@@ -365,9 +365,9 @@ pub async fn select_one_facture_item(
 
     let product_type_row = ProductTypeRow::select_for_product(product_row.id, &mut *tx).await?;
 
-    let config_note_templates = load_note_templates(&mut tx).await?;
-    let config_extra_large_amount = load_extra_large_amount(&mut tx).await?;
-    let config_seamstresses = load_seamstresses(&mut tx).await?;
+    let config_note_templates = load_note_templates(&mut *tx).await?;
+    let config_extra_large_amount = load_extra_large_amount(&mut *tx).await?;
+    let config_seamstresses = load_seamstresses(&mut *tx).await?;
 
     let form_config = FactureItemFormConfig {
         note_templates: config_note_templates,

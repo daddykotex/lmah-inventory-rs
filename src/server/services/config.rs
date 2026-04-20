@@ -6,10 +6,11 @@ use crate::server::{
     models::config::{ConfigRow, ExtraLargeAmounts, NoteTemplate},
 };
 
-pub async fn load_note_templates(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> Result<Vec<NoteTemplate>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_note_templates<'c, E>(executor: E) -> Result<Vec<NoteTemplate>>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows = ConfigRow::select_all(executor).await?;
 
     let templates = rows
         .into_iter()
@@ -24,10 +25,11 @@ pub async fn load_note_templates(
     Ok(templates)
 }
 
-pub async fn load_extra_large_amount(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> Result<ExtraLargeAmounts> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_extra_large_amount<'c, E>(executor: E) -> Result<ExtraLargeAmounts>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows = ConfigRow::select_all(executor).await?;
 
     let mut wedding = None;
     let mut others = None;
@@ -48,10 +50,11 @@ pub async fn load_extra_large_amount(
     })
 }
 
-pub async fn load_seamstresses(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_seamstresses<'c, E>(executor: E) -> Result<Vec<String>>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows = ConfigRow::select_all(executor).await?;
 
     let seamstresses = rows
         .into_iter()
@@ -62,8 +65,11 @@ pub async fn load_seamstresses(
     Ok(seamstresses)
 }
 
-pub async fn load_clauses(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_clauses<'c, E>(executor: E) -> Result<Vec<String>>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows = ConfigRow::select_all(executor).await?;
 
     let clauses = rows
         .into_iter()
@@ -74,8 +80,11 @@ pub async fn load_clauses(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Resul
     Ok(clauses)
 }
 
-pub async fn load_signatures(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<Vec<String>> {
-    let rows = ConfigRow::select_all(&mut **tx).await?;
+pub async fn load_signatures<'c, E>(executor: E) -> Result<Vec<String>>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows = ConfigRow::select_all(executor).await?;
 
     let signatures = rows
         .into_iter()
