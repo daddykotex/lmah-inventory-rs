@@ -62,7 +62,7 @@ cargo install systemfd
 Run the server in development mode with:
 
 ```bash
-systemfd --no-pid -s http::3000 -- watchexec -r -- cargo run --bin server -- --db-url "sqlite://data/lmah.db
+systemfd --no-pid -s http::8080 -- watchexec -r -- cargo run --bin server -- --db-url "sqlite://data/lmah.db
 ```
 
 
