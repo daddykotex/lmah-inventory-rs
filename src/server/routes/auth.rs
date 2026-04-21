@@ -8,7 +8,10 @@ use axum::{
     response::{IntoResponse, Redirect},
     routing::{get, post},
 };
-use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
+use axum_extra::extract::{
+    PrivateCookieJar,
+    cookie::{Cookie, SameSite},
+};
 use maud::Markup;
 use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
@@ -34,6 +37,7 @@ fn make_auth_cookie<'a>(
 ) -> Cookie<'a> {
     let mut cookie = Cookie::new(name, value);
     cookie.set_secure(true);
+    cookie.set_same_site(SameSite::Lax);
     cookie.set_http_only(true);
     cookie.set_path("/");
     if let Some(ex) = expires_in {
