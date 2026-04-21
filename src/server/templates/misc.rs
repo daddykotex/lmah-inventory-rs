@@ -1,9 +1,6 @@
 use maud::{DOCTYPE, Markup, html};
 
-use crate::server::{
-    models::config::ExtraLargeAmounts,
-    templates::utils::{MenuConstants, bootstrap_css, head, navbar},
-};
+use crate::server::{models::config::ExtraLargeAmounts, templates::utils::*};
 
 fn signin(url: &str) -> Markup {
     let url = format!("/signin?redirect_url={}", url);
@@ -117,6 +114,34 @@ pub fn page_help(event_types: Vec<String>, extra: ExtraLargeAmounts) -> Markup {
                             }
                         }
                     }
+                }
+                (footer())
+            }
+        }
+    }
+}
+
+pub fn page_wait() -> Markup {
+    html! {
+        (DOCTYPE)
+        html lang="fr" {
+            (head("Veuillez patienter"))
+
+            body {
+                main role="main" {
+                    div."container-fluid" {
+                        div."row" {
+                            div."col-12 col-md-6" {
+                                h1 {
+                                    "Veuillez patienter"
+                                }
+                            }
+                        }
+                    }
+                }
+                (footer())
+                script {
+                    "showSpinner();"
                 }
             }
         }

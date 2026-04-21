@@ -5,8 +5,11 @@ use sqlx::SqlitePool;
 use crate::server::{
     routes::{bootstrap::AppState, errors::AppError},
     services::config::{load_event_types, load_extra_large_amount},
-    templates::misc::page_help,
+    templates::misc::{page_help, page_wait},
 };
+async fn wait() -> Result<Markup, AppError> {
+    Ok(page_wait())
+}
 
 async fn help(State(db_pool): State<SqlitePool>) -> Result<Markup, AppError> {
     let event_types = load_event_types(&db_pool).await?;
@@ -15,5 +18,7 @@ async fn help(State(db_pool): State<SqlitePool>) -> Result<Markup, AppError> {
 }
 
 pub fn misc_router() -> Router<AppState> {
-    Router::new().route("/help", get(help))
+    Router::new()
+        .route("/wait", get(wait))
+        .route("/help", get(help))
 }
