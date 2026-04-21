@@ -211,7 +211,7 @@ fn generate_print_js(for_admin: bool) -> Markup {
                 $('.generate-print').click(function (e) {{
                     var factureId = $(e.target).data().factureId;
                     var waitingWindow = window.open("/wait", `waiting-${{factureId}}`, 'width=300,height=300');
-                    $.post(`/factures/${{factureId}}/generate-print?admin=${}`)
+                    $.post(`/factures/${{factureId}}/generate-print?admin={}`)
                         .done(function (data, _statusText, xhr) {{
                             waitingWindow.location.href = data.url;
                         }})
