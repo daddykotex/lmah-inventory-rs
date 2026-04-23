@@ -341,6 +341,28 @@ pub fn head(title: &str) -> Markup {
     }
 }
 
+
+pub fn generate_print_js() -> Markup {
+    html! {
+        script type="text/javascript" {
+            (PreEscaped(r#"
+                $('.generate-print').click(function (e) {
+                    var factureId = $(e.target).data().factureId;
+                    var waitingWindow = window.open("/wait", `waiting-${factureId}`, 'width=300,height=300');
+                    $.post(`/factures/${factureId}/generate-print`)
+                        .done(function (data, _statusText, xhr) {
+                            waitingWindow.location.href = data.url;
+                        })
+                        .fail(function (err) {
+                            console.log(err);
+                            window.location.href = `/factures/${factureId}/print`;
+                        });
+                });
+            "#))
+        }
+    }
+}
+
 pub fn footer() -> Markup {
     html! {
         script src="https://code.jquery.com/jquery-3.4.1.min.js" crossorigin="anonymous" integrity="sha384-vk5WoKIaW/vJyUAd9n/wmopsmNhiy+L2Z+SBxGYnUkunIxVxAv/UtMOhba/xskxh" {}

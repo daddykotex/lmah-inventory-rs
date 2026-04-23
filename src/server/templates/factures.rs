@@ -204,27 +204,6 @@ fn search_products() -> Markup {
     }
 }
 
-fn generate_print_js(for_admin: bool) -> Markup {
-    html! {
-        script type="text/javascript" {
-            (PreEscaped(format!(r#"
-                $('.generate-print').click(function (e) {{
-                    var factureId = $(e.target).data().factureId;
-                    var waitingWindow = window.open("/wait", `waiting-${{factureId}}`, 'width=300,height=300');
-                    $.post(`/factures/${{factureId}}/generate-print?admin={}`)
-                        .done(function (data, _statusText, xhr) {{
-                            waitingWindow.location.href = data.url;
-                        }})
-                        .fail(function (err) {{
-                            console.log(err);
-                            window.location.href = `/factures/${{factureId}}/print`;
-                        }});
-                }});
-            "#, for_admin)))
-        }
-    }
-}
-
 fn item_form_scripts() -> Markup {
     html! {
         script type="text/javascript" {
@@ -2225,7 +2204,7 @@ fn list_transactions(page_data: PageTransactionsData) -> TransactionPage {
         (facture_info_client(&page_data.facture_info.facture, &page_data.facture_info.client))
         br;
         (facture_info_total(&page_data.facture_info.facture_computed))
-        (facture_info_actions(facture_id, false, true, has_event, page_data.facture_info.facture.cancelled))
+        (facture_info_actions(facture_id, true, false, has_event, page_data.facture_info.facture.cancelled))
     };
     let main_title = format!("Transactions pour la facture #{}", facture_id);
     let facture_title = format!("Facture #{}", facture_id);
@@ -2386,7 +2365,7 @@ pub fn page_facture_items(page_data: PageFactureItemsData) -> Markup {
         (navbar(MenuConstants::Factures))
         (the_items(&page_data))
         (footer())
-        (generate_print_js(false))
+        (generate_print_js())
     };
     page("Items de la facture", body)
 }
@@ -2477,6 +2456,7 @@ pub fn page_transactions(page_data: PageTransactionsData) -> Markup {
         (content.body)
         (footer())
         (content.javascript)
+        (generate_print_js())
     };
     page("Item de facture", body)
 }
