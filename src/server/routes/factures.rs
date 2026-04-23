@@ -425,11 +425,6 @@ async fn delete_refund_handler(
     Ok(Redirect::to(&url))
 }
 
-#[derive(Deserialize)]
-struct PrintOptions {
-    #[serde(rename = "admin")]
-    for_admin: bool,
-}
 #[derive(Serialize)]
 struct PrintResponse {
     url: String,
@@ -440,7 +435,6 @@ async fn generate_print_handler(
     State(config): State<RouterConfig>,
     State(storage): State<Storage>,
     State(signer): State<Signer>,
-    print_options: Query<PrintOptions>,
     Path(facture_id): Path<i64>,
 ) -> Result<Json<PrintResponse>, AppError> {
     let page_data = load_print_data(&pool, facture_id).await?;
