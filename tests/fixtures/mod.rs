@@ -38,6 +38,7 @@ pub async fn make_state(pool: SqlitePool) -> AppState {
         "".to_string(),
         "".to_string(),
         "".to_string(),
+        vec!["user@test.com".to_string()],
     );
 
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();

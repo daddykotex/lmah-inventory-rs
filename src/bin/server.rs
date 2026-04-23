@@ -45,6 +45,10 @@ pub struct ServerConfig {
     /// PDF Rocket API key
     #[arg(long, env = "LMAH_PDF_ROCKET_API_KEY")]
     lmah_pdf_rocket_api_key: String,
+
+    /// Authorized users: email1@test.com,email2@test.com
+    #[arg(long, env = "LMAH_AUTHORIZED_USERS")]
+    lmah_authorized_users: String,
 }
 
 #[tokio::main]
@@ -57,6 +61,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pool = connect_to_url(&config.db_url).await?;
 
+    let authorized_users: Vec<String> = config
+        .lmah_authorized_users
+        .split(",")
+        .map(String::from)
+        .collect();
+
     let router_config = RouterConfig::new(
         config.lmah_external_url,
         config.lmah_google_oauth_key,
@@ -65,6 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.lmah_google_bucket_name,
         config.lmah_cookie_key,
         config.lmah_pdf_rocket_api_key,
+        authorized_users,
     );
     let app: Router = setup_routes(pool, router_config).await;
 
