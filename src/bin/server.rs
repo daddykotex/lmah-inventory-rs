@@ -4,7 +4,6 @@ use lmah_inventory_rs::server::{
     database::connect_to_url,
     routes::{RouterConfig, bootstrap::setup_routes},
 };
-use rustls::crypto::CryptoProvider;
 use tokio::net::TcpListener;
 
 /// Options for starting the server
@@ -50,7 +49,9 @@ pub struct ServerConfig {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("Failed to install rustls crypto provider");
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
 
     let config = ServerConfig::parse();
 
