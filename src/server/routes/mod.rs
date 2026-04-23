@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 pub mod auth;
 pub mod bootstrap;
 pub mod clients;
@@ -17,6 +19,7 @@ pub struct RouterConfig {
     google_bucket_name: String,
     cookie_key: String,
     pdf_rocket_api_key: String,
+    authorized_users: Vec<String>,
 }
 
 impl RouterConfig {
@@ -28,6 +31,7 @@ impl RouterConfig {
         google_bucket_name: String,
         cookie_key: String,
         pdf_rocket_api_key: String,
+        authorized_users: Vec<String>,
     ) -> Self {
         Self {
             external_url,
@@ -37,6 +41,7 @@ impl RouterConfig {
             google_bucket_name,
             cookie_key,
             pdf_rocket_api_key,
+            authorized_users,
         }
     }
 
@@ -66,5 +71,12 @@ impl RouterConfig {
 
     pub fn pdf_rocket_api_key(&self) -> &str {
         &self.pdf_rocket_api_key
+    }
+
+    pub fn check_if_users_is_authorized(&self, email: &str) -> Result<()> {
+        if self.authorized_users.contains(&email.to_string()) {
+            return Ok(());
+        }
+        anyhow::bail!("Unauthorized user.")
     }
 }

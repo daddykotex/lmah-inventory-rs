@@ -9,4 +9,3 @@ pub mod products;
 pub mod refunds;
 pub mod statuts;
 pub mod storage;
-pub mod users;

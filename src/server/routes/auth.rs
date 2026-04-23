@@ -18,12 +18,10 @@ use oauth2::{
     PkceCodeVerifier, RedirectUrl, RevocationUrl, Scope, TokenResponse, TokenUrl,
     basic::BasicClient, reqwest,
 };
-use sqlx::SqlitePool;
 use time::OffsetDateTime;
 
 use crate::server::{
     routes::{RouterConfig, bootstrap::AppState, errors::AppError},
-    services::users::check_if_users_is_authorized,
     templates::misc::page_signin,
 };
 
@@ -109,7 +107,6 @@ async fn do_sign_in(
 
 async fn complete_sign_in(
     Query(mut params): Query<HashMap<String, String>>,
-    State(db_pool): State<SqlitePool>,
     State(config): State<RouterConfig>,
     mut cookie_jar: PrivateCookieJar,
 ) -> Result<impl IntoResponse, AppError> {
@@ -193,7 +190,7 @@ async fn complete_sign_in(
                     .into_response());
             }
 
-            check_if_users_is_authorized(&db_pool, &email).await?;
+            config.check_if_users_is_authorized(&email)?;
 
             let expires_in = OffsetDateTime::now_utc() + Duration::from_hours(24);
             let add_user_cookie =
