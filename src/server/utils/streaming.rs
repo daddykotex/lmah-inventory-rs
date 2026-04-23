@@ -16,7 +16,6 @@ impl ReqwestStreamSource {
     }
 }
 
-
 impl StreamingSource for ReqwestStreamSource {
     type Error = reqwest::Error;
 

@@ -37,10 +37,11 @@ use crate::server::{
         },
         filename::pdf_name_for,
         payments::{delete_payment, insert_payment, update_payment},
-        print::{print_to_pdf},
+        print::print_to_pdf,
         products,
         refunds::{delete_refund, insert_refund, update_refund},
-        statuts::insert_status, storage::bytes_to_storage,
+        statuts::insert_status,
+        storage::bytes_to_storage,
     },
     templates::factures,
 };
@@ -451,9 +452,16 @@ async fn generate_print_handler(
     let pdf_bytes = print_to_pdf(&http_client, pdf_rocket_api_key, rendered).await?;
     let now = OffsetDateTime::now_utc();
     let file_name = pdf_name_for(facture_id, &now);
-    let url = bytes_to_storage(&storage, &signer, bucket_name, &file_name, pdf_bytes, Some("application/pdf"))
-        .await
-        .context("Uploading to storage failed.")?;
+    let url = bytes_to_storage(
+        &storage,
+        &signer,
+        bucket_name,
+        &file_name,
+        pdf_bytes,
+        Some("application/pdf"),
+    )
+    .await
+    .context("Uploading to storage failed.")?;
 
     Ok(Json(PrintResponse { url: url }))
 }
