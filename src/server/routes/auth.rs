@@ -66,8 +66,8 @@ async fn do_sign_in(
 
     let client = get_client(
         config.external_url(),
-        config.oauth_client_key(),
-        config.oauth_client_secret(),
+        config.google_oauth_client_key(),
+        config.google_oauth_client_secret(),
     )?;
 
     let return_url = params
@@ -149,8 +149,8 @@ async fn complete_sign_in(
 
             let client = get_client(
                 config.external_url(),
-                config.oauth_client_key(),
-                config.oauth_client_secret(),
+                config.google_oauth_client_key(),
+                config.google_oauth_client_secret(),
             )?;
             let token_response = client
                 .exchange_code(code)

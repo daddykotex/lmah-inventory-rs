@@ -13,7 +13,7 @@ use crate::fixtures::{clients::ClientFixture, make_state};
 #[tokio::test]
 async fn test_list_clients_empty() {
     let pool = create_test_db().await.unwrap();
-    let app = client_router().with_state(make_state(pool));
+    let app = client_router().with_state(make_state(pool).await);
     let request = get_request("/clients");
 
     let response = app.oneshot(request).await.unwrap();
@@ -31,7 +31,7 @@ async fn test_list_clients_multiple() {
     ClientFixture::bob().insert_one(&mut tx).await.unwrap();
     tx.commit().await.expect("Unable to commit the transaction");
 
-    let app = client_router().with_state(make_state(pool));
+    let app = client_router().with_state(make_state(pool).await);
     let request = get_request("/clients");
 
     let response = app.oneshot(request).await.unwrap();
@@ -50,7 +50,7 @@ async fn test_list_clients_content() {
     ClientFixture::charlie().insert_one(&mut tx).await.unwrap();
     tx.commit().await.expect("Unable to commit the transaction");
 
-    let app = client_router().with_state(make_state(pool));
+    let app = client_router().with_state(make_state(pool).await);
     let request = get_request("/clients");
 
     let response = app.oneshot(request).await.unwrap();
@@ -65,7 +65,7 @@ async fn test_list_clients_content() {
 #[tokio::test]
 async fn test_new_client_form_renders() {
     let pool = create_test_db().await.unwrap();
-    let app = client_router().with_state(make_state(pool));
+    let app = client_router().with_state(make_state(pool).await);
     let request = get_request("/clients/new");
 
     let response = app.oneshot(request).await.unwrap();
@@ -86,7 +86,7 @@ async fn test_get_client_success() {
         .expect("Did not get a client id after insert");
     tx.commit().await.expect("Unable to commit the transaction");
 
-    let app = client_router().with_state(make_state(pool));
+    let app = client_router().with_state(make_state(pool).await);
     let request = get_request(&format!("/clients/{}", client_id));
 
     let response = app.oneshot(request).await.unwrap();
@@ -100,7 +100,7 @@ async fn test_get_client_success() {
 #[tokio::test]
 async fn test_get_client_not_found() {
     let pool = create_test_db().await.unwrap();
-    let app = client_router().with_state(make_state(pool));
+    let app = client_router().with_state(make_state(pool).await);
     let request = get_request("/clients/999");
 
     let response = app.oneshot(request).await.unwrap();
@@ -111,7 +111,7 @@ async fn test_get_client_not_found() {
 #[tokio::test]
 async fn test_create_client_success() {
     let pool = create_test_db().await.unwrap();
-    let app = client_router().with_state(make_state(pool.clone()));
+    let app = client_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("firstname", "Diana"),
@@ -138,7 +138,7 @@ async fn test_create_client_success() {
 #[tokio::test]
 async fn test_create_client_with_optional_fields() {
     let pool = create_test_db().await.unwrap();
-    let app = client_router().with_state(make_state(pool.clone()));
+    let app = client_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("firstname", "Frank"),
@@ -175,7 +175,7 @@ async fn test_update_client_success() {
         .expect("Did not get a client id after insert");
     tx.commit().await.expect("Unable to commit the transaction");
 
-    let app = client_router().with_state(make_state(pool.clone()));
+    let app = client_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("firstname", "Alicia"), // Changed
@@ -203,7 +203,7 @@ async fn test_update_client_success() {
 #[tokio::test]
 async fn test_update_client_not_found() {
     let pool = create_test_db().await.unwrap();
-    let app = client_router().with_state(make_state(pool));
+    let app = client_router().with_state(make_state(pool).await);
 
     let form_data = [
         ("firstname", "Ghost"),
@@ -227,7 +227,7 @@ async fn test_update_client_all_fields() {
         .expect("Did not get a client id after insert");
     tx.commit().await.expect("Unable to commit the transaction");
 
-    let app = client_router().with_state(make_state(pool.clone()));
+    let app = client_router().with_state(make_state(pool.clone()).await);
 
     // Update all fields including optional ones
     let form_data = [

@@ -4,6 +4,7 @@ use lmah_inventory_rs::server::{
     database::connect_to_url,
     routes::{RouterConfig, bootstrap::setup_routes},
 };
+use rustls::crypto::CryptoProvider;
 use tokio::net::TcpListener;
 
 /// Options for starting the server
@@ -30,13 +31,27 @@ pub struct ServerConfig {
     #[arg(long, env = "LMAH_GOOGLE_OAUTH_SECRET")]
     lmah_google_oauth_secret: String,
 
+    /// Google service account credentials (file upload)
+    #[arg(long, env = "LMAH_GOOGLE_CREDENTIALS")]
+    lmah_google_credentials: String,
+
+    /// GCP Storage bucket name
+    #[arg(long, env = "LMAH_GOOGLE_BUCKET_NAME")]
+    lmah_google_bucket_name: String,
+
     /// OAuth secret for Google OAuth2 flow
     #[arg(long, env = "LMAH_EXTERNAL_URL")]
     lmah_external_url: String,
+
+    /// PDF Rocket API key
+    #[arg(long, env = "LMAH_PDF_ROCKET_API_KEY")]
+    lmah_pdf_rocket_api_key: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("Failed to install rustls crypto provider");
+
     let config = ServerConfig::parse();
 
     let pool = connect_to_url(&config.db_url).await?;
@@ -45,9 +60,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.lmah_external_url,
         config.lmah_google_oauth_key,
         config.lmah_google_oauth_secret,
+        config.lmah_google_credentials,
+        config.lmah_google_bucket_name,
         config.lmah_cookie_key,
+        config.lmah_pdf_rocket_api_key,
     );
-    let app: Router = setup_routes(pool, router_config);
+    let app: Router = setup_routes(pool, router_config).await;
 
     let mut listenfd = listenfd::ListenFd::from_env();
     match listenfd.take_tcp_listener(0)? {
