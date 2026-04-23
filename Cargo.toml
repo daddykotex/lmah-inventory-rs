@@ -22,6 +22,12 @@ listenfd = "1.0.2" # file descriptor listen (paired with systemfd)
 oauth2 = "5.0.0"
 hex = "0.4.3"
 time = "0.3.47"
+reqwest = { version = "0.13.2", features = ["stream", "form"] }
+futures-core = "0.3.32"
+google-cloud-auth = { version = "1.9.0", features = ["default-rustls-provider"] }
+google-cloud-storage = { version = "1.11.0", features = ["default-rustls-provider"] }
+futures-util = "0.3.32"
+rustls = { version = "0.23.39", features = ["aws_lc_rs"] }
 
 # dev
 [dev-dependencies]

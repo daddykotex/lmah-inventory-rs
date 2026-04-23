@@ -1,5 +1,12 @@
+use anyhow::{Context, Result};
 use axum::{Extension, Router, extract::FromRef, middleware, response::Redirect, routing::get};
 use axum_extra::extract::cookie::Key;
+use google_cloud_auth::{
+    credentials::{Credentials, service_account::Builder},
+    signer::Signer,
+};
+use google_cloud_storage::client::Storage;
+use reqwest::Client;
 use sqlx::SqlitePool;
 use tower_http::services::ServeDir;
 
@@ -21,19 +28,47 @@ async fn redirect_to_factures() -> Redirect {
 pub struct AppState {
     pub db_pool: SqlitePool,
     pub config: RouterConfig,
-    pub key: Key,
+    pub key: Key, // Used by axum-private-cookies
+    pub storage: Storage,
+    pub signer: Signer,
+    pub http_client: Client,
 }
 
-pub fn setup_routes(db_pool: SqlitePool, config: RouterConfig) -> Router {
+async fn prepare_app_state(db_pool: SqlitePool, config: RouterConfig) -> Result<AppState> {
+    // Load Cookie Key (for signed and encrypted cookies)
     let decoded_key =
         hex::decode(config.cookie_key()).expect("Unable to hex decode the cookie key");
     let key = Key::try_from(decoded_key.as_slice());
     let key = key.expect("Unable to load cookie key");
-    let app_state = AppState {
+
+    // Load google credentials
+    let json_service_account_key: serde_json::Value =
+        serde_json::from_str(config.google_service_account_json_key())
+            .context("Unable to load JSON from environment variable")?;
+    let google_credentials: Credentials = Builder::new(json_service_account_key.clone()).build()?;
+    let storage = Storage::builder()
+        .with_credentials(google_credentials)
+        .build()
+        .await?;
+
+    let signer = Builder::new(json_service_account_key.clone()).build_signer()?;
+
+    let http_client = Client::new();
+
+    Ok(AppState {
         db_pool,
         config,
         key,
-    };
+        storage,
+        signer,
+        http_client,
+    })
+}
+
+pub async fn setup_routes(db_pool: SqlitePool, config: RouterConfig) -> Router {
+    let app_state = prepare_app_state(db_pool, config)
+        .await
+        .expect("Unable to prepare AppState");
     let user_data: Option<UserData> = None;
 
     let authed_routes = Router::new()

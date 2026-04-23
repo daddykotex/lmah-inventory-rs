@@ -18,7 +18,7 @@ use crate::fixtures::make_state;
 #[tokio::test]
 async fn test_list_events_empty() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
     let request = get_request("/events");
 
     let response = app.oneshot(request).await.unwrap();
@@ -44,7 +44,7 @@ async fn test_list_events_multiple() {
     insert_event(&pool, wedding_form).await.unwrap();
     insert_event(&pool, prom_form).await.unwrap();
 
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
     let request = get_request("/events");
 
     let response = app.oneshot(request).await.unwrap();
@@ -66,7 +66,7 @@ async fn test_list_events_content() {
     };
     insert_event(&pool, gala_form).await.unwrap();
 
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
     let request = get_request("/events");
 
     let response = app.oneshot(request).await.unwrap();
@@ -82,7 +82,7 @@ async fn test_list_events_content() {
 #[tokio::test]
 async fn test_new_event_form_renders() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
     let request = get_request("/events/new");
 
     let response = app.oneshot(request).await.unwrap();
@@ -95,7 +95,7 @@ async fn test_new_event_form_renders() {
 #[tokio::test]
 async fn test_new_event_form_fields() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
     let request = get_request("/events/new");
 
     let response = app.oneshot(request).await.unwrap();
@@ -119,7 +119,7 @@ async fn test_get_event_success() {
     };
     let event_id = insert_event(&pool, gala_form).await.unwrap();
 
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
     let request = get_request(&format!("/events/{}", event_id));
 
     let response = app.oneshot(request).await.unwrap();
@@ -133,7 +133,7 @@ async fn test_get_event_success() {
 #[tokio::test]
 async fn test_get_event_not_found() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
     let request = get_request("/events/999");
 
     let response = app.oneshot(request).await.unwrap();
@@ -145,7 +145,7 @@ async fn test_get_event_not_found() {
 #[tokio::test]
 async fn test_create_event_success() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool.clone()));
+    let app = event_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("name", "Birthday Party"),
@@ -165,7 +165,7 @@ async fn test_create_event_success() {
 #[tokio::test]
 async fn test_create_event_persists() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool.clone()));
+    let app = event_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("name", "Birthday Party"),
@@ -189,7 +189,7 @@ async fn test_create_event_persists() {
 #[tokio::test]
 async fn test_create_event_all_fields() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool.clone()));
+    let app = event_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("name", "Corporate Gala"),
@@ -216,7 +216,7 @@ async fn test_create_event_all_fields() {
 #[tokio::test]
 async fn test_create_event_special_characters() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool.clone()));
+    let app = event_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("name", "Spring Festival & Concert"),
@@ -249,7 +249,7 @@ async fn test_update_event_success() {
     };
     let event_id = insert_event(&pool, wedding_form).await.unwrap();
 
-    let app = event_router().with_state(make_state(pool.clone()));
+    let app = event_router().with_state(make_state(pool.clone()).await);
 
     let form_data = [
         ("name", "Smith-Garcia Wedding"), // Changed
@@ -277,7 +277,7 @@ async fn test_update_event_success() {
 #[tokio::test]
 async fn test_update_event_not_found() {
     let pool = create_test_db().await.unwrap();
-    let app = event_router().with_state(make_state(pool));
+    let app = event_router().with_state(make_state(pool).await);
 
     let form_data = [
         ("name", "Ghost Event"),
@@ -300,7 +300,7 @@ async fn test_update_event_all_fields() {
     };
     let event_id = insert_event(&pool, prom_form).await.unwrap();
 
-    let app = event_router().with_state(make_state(pool.clone()));
+    let app = event_router().with_state(make_state(pool.clone()).await);
 
     // Update all fields
     let form_data = [

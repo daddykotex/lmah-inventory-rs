@@ -1,13 +1,17 @@
 use anyhow::Context;
 use axum::{
-    Form, Router,
+    Form, Json, Router,
     extract::{Path, Query, State},
     response::Redirect,
     routing::{get, post},
 };
+use google_cloud_auth::signer::Signer;
+use google_cloud_storage::client::Storage;
 use maud::Markup;
-use serde::Deserialize;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
+use time::OffsetDateTime;
 
 use crate::server::{
     database::select::Selectable,
@@ -21,7 +25,7 @@ use crate::server::{
         refunds::RefundForm,
         statuts::StatusForm,
     },
-    routes::{bootstrap::AppState, errors::AppError, redirect::RedirectOr},
+    routes::{RouterConfig, bootstrap::AppState, errors::AppError, redirect::RedirectOr},
     services::{
         clients,
         config::load_event_types,
@@ -31,10 +35,12 @@ use crate::server::{
             link_event, load_add_product_data, load_print_data, load_products_to_add, select_all,
             select_one, select_one_facture_item, select_transactions, update_facture_item,
         },
+        filename::pdf_name_for,
         payments::{delete_payment, insert_payment, update_payment},
+        print::{print_to_pdf},
         products,
         refunds::{delete_refund, insert_refund, update_refund},
-        statuts::insert_status,
+        statuts::insert_status, storage::bytes_to_storage,
     },
     templates::factures,
 };
@@ -418,6 +424,40 @@ async fn delete_refund_handler(
     Ok(Redirect::to(&url))
 }
 
+#[derive(Deserialize)]
+struct PrintOptions {
+    #[serde(rename = "admin")]
+    for_admin: bool,
+}
+#[derive(Serialize)]
+struct PrintResponse {
+    url: String,
+}
+async fn generate_print_handler(
+    State(pool): State<SqlitePool>,
+    State(http_client): State<Client>,
+    State(config): State<RouterConfig>,
+    State(storage): State<Storage>,
+    State(signer): State<Signer>,
+    print_options: Query<PrintOptions>,
+    Path(facture_id): Path<i64>,
+) -> Result<Json<PrintResponse>, AppError> {
+    let page_data = load_print_data(&pool, facture_id).await?;
+    let rendered = factures::page_print(page_data);
+
+    let bucket_name = config.google_bucket_name();
+    let pdf_rocket_api_key = config.pdf_rocket_api_key();
+
+    let pdf_bytes = print_to_pdf(&http_client, pdf_rocket_api_key, rendered).await?;
+    let now = OffsetDateTime::now_utc();
+    let file_name = pdf_name_for(facture_id, &now);
+    let url = bytes_to_storage(&storage, &signer, bucket_name, &file_name, pdf_bytes, Some("application/pdf"))
+        .await
+        .context("Uploading to storage failed.")?;
+
+    Ok(Json(PrintResponse { url: url }))
+}
+
 pub fn facture_router() -> Router<AppState> {
     Router::new()
         // GET routes
@@ -446,6 +486,10 @@ pub fn facture_router() -> Router<AppState> {
         )
         .route("/factures", get(list_factures))
         // POST routes
+        .route(
+            "/factures/{facture_id}/generate-print",
+            post(generate_print_handler),
+        )
         .route(
             "/factures/{facture_id}/cancel",
             post(cancel_facture_handler),

@@ -19,7 +19,7 @@ use crate::fixtures::{
 #[tokio::test]
 async fn test_list_factures_empty() {
     let pool = create_test_db().await.unwrap();
-    let app = facture_router().with_state(make_state(pool));
+    let app = facture_router().with_state(make_state(pool).await);
     let request = get_request("/factures");
 
     let response = app.oneshot(request).await.unwrap();
@@ -84,7 +84,7 @@ async fn test_list_factures_with_data() {
 
     tx.commit().await.expect("Unable to commit the transaction");
 
-    let app = facture_router().with_state(make_state(pool));
+    let app = facture_router().with_state(make_state(pool).await);
     let request = get_request("/factures");
 
     let response = app.oneshot(request).await.unwrap();
