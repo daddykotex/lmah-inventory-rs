@@ -259,6 +259,19 @@ impl ClientRow {
 
         Ok(result)
     }
+
+    pub async fn select_all_for_facture<'c, E>(e: E) -> Result<Vec<ClientRow>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        let result: Vec<ClientRow> =
+            sqlx::query_as("SELECT clients.* FROM factures LEFT JOIN clients ON clients.id=factures.client_id ORDER by factures.id")
+                .fetch_all(e)
+                .await
+                .context("Failed to retrieve clients")?;
+
+        Ok(result)
+    }
 }
 
 // === PRODUCT TYPE QUERIES ===

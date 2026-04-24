@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod clients;
 pub mod config;
 pub mod events;

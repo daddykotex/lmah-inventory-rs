@@ -114,6 +114,10 @@ pub struct PageTransactionsData {
     pub refunds: Vec<RefundView>,
 }
 
+pub struct PageAdmin {
+    pub factures: Vec<FactureAndClient>,
+}
+
 pub struct FactureInfo {
     pub facture: FactureView,
     pub facture_computed: FactureComputed,

@@ -1,6 +1,9 @@
-use maud::{DOCTYPE, Markup, html};
+use maud::{DOCTYPE, Markup, PreEscaped, html};
 
-use crate::server::{models::config::ExtraLargeAmounts, templates::utils::*};
+use crate::server::{
+    models::{PageAdmin, config::ExtraLargeAmounts},
+    templates::utils::*,
+};
 
 fn signin(url: &str) -> Markup {
     let url = format!("/signin?redirect_url={}", url);
@@ -71,43 +74,107 @@ pub fn page_signin(url: &str) -> Markup {
     }
 }
 
-pub fn page_help(event_types: Vec<String>, extra: ExtraLargeAmounts) -> Markup {
-    let version = option_env!("VERSION").unwrap_or("dev-build");
+fn page(title: &str, content: Markup) -> Markup {
     html! {
         (DOCTYPE)
         html lang="fr" {
-            (head("Aide"))
+            (head(title))
 
             body {
-                (navbar(MenuConstants::Help))
-                main role="main" {
-                    div."container-fluid help" {
-                        div."row" {
-                            div."col-12 col-md-6" {
-                                h2 {
-                                    "Info"
-                                }
-                                pre {
-                                    code {
-                                        "Version: " (version) "\n"
-                                        "Types d'évènements: \n"
-                                        @for et in event_types {
-                                            (et) "\n"
-                                        }
-                                        "Taille forte: \n"
-                                        "   Robe de mariées: " (&extra.wedding) "\n"
-                                        "   Autres: " (&extra.others)
+                (content)
+            }
+        }
+    }
+}
+
+pub fn page_admin(page_data: PageAdmin) -> Markup {
+    let sort_table_script = PreEscaped(
+        r#"
+        $(document).ready(function(){
+            $("table.admin-find-facture").tablesorter({
+                theme : "bootstrap",
+                widthFixed: true,
+                sortList: [[1, 1]]
+            });
+        });
+    "#,
+    );
+    let content = html! {
+        main role="main" {
+            div."container-fluid" {
+                div."row" {
+                    div."col-12 col-md-6" {
+                        h2 {
+                            "Rapport de paiements"
+                        }
+                        p {
+                            "Ce rapport contient l'information de toutes les transactions. Il n'inclut pas les factures sans paiements."
+                        }
+                        a href="/admin/paiements-report" {
+                            "Télécharger le fichier CSV"
+                        }
+                    }
+                    div."col-12 col-md-6" {
+                        h2 {
+                            "Rapport de solde à payer"
+                        }
+                        p {
+                            "Ce rapport contient toutes factures. Il n'inclut pas les paiements."
+                        }
+                        a href="/admin/factures-report" {
+                            "Télécharger le fichier CSV"
+                        }
+                    }
+                }
+                hr;
+                div."row" {
+                    div."col-12" {
+                        h2 {
+                            "Factures"
+                        }
+                        table."table table-sm table-striped admin-find-facture" {
+                            thead."sticky-top" {
+                                tr {
+                                    th scope="col" {
+                                        "Actions"
+                                    }
+                                    th scope="col" {
+                                        "No. de facture"
+                                    }
+                                    th scope="col" {
+                                        "Ref. Ancienne"
+                                    }
+                                    th scope="col" {
+                                        "Nom du client"
+                                    }
+                                    th scope="col" {
+                                        "Date facture"
                                     }
                                 }
                             }
-                            div."col-12 col-md-6" {
-                                h2 {
-                                    "Lien utiles"
-                                }
-                                ul {
-                                    li {
-                                        a href="/admin" {
-                                            "Administration"
+                            tbody {
+                                @for fc in &page_data.factures {
+                                    tr {
+                                        td {
+                                            button."generate-print btn btn-success" type="button" data-facture-id=(fc.facture.id) {
+                                                "Visualiser"
+                                            }
+                                        }
+                                        td."no-facture" data-search-no-facture=(fc.facture.id) {
+                                            (fc.facture.id)
+                                        }
+                                        td."no-facture" data-search-no-facture=(fc.facture.id) {
+                                            @if let Some(pr) = &fc.facture.paper_ref {
+                                                (pr)
+                                            }
+                                        }
+                                        td {
+                                            (fc.client.name())
+                                        }
+                                        td {
+                                            @if let Some(d) = &fc.facture.date {
+                                                (d)
+                                            }
                                         }
                                     }
                                 }
@@ -115,10 +182,67 @@ pub fn page_help(event_types: Vec<String>, extra: ExtraLargeAmounts) -> Markup {
                         }
                     }
                 }
-                (footer())
             }
         }
-    }
+    };
+    let body = html! {
+        (navbar(MenuConstants::Admin))
+        (content)
+        (footer())
+        script type="text/javascript" {
+            (sort_table_script)
+            (generate_print_js())
+        }
+        (generate_print_js())
+    };
+    page("Administration", body)
+}
+
+pub fn page_help(event_types: Vec<String>, extra: ExtraLargeAmounts) -> Markup {
+    let version = option_env!("VERSION").unwrap_or("dev-build");
+    let content = html! {
+        main role="main" {
+            div."container-fluid help" {
+                div."row" {
+                    div."col-12 col-md-6" {
+                        h2 {
+                            "Info"
+                        }
+                        pre {
+                            code {
+                                "Version: " (version) "\n"
+                                "Types d'évènements: \n"
+                                @for et in event_types {
+                                    (et) "\n"
+                                }
+                                "Taille forte: \n"
+                                "   Robe de mariées: " (&extra.wedding) "\n"
+                                "   Autres: " (&extra.others)
+                            }
+                        }
+                    }
+                    div."col-12 col-md-6" {
+                        h2 {
+                            "Lien utiles"
+                        }
+                        ul {
+                            li {
+                                a href="/admin" {
+                                    "Administration"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+    let body = html! {
+        (navbar(MenuConstants::Help))
+        (content)
+        (footer())
+    };
+    page("Aide", body)
 }
 
 pub fn page_wait() -> Markup {
