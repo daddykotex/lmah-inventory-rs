@@ -341,7 +341,6 @@ pub fn head(title: &str) -> Markup {
     }
 }
 
-
 pub fn generate_print_js() -> Markup {
     html! {
         script type="text/javascript" {
