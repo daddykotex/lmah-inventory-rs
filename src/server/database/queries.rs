@@ -5,6 +5,7 @@
 //! for maximum flexibility.
 
 use anyhow::{Context, Result};
+use futures_core::stream::BoxStream;
 use sqlx::{Executor, Sqlite};
 
 use crate::server::{
@@ -13,7 +14,7 @@ use crate::server::{
         clients::ClientRow,
         facture_items::{FactureItemRow, ItemFactureFlowType},
         factures::FactureRow,
-        payments::PaymentRow,
+        payments::{PaymentReportRow, PaymentRow},
         product_types::ProductTypeRow,
         products::ProductRow,
         refunds::RefundRow,
@@ -22,7 +23,6 @@ use crate::server::{
 };
 
 // === PAYMENT QUERIES ===
-
 impl PaymentRow {
     pub async fn select_all_for_facture<'c, E>(
         facture_id: i64,
@@ -42,6 +42,32 @@ impl PaymentRow {
         .context("Failed to retrieve payments")?;
 
         Ok(result)
+    }
+}
+
+impl PaymentReportRow {
+    pub fn stream_all_with_facture<'e, 'c, E>(
+        executor: E,
+    ) -> BoxStream<'e, Result<PaymentReportRow, sqlx::Error>>
+    where
+        E: Executor<'c, Database = Sqlite> + 'e,
+        'c: 'e,
+    {
+        sqlx::query_as(
+            r#"
+            SELECT
+                payments.facture_id,
+                factures.paper_ref,
+                factures.facture_type,
+                payments.date,
+                payments.amount,
+                payments.payment_type,
+                factures.cancelled
+            FROM payments
+            LEFT JOIN factures ON payments.facture_id = factures.id
+        "#,
+        )
+        .fetch(executor)
     }
 }
 
