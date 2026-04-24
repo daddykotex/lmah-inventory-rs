@@ -28,6 +28,8 @@ google-cloud-auth = { version = "1.9.0", features = ["default-rustls-provider"] 
 google-cloud-storage = { version = "1.11.0", features = ["default-rustls-provider"] }
 futures-util = "0.3.32"
 rustls = { version = "0.23.39", features = ["aws_lc_rs"] }
+csv = "1.4.0"
+axum-streams = { version = "0.25.0", features = ["csv"] }
 
 # dev
 [dev-dependencies]

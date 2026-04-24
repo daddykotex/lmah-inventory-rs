@@ -14,6 +14,18 @@ pub struct PaymentRow {
     pub updated_at: String,
 }
 
+/// Specialized row for payment report query
+#[derive(Debug, FromRow)]
+pub struct PaymentReportRow {
+    pub facture_id: i64,
+    pub paper_ref: Option<String>,
+    pub facture_type: String,
+    pub date: Option<String>,
+    pub amount: i64,
+    pub payment_type: String,
+    pub cancelled: u8,
+}
+
 #[derive(Debug)]
 pub struct PaymentView {
     pub id: i64,
