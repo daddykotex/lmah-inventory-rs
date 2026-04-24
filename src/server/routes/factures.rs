@@ -443,13 +443,13 @@ async fn generate_print_handler(
     let bucket_name = config.google_bucket_name();
     let pdf_rocket_api_key = config.pdf_rocket_api_key();
 
-    let pdf_bytes = print_to_pdf(&http_client, pdf_rocket_api_key, rendered).await?;
+    let pdf_bytes = print_to_pdf(&http_client, &pdf_rocket_api_key, rendered).await?;
     let now = OffsetDateTime::now_utc();
     let file_name = pdf_name_for(facture_id, &now);
     let url = bytes_to_storage(
         &storage,
         &signer,
-        bucket_name,
+        &bucket_name,
         &file_name,
         pdf_bytes,
         Some("application/pdf"),

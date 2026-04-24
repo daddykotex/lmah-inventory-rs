@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use anyhow::Result;
-use futures_core::stream::BoxStream;
+use futures_core::Stream;
 use futures_util::StreamExt;
 use serde::Serialize;
 use sqlx::SqlitePool;
@@ -57,30 +59,25 @@ pub struct PaymentReportRecord {
     transaction_url: String,
 }
 
-pub fn load_payment_reports_data<'a>(
-    pool: &'a SqlitePool,
-    external_url: &'a str,
-) -> BoxStream<'a, PaymentReportRecord> {
+pub fn load_payment_reports_data(
+    pool: &SqlitePool,
+    external_url: Arc<str>,
+) -> impl Stream<Item = PaymentReportRecord> + 'static {
     let data = PaymentReportRow::stream_all_with_facture(pool);
-    let data = data.filter_map(async |row| {
-        row.map(|record| {
-            let external_url = external_url.to_owned();
-            let transaction_url = format!(
-                "{}/factures/{}/transactions",
-                external_url, record.facture_id
-            );
-            PaymentReportRecord {
-                facture_id: record.facture_id,
-                paper_ref: record.paper_ref,
-                facture_type: record.facture_type,
-                date: record.date,
-                amount: record.amount.to_string(), //TODO format as ###.## $
-                payment_type: record.payment_type,
-                cancelled: record.cancelled,
-                transaction_url,
-            }
-        })
-        .ok()
-    });
-    Box::pin(data)
+    data.filter_map(async |r| r.ok()).map(move |record| {
+        let transaction_url = format!(
+            "{}/factures/{}/transactions",
+            external_url, record.facture_id
+        );
+        PaymentReportRecord {
+            facture_id: record.facture_id,
+            paper_ref: record.paper_ref,
+            facture_type: record.facture_type,
+            date: record.date,
+            amount: record.amount.to_string(), //TODO format as ###.## $
+            payment_type: record.payment_type,
+            cancelled: record.cancelled,
+            transaction_url,
+        }
+    })
 }

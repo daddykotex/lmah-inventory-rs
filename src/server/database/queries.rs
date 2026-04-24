@@ -5,8 +5,9 @@
 //! for maximum flexibility.
 
 use anyhow::{Context, Result};
-use futures_core::stream::BoxStream;
-use sqlx::{Executor, Sqlite};
+use futures_core::Stream;
+use futures_util::StreamExt;
+use sqlx::{Executor, Row, Sqlite, SqlitePool};
 
 use crate::server::{
     database::has_table::{HasTable, TableName},
@@ -46,15 +47,12 @@ impl PaymentRow {
 }
 
 impl PaymentReportRow {
-    pub fn stream_all_with_facture<'e, 'c, E>(
-        executor: E,
-    ) -> BoxStream<'e, Result<PaymentReportRow, sqlx::Error>>
-    where
-        E: Executor<'c, Database = Sqlite> + 'e,
-        'c: 'e,
-    {
-        sqlx::query_as(
-            r#"
+    pub fn stream_all_with_facture(
+        executor: &SqlitePool, // TODO figure out how to do it with a generic Executor
+    ) -> impl Stream<Item = sqlx::Result<PaymentReportRow>> + 'static {
+        executor
+            .fetch(
+                r#"
             SELECT
                 payments.facture_id,
                 factures.paper_ref,
@@ -66,8 +64,18 @@ impl PaymentReportRow {
             FROM payments
             LEFT JOIN factures ON payments.facture_id = factures.id
         "#,
-        )
-        .fetch(executor)
+            )
+            .map(|row| {
+                row.map(|row| PaymentReportRow {
+                    facture_id: row.get("facture_id"),
+                    paper_ref: row.get("paper_ref"),
+                    facture_type: row.get("facture_type"),
+                    date: row.get("date"),
+                    amount: row.get("amount"),
+                    payment_type: row.get("payment_type"),
+                    cancelled: row.get("cancelled"),
+                })
+            })
     }
 }
 
