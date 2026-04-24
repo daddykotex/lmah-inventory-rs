@@ -31,13 +31,10 @@ async fn payment_report(
     State(db_pool): State<SqlitePool>,
     State(config): State<RouterConfig>,
 ) -> impl IntoResponse {
-    let data = load_payment_reports_data(&db_pool, &config.external_url());
-    // StreamBodyAs::csv(data)
-    // use the above instead of below
-    let res = data.collect::<Vec<PaymentReportRecord>>().await; // remove
+    let data = load_payment_reports_data(&db_pool, config.external_url());
     StreamBodyAs::new(
         CsvStreamFormat::default(),
-        futures_util::stream::iter(res).map(Ok::<PaymentReportRecord, axum::Error>),
+        data.map(Ok::<PaymentReportRecord, axum::Error>),
     )
 }
 

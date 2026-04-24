@@ -36,14 +36,14 @@ pub struct AppState {
 
 async fn prepare_app_state(db_pool: SqlitePool, config: RouterConfig) -> Result<AppState> {
     // Load Cookie Key (for signed and encrypted cookies)
-    let decoded_key =
-        hex::decode(config.cookie_key()).expect("Unable to hex decode the cookie key");
+    let decoded_key = hex::decode(config.cookie_key().clone().to_string())
+        .expect("Unable to hex decode the cookie key");
     let key = Key::try_from(decoded_key.as_slice());
     let key = key.expect("Unable to load cookie key");
 
     // Load google credentials
     let json_service_account_key: serde_json::Value =
-        serde_json::from_str(config.google_service_account_json_key())
+        serde_json::from_str(&config.google_service_account_json_key())
             .context("Unable to load JSON from environment variable")?;
     let google_credentials: Credentials = Builder::new(json_service_account_key.clone()).build()?;
     let storage = Storage::builder()
