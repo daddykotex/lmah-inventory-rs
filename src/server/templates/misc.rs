@@ -121,7 +121,7 @@ pub fn page_admin(page_data: PageAdmin) -> Markup {
                         p {
                             "Ce rapport contient toutes factures. Il n'inclut pas les paiements."
                         }
-                        a href="/admin/factures-report" {
+                        a href="/admin/rapport-factures" {
                             "Télécharger le fichier CSV"
                         }
                     }

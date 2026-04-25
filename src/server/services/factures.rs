@@ -604,7 +604,7 @@ fn compute_item(item: &FactureItemView) -> FactureItemComputed {
 const TPS_RATE: f64 = 5.0;
 const TVQ_RATE: f64 = 9.975;
 
-fn computed_facture_fields(
+pub fn computed_facture_fields(
     facture: &FactureView,
     items: &Vec<FactureItemView>,
     payments: &Vec<PaymentView>,

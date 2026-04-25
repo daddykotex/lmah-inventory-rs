@@ -44,6 +44,20 @@ impl PaymentRow {
 
         Ok(result)
     }
+
+    pub async fn select_with_facture<'c, E>(executor: E) -> Result<Vec<PaymentRow>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        let result: Vec<PaymentRow> = sqlx::query_as(
+            "SELECT payments.* FROM payments LEFT JOIN factures ON factures.id = payments.facture_id ORDER BY factures.id",
+        )
+        .fetch_all(executor)
+        .await
+        .context("Failed to retrieve payments")?;
+
+        Ok(result)
+    }
 }
 
 impl PaymentReportRow {
@@ -101,6 +115,20 @@ impl RefundRow {
 
         Ok(result)
     }
+
+    pub async fn select_with_facture<'c, E>(executor: E) -> Result<Vec<RefundRow>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        let result: Vec<RefundRow> = sqlx::query_as(
+            "SELECT refunds.* FROM refunds LEFT JOIN factures ON factures.id = refunds.facture_id ORDER BY factures.id",
+        )
+        .fetch_all(executor)
+        .await
+        .context("Failed to retrieve refunds")?;
+
+        Ok(result)
+    }
 }
 
 // === FACTURE QUERIES ===
@@ -146,6 +174,20 @@ impl FactureItemRow {
             "Failed to retrieve facture items for facture with id {}",
             facture_id
         ))?;
+
+        Ok(result)
+    }
+
+    pub async fn select_with_facture<'c, E>(executor: E) -> Result<Vec<FactureItemRow>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        let result: Vec<FactureItemRow> = sqlx::query_as(
+            "SELECT facture_items.* FROM facture_items LEFT JOIN factures ON factures.id = facture_items.facture_id ORDER BY factures.id",
+        )
+        .fetch_all(executor)
+        .await
+        .context("Failed to retrieve facture_items")?;
 
         Ok(result)
     }
@@ -256,16 +298,9 @@ impl ClientRow {
     where
         E: Executor<'c, Database = Sqlite>,
     {
-        let facture_table = FactureRow::table();
-        let client_table = ClientRow::table();
-        let result: Vec<ClientRow> = sqlx::query_as(&format!(
-            "SELECT {}.* FROM {} LEFT JOIN {} ON {}.client_id = {}.id",
-            client_table.table_name(),
-            facture_table.table_name(),
-            client_table.table_name(),
-            facture_table.table_name(),
-            client_table.table_name()
-        ))
+        let result: Vec<ClientRow> = sqlx::query_as(
+            "SELECT clients.* FROM clients LEFT JOIN factures ON factures.client_id = clients.id ORDER BY factures.id",
+        )
         .fetch_all(executor)
         .await
         .context("Failed to retrieve clients")?;
