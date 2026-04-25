@@ -7,7 +7,10 @@ use sqlx::SqlitePool;
 use crate::server::{
     routes::{RouterConfig, bootstrap::AppState, errors::AppError},
     services::{
-        admin::{PaymentReportRecord, load_all_factures, load_payment_reports_data},
+        admin::{
+            FactureReportRecord, PaymentReportRecord, load_all_factures, load_facture_reports_data,
+            load_payment_reports_data,
+        },
         config::{load_event_types, load_extra_large_amount},
     },
     templates::misc::{page_admin, page_help, page_wait},
@@ -38,11 +41,19 @@ async fn payment_report(
     )
 }
 
+async fn factures_report(State(db_pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
+    let data = load_facture_reports_data(&db_pool).await?;
+    Ok(StreamBodyAs::new(
+        CsvStreamFormat::default(),
+        futures_util::stream::iter(data).map(Ok::<FactureReportRecord, axum::Error>),
+    ))
+}
+
 pub fn misc_router() -> Router<AppState> {
     Router::new()
         .route("/wait", get(wait))
         .route("/help", get(help))
         .route("/admin", get(admin))
         .route("/admin/rapport-paiements", get(payment_report))
-        .route("/admin/rapport-factures", get(admin))
+        .route("/admin/rapport-factures", get(factures_report))
 }
