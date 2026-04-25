@@ -213,11 +213,11 @@ pub fn page_help(event_types: Vec<String>, extra: ExtraLargeAmounts) -> Markup {
                                 "Version: " (version) "\n"
                                 "Types d'évènements: \n"
                                 @for et in event_types {
-                                    (et) "\n"
+                                    "    " (et) "\n"
                                 }
                                 "Taille forte: \n"
-                                "   Robe de mariées: " (&extra.wedding) "\n"
-                                "   Autres: " (&extra.others)
+                                "    Robe de mariées: " (&extra.wedding) "\n"
+                                "    Autres: " (&extra.others)
                             }
                         }
                     }
