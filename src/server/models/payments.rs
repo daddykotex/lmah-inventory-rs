@@ -91,7 +91,7 @@ impl PreCalculatedPayment {
 // Form structure for POST endpoints
 #[derive(Deserialize, Debug)]
 pub struct PaymentForm {
-    pub amount: i64,
+    pub amount: String,
     pub date: String,
     #[serde(rename = "type")]
     pub payment_type: String,

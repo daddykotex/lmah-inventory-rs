@@ -311,11 +311,14 @@ fn payment_form_script() -> Markup {
         r#"
         function setupTransactionValidation(id) {
             function computeFutureBalance(balance, newValue) {
+                var balance = balance / 100;
                 if (newValue.trim().length > 0) {
-                var newBalance = Math.round((balance - parseFloat(newValue)) * 100) / 100;
-                    $(`#${id}-future-balance > span`).html(`Future solde: ${newBalance}`);
+                    var newBalance = balance - parseFloat(newValue);
+                    var displayBalance = newBalance.toFixed(2);
+                    $(`#${id}-future-balance > span`).html(`Future solde: ${displayBalance}`);
                 } else {
-                    $(`#${id}-future-balance > span`).html(`Future solde: ${balance}`);
+                    var displayBalance = balance.toFixed(2);
+                    $(`#${id}-future-balance > span`).html(`Future solde: ${displayBalance}`);
                 }
             }
 
@@ -331,7 +334,7 @@ fn payment_form_script() -> Markup {
             function toggleSave(balance, newValue) {
                 try {
                     var floatValue = parseFloat(newValue, 10);
-                $('#payment-form form button[type="submit"]').attr("disabled", balance < floatValue);
+                    $('#payment-form form button[type="submit"]').attr("disabled", balance < floatValue);
                 } catch (err) {
 
                 }
@@ -349,7 +352,6 @@ fn payment_form_script() -> Markup {
             $(`#${id}-payment-amount`).on('keyup', function () {
                 processNewAmount($(this).data("balance"), $(this).val());
             });
-            computeFutureBalance($(`#${id}-payment-amount`).data("balance"), $(`#${id}-payment-amount`).val());
         };
     "#,
     );
@@ -373,6 +375,7 @@ fn table_transaction_scripts() -> Markup {
                     $("button#add-payment").unbind('click').click(function() {
                         $("#payment-form").removeClass("d-none");
                         $("#refund-form").addClass("d-none");
+                        computeFutureBalance($(`#$new-payment-amount`).data("balance"), $(`#${id}-payment-amount`).val());
                     });
 
                     $("button#add-refund").unbind('click').click(function() {
@@ -2062,14 +2065,8 @@ fn table_transaction(
             ),
         };
         let target_id = match transaction {
-            Transaction::Payment(payment_view) => format!(
-                "transaction-modal-{}",
-                payment_view.id
-            ),
-            Transaction::Refund(refund_view) => format!(
-                "transaction-modal-{}",
-                refund_view.id
-            ),
+            Transaction::Payment(payment_view) => format!("transaction-modal-{}", payment_view.id),
+            Transaction::Refund(refund_view) => format!("transaction-modal-{}", refund_view.id),
         };
 
         let delete_url = format!("{}/delete", base_url);

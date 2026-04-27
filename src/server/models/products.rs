@@ -93,7 +93,7 @@ impl ProductInfo {
 #[derive(Deserialize, Debug)]
 pub struct ProductForm {
     pub name: String,
-    pub price: Option<i64>,
+    pub price: Option<String>,
     pub liquidation: Option<bool>,
     #[serde(rename = "visible-on-site")]
     pub visible_on_site: Option<bool>,

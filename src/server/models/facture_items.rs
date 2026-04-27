@@ -250,7 +250,7 @@ pub struct FactureItemForm {
     #[serde(rename = "product-id")]
     pub product_id: i64,
     pub quantity: Option<i64>,
-    pub price: Option<i64>,
+    pub price: Option<String>,
     pub notes: Option<String>,
 
     // Product-specific
@@ -268,11 +268,11 @@ pub struct FactureItemForm {
     pub rebate_percent: Option<i64>,
 
     // Location-specific
-    pub insurance: Option<i64>,
+    pub insurance: Option<String>,
     #[serde(rename = "other-costs")]
-    pub other_costs: Option<i64>,
+    pub other_costs: Option<String>,
 
     // Alteration-specific
     #[serde(rename = "rebate-dollar")]
-    pub rebate_dollar: Option<i64>,
+    pub rebate_dollar: Option<String>,
 }
