@@ -1,4 +1,6 @@
 /.devenv
 /target
-data
-src/bin/test.rs
+/data
+/src/bin/test.rs
+
+/.env*
