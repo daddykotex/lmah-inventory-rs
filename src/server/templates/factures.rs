@@ -1944,7 +1944,7 @@ fn transaction_form_fields(
                     label for=(id_amount) {
                         "Montant"
                     }
-                    input."form-control" id=(id_amount) value=[transaction.amount()] type="text" name="amount" required autofocus data-balance=(balance);
+                    input."form-control" id=(id_amount) value=[transaction.amount().map(format_cents)] type="text" name="amount" required autofocus data-balance=(balance) autocomplete="off";
 
                     @if transaction.is_payment() && transaction.is_none() {
                         div."alert alert-info" id=(format!("{}-future-balance", id))  {
@@ -2061,11 +2061,22 @@ fn table_transaction(
                 refund_view.facture_id, refund_view.id
             ),
         };
+        let target_id = match transaction {
+            Transaction::Payment(payment_view) => format!(
+                "transaction-modal-{}",
+                payment_view.id
+            ),
+            Transaction::Refund(refund_view) => format!(
+                "transaction-modal-{}",
+                refund_view.id
+            ),
+        };
 
         let delete_url = format!("{}/delete", base_url);
         let update_url = format!("{}/update", base_url);
+        let data_target = format!("#{}", target_id);
         html! {
-            button."btn btn-primary btn-sm" data-toggle="modal" data-target="#rec123-transaction-modal" {
+            button."btn btn-primary btn-sm" data-toggle="modal" data-target=(data_target) {
                 "Modifier"
             }
             (" ")
@@ -2074,7 +2085,7 @@ fn table_transaction(
                     "Retirer"
                 }
             }
-            div."modal fade" id="rec123-transaction-modal" tabindex="-1" role="dialog" aria-hidden="true" aria-labelledby="transaction-modal-label" {
+            div."modal fade" id=(target_id) tabindex="-1" role="dialog" aria-hidden="true" aria-labelledby="transaction-modal-label" {
                 div."modal-dialog" role="document" {
                     div."modal-content" {
                         (transaction_form_modal(&update_url, &transaction, facture_info))

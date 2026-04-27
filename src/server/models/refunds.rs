@@ -55,7 +55,7 @@ impl From<RefundRow> for RefundView {
 pub struct RefundForm {
     pub amount: i64,
     pub date: String,
-    #[serde(rename = "refund-type")]
+    #[serde(rename = "type")]
     pub refund_type: String,
     #[serde(rename = "cheque-number")]
     pub cheque_number: Option<String>,
