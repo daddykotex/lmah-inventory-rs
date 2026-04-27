@@ -967,43 +967,6 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
                                 }
                             }
                         }
-                        div."modal fade" #alteration-modal tabindex="-1" role="dialog" aria-labelledby="alteration-modal-label" aria-hidden="true" {
-                            div."modal-dialog" role="document" {
-                                form action="/factures/rec123/linked-facture" method="POST" {
-                                    div."modal-content" {
-                                        div."modal-header" {
-                                            h5."modal-title" id="make-payment-modal-label" {
-                                                "Créer une facture d'altération"
-                                            }
-                                            button."close" data-dismiss="modal" aria-label="Close" type="button" {
-                                                span aria-hidden="true" {
-                                                    (PreEscaped("&times;"))
-                                                }
-                                            }
-                                        }
-                                        div."modal-body" {
-                                            input value="recClient1" type="hidden" name="selected-client";
-                                            div."alert alert-danger" role="alert" {
-                                                "Attention: le solde de la facture est présentement de 862.22"
-                                            }
-                                            "La nouvelle facture sera associée à la facture #1001 du client"
-                                            b {
-                                                "Marie Tremblay"
-                                            }
-                                            "."
-                                        }
-                                        div."modal-footer" {
-                                            button."btn btn-secondary" type="button" data-dismiss="modal" {
-                                                "Annuler"
-                                            }
-                                            button."btn btn-danger" type="submit" {
-                                                "Créer quand même"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
