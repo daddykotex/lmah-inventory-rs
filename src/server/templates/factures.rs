@@ -460,7 +460,7 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                     }
                     td {
                         @if let Some(p) = value.price {
-                            (format_cents(p)) "$"
+                            (format_cents(p))
                         }
                     }
                     td {
@@ -470,7 +470,7 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                     }
                     td {
                         @if let Some(ex) = value.extra_large_size {
-                            (ex) "$"
+                            (ex)
                         }
                     }
                     td {
@@ -494,17 +494,17 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                 }
                 td {
                     @if let Some(p) = value.price {
-                        (format_cents(p)) "$"
+                        (format_cents(p))
                     }
                 }
                 td {
                     @if let Some(ex) = value.insurance {
-                        (format_cents(ex)) "$"
+                        (format_cents(ex))
                     }
                 }
                 td {
                     @if let Some(oc) = value.other_costs {
-                        (format_cents(oc)) "$"
+                        (format_cents(oc))
                     }
                 }
                 td {
@@ -526,12 +526,12 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                 }
                 td {
                     @if let Some(p) = value.price {
-                        (format_cents(p)) "$"
+                        (format_cents(p))
                     }
                 }
                 td {
                     @if let Some(rd) = value.rebate_dollar {
-                        (format_cents(rd)) "$"
+                        (format_cents(rd))
                     }
                 }
                 td {
