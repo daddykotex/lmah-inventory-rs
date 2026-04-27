@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
 
+use crate::server::utils::money::parse_money;
 use crate::server::{
     database::{insert::Insertable, select::Selectable},
     models::{
@@ -75,12 +76,14 @@ async fn validate_refund_amount(
 pub async fn insert_refund(pool: &SqlitePool, facture_id: i64, form: RefundForm) -> Result<i64> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
+    let amount = parse_money(&form.amount).map_err(anyhow::Error::msg)?;
+
     // Validate amount
-    validate_refund_amount(&mut tx, facture_id, form.amount, None).await?;
+    validate_refund_amount(&mut tx, facture_id, amount, None).await?;
 
     let to_insert = RefundInsert {
         facture_id,
-        amount: form.amount,
+        amount,
         date: form.date,
         refund_type: form.refund_type,
         cheque_number: form.cheque_number,
@@ -112,8 +115,10 @@ pub async fn update_refund(pool: &SqlitePool, refund_id: i64, form: RefundForm) 
         refund_id
     )))?;
 
+    let amount = parse_money(&form.amount).map_err(anyhow::Error::msg)?;
+
     // Validate amount (excluding this refund from total_refundable calculation)
-    validate_refund_amount(&mut tx, refund.facture_id, form.amount, Some(refund_id)).await?;
+    validate_refund_amount(&mut tx, refund.facture_id, amount, Some(refund_id)).await?;
 
     let result = sqlx::query(
         "UPDATE refunds SET
@@ -121,7 +126,7 @@ pub async fn update_refund(pool: &SqlitePool, refund_id: i64, form: RefundForm) 
             updated_at = datetime('now')
          WHERE id = ?",
     )
-    .bind(form.amount)
+    .bind(amount)
     .bind(form.date)
     .bind(form.refund_type)
     .bind(form.cheque_number)

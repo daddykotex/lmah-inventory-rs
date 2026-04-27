@@ -53,7 +53,7 @@ impl From<RefundRow> for RefundView {
 // Form structure for POST endpoints
 #[derive(Deserialize, Debug)]
 pub struct RefundForm {
-    pub amount: i64,
+    pub amount: String,
     pub date: String,
     #[serde(rename = "type")]
     pub refund_type: String,

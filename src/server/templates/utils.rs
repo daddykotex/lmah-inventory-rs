@@ -1,9 +1,12 @@
 use maud::{Markup, PreEscaped, html};
 
+use crate::server::utils::money::format_cents;
+
 const BOOTSTRAP_VERSION: &str = "4.4.1";
 
 pub fn price_input(id: &str, label: &str, value: &Option<i64>, required: bool) -> Markup {
     let required = if required { Some(true) } else { None };
+    let display = value.map(format_cents);
     html! {
         label for=(id) {
             (label)
@@ -14,7 +17,7 @@ pub fn price_input(id: &str, label: &str, value: &Option<i64>, required: bool) -
                     "$"
                 }
             }
-            input."form-control" id=(id) type="text" name=(id) value=[value] required=[required];
+            input."form-control" id=(id) type="text" name=(id) value=[display] required=[required];
         }
     }
 }

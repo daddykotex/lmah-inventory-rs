@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
 
+use crate::server::utils::money::parse_money;
 use crate::server::{
     database::{insert::Insertable, select::Selectable},
     models::{
@@ -74,12 +75,14 @@ async fn validate_payment_amount(
 pub async fn insert_payment(pool: &SqlitePool, facture_id: i64, form: PaymentForm) -> Result<i64> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
+    let amount = parse_money(&form.amount).map_err(anyhow::Error::msg)?;
+
     // Validate amount
-    validate_payment_amount(&mut tx, facture_id, form.amount, None).await?;
+    validate_payment_amount(&mut tx, facture_id, amount, None).await?;
 
     let to_insert = PaymentInsert {
         facture_id,
-        amount: form.amount,
+        amount,
         date: form.date,
         payment_type: form.payment_type,
         cheque_number: form.cheque_number,
@@ -111,8 +114,10 @@ pub async fn update_payment(pool: &SqlitePool, payment_id: i64, form: PaymentFor
         payment_id
     )))?;
 
+    let amount = parse_money(&form.amount).map_err(anyhow::Error::msg)?;
+
     // Validate amount (excluding this payment from balance calculation)
-    validate_payment_amount(&mut tx, payment.facture_id, form.amount, Some(payment_id)).await?;
+    validate_payment_amount(&mut tx, payment.facture_id, amount, Some(payment_id)).await?;
 
     let result = sqlx::query(
         "UPDATE payments SET
@@ -120,7 +125,7 @@ pub async fn update_payment(pool: &SqlitePool, payment_id: i64, form: PaymentFor
             updated_at = datetime('now')
          WHERE id = ?",
     )
-    .bind(form.amount)
+    .bind(amount)
     .bind(form.date)
     .bind(form.payment_type)
     .bind(form.cheque_number)

@@ -31,6 +31,8 @@ use crate::server::{
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
 
+use crate::server::utils::money::parse_money;
+
 type ProductsOrRedirect = std::result::Result<Vec<ProductInfo>, ProductView>;
 
 pub async fn load_products_to_add(
@@ -1036,11 +1038,36 @@ pub async fn insert_facture_item(
         .facture_type
         .unwrap_or_else(|| "Product".to_string());
 
+    let price = form
+        .price
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+    let insurance = form
+        .insurance
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+    let other_costs = form
+        .other_costs
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+    let rebate_dollar = form
+        .rebate_dollar
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
     let to_insert = FactureItemInsert {
         facture_id,
         product_id: form.product_id,
-        item_type: item_type.clone(),
-        price: form.price,
+        item_type: item_type,
+        price,
         notes: form.notes,
         quantity: form.quantity.unwrap_or(1),
         extra_large_size: form.extra_large_size,
@@ -1052,9 +1079,9 @@ pub async fn insert_facture_item(
         color: form.color,
         beneficiary: form.beneficiary,
         floor_item: form.floor_item.unwrap_or(false),
-        insurance: form.insurance,
-        other_costs: form.other_costs,
-        rebate_dollar: form.rebate_dollar,
+        insurance,
+        other_costs,
+        rebate_dollar,
     };
 
     let inserted_id = to_insert
@@ -1104,6 +1131,31 @@ pub async fn update_facture_item(
 
     let floor_item = form.floor_item.unwrap_or(false);
 
+    let price = form
+        .price
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+    let insurance = form
+        .insurance
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+    let other_costs = form
+        .other_costs
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+    let rebate_dollar = form
+        .rebate_dollar
+        .as_deref()
+        .map(parse_money)
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
     // If floor_item changes to true, sanitize detail fields
     let (size, chest, waist, hips, color) = if floor_item {
         (None, None, None, None, None)
@@ -1122,7 +1174,7 @@ pub async fn update_facture_item(
     )
     .bind(form.product_id)
     .bind(form.quantity.unwrap_or(1))
-    .bind(form.price)
+    .bind(price)
     .bind(form.notes)
     .bind(size)
     .bind(chest)
@@ -1133,9 +1185,9 @@ pub async fn update_facture_item(
     .bind(if floor_item { 1 } else { 0 })
     .bind(form.extra_large_size)
     .bind(form.rebate_percent)
-    .bind(form.insurance)
-    .bind(form.other_costs)
-    .bind(form.rebate_dollar)
+    .bind(insurance)
+    .bind(other_costs)
+    .bind(rebate_dollar)
     .bind(item_id)
     .execute(&mut *tx)
     .await
