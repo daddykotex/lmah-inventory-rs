@@ -93,7 +93,7 @@ impl PreCalculatedPayment {
 pub struct PaymentForm {
     pub amount: i64,
     pub date: String,
-    #[serde(rename = "payment-type")]
+    #[serde(rename = "type")]
     pub payment_type: String,
     #[serde(rename = "cheque-number")]
     pub cheque_number: Option<String>,
