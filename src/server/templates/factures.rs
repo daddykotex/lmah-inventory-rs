@@ -1,4 +1,5 @@
 use maud::{DOCTYPE, Markup, PreEscaped, html};
+use time::OffsetDateTime;
 
 use crate::server::{
     models::{
@@ -1935,6 +1936,9 @@ fn transaction_form_fields(
         .zip(explicit_amount)
         .map(|(a, pa)| (pa.label(a), format!("{}-explicit-amount-alert", id)));
 
+    let now_str = OffsetDateTime::now_utc().date().to_string();
+    let date = transaction.date().unwrap_or(&now_str);
+
     html! {
         div {
             div."form-row form-group" {
@@ -1980,7 +1984,7 @@ fn transaction_form_fields(
                     label for=(id_date) {
                         "Date"
                     }
-                    input."form-control date-picker" id=(id_date) name="date" autocomplete="false" required value=[transaction.date()] type="text";
+                    input."form-control date-picker" id=(id_date) name="date" autocomplete="false" required value=(date) type="text";
                 }
             }
             @if transaction.is_refund() {
