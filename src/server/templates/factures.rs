@@ -23,6 +23,7 @@ use crate::server::{
         events::{events_table, new_event_form},
         utils::*,
     },
+    utils::money::format_cents,
 };
 struct TransactionPage {
     body: Markup,
@@ -459,7 +460,7 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                     }
                     td {
                         @if let Some(p) = value.price {
-                            (p)
+                            (format_cents(p)) "$"
                         }
                     }
                     td {
@@ -493,17 +494,17 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                 }
                 td {
                     @if let Some(p) = value.price {
-                        (p)
+                        (format_cents(p)) "$"
                     }
                 }
                 td {
                     @if let Some(ex) = value.insurance {
-                        (ex) "$"
+                        (format_cents(ex)) "$"
                     }
                 }
                 td {
-                    @if let Some(ex) = value.other_costs {
-                        (ex) "$"
+                    @if let Some(oc) = value.other_costs {
+                        (format_cents(oc)) "$"
                     }
                 }
                 td {
@@ -525,12 +526,12 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                 }
                 td {
                     @if let Some(p) = value.price {
-                        (p)
+                        (format_cents(p)) "$"
                     }
                 }
                 td {
-                    @if let Some(p) = value.rebate_dollar {
-                        (p) "$"
+                    @if let Some(rd) = value.rebate_dollar {
+                        (format_cents(rd)) "$"
                     }
                 }
                 td {
@@ -722,7 +723,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
                         "Sous-total:"
                     }
                     td."text-right" {
-                        (facture_computed.total)
+                        (format_cents(facture_computed.total))
                     }
                 }
                 tr {
@@ -730,7 +731,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
                         "TPS 5%:"
                     }
                     td."text-right" {
-                        (facture_computed.tps)
+                        (format_cents(facture_computed.tps))
                     }
                 }
                 tr {
@@ -738,7 +739,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
                         "TVQ 9.975%:"
                     }
                     td."text-right" {
-                        (facture_computed.tvq)
+                        (format_cents(facture_computed.tvq))
                     }
                 }
                 tr {
@@ -746,7 +747,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
                         "Total:"
                     }
                     td."text-right" {
-                        (facture_computed.tax_total)
+                        (format_cents(facture_computed.tax_total))
                     }
                 }
                 tr {
@@ -754,7 +755,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
                         "Total des paiements enregistrés:"
                     }
                     td."text-right" {
-                        (facture_computed.total_payments)
+                        (format_cents(facture_computed.total_payments))
                     }
                 }
                 tr {
@@ -762,7 +763,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
                         "Total des remboursements enregistrés:"
                     }
                     td."text-right" {
-                        (facture_computed.total_refunds)
+                        (format_cents(facture_computed.total_refunds))
                     }
                 }
                 tr {
@@ -770,7 +771,7 @@ fn facture_info_total(facture_computed: &FactureComputed) -> Markup {
                         "Solde à payer:"
                     }
                     td."text-right" {
-                        (facture_computed.balance)
+                        (format_cents(facture_computed.balance))
                     }
                 }
             }
@@ -917,6 +918,7 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
         (facture_info_actions(page_data.facture_data.facture_info.facture.id, false, true, has_event, page_data.facture_data.facture_info.facture.cancelled))
     };
     let facture_title = format!("Facture #{}", facture_id);
+    let update_url = format!("/factures/{}/update", facture_id);
 
     html! {
         main role="main" {
@@ -938,7 +940,7 @@ fn the_items(page_data: &PageFactureItemsData) -> Markup {
                         }
                         div."modal fade" id="update-facture" aria-hidden="true" aria-labelledby="update-facture-label" role="dialog" tabindex="-1" {
                             div."modal-dialog" role="document" {
-                                form action="/factures/rec123/update" method="POST" {
+                                form action=(update_url) method="POST" {
                                     div."modal-content" {
                                         div."modal-header" {
                                             h5."modal-title" id="make-payment-modal-label" {
@@ -1875,10 +1877,10 @@ fn select_item(facture_id: i64, products: Vec<ProductInfo>) -> Markup {
                                         div."card item mb-2" style="width: 15rem;" {
                                             div."card-body" {
                                                 h5."card-title" {
-                                                    (p.product.name) @if let Some(price) = p.product.price { " - " (price) "$" }
+                                                    (p.product.name) @if let Some(price) = p.product.price { " - " (format_cents(price)) "$" }
                                                 }
                                                 h6."card-subtitle text-muted" {
-                                                    (types) @if let Some(price) = p.reduced_price() { " - Prix réduit "(price) "$" }
+                                                    (types) @if let Some(price) = p.reduced_price() { " - Prix réduit "(format_cents(price)) "$" }
                                                 }
                                                 a."card-link stretched-link" href=(add_one_item_url) {}
                                             }
@@ -1983,7 +1985,7 @@ fn transaction_form_fields(
 
                     @if transaction.is_payment() && transaction.is_none() {
                         div."alert alert-info" id=(format!("{}-future-balance", id))  {
-                            span { "Solde à payer: " (balance) }
+                            span { "Solde à payer: " (format_cents(balance)) }
                         }
                     }
                 }
@@ -2150,7 +2152,7 @@ fn table_transaction(
                                 "Paiement"
                             }
                             td {
-                                (p.amount)
+                                (format_cents(p.amount))
                             }
                             td {
                                 (p.date)
@@ -2170,7 +2172,7 @@ fn table_transaction(
                                 "Remboursement"
                             }
                             td {
-                                (r.amount)
+                                (format_cents(r.amount))
                             }
                             td {
                                 (r.date)
@@ -2480,7 +2482,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                             "Sous-total:"
                         }
                         td."text-right" {
-                            (facture_data.facture_info.facture_computed.total)
+                            (format_cents(facture_data.facture_info.facture_computed.total))
                         }
                     }
                     tr {
@@ -2488,7 +2490,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                             "TPS 5%:"
                         }
                         td."text-right" {
-                            (facture_data.facture_info.facture_computed.tps)
+                            (format_cents(facture_data.facture_info.facture_computed.tps))
                         }
                     }
                     tr {
@@ -2496,7 +2498,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                             "TVQ 9.975%:"
                         }
                         td."text-right" {
-                            (facture_data.facture_info.facture_computed.tvq)
+                            (format_cents(facture_data.facture_info.facture_computed.tvq))
                         }
                     }
                     tr {
@@ -2504,7 +2506,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                             "Total:"
                         }
                         td."text-right" {
-                            (facture_data.facture_info.facture_computed.tax_total)
+                            (format_cents(facture_data.facture_info.facture_computed.tax_total))
                         }
                     }
                     tr {
@@ -2528,7 +2530,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                                 ul style=("list-style-position: inside;") {
                                     @for p in &facture_data.payments {
                                         li {
-                                            (p.date) " " (p.payment_type) " - " (p.amount)
+                                            (p.date) " " (p.payment_type) " - " (format_cents(p.amount))
                                         }
                                     }
                                 }
@@ -2548,7 +2550,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                                 ul style=("list-style-position: inside;") {
                                     @for r in &facture_data.refunds {
                                         li {
-                                            (r.date) " " (r.refund_type) " - " (r.amount) @if let Some(c) = r.cheque_number.as_ref() { "No chèque: " (c) }
+                                            (r.date) " " (r.refund_type) " - " (format_cents(r.amount)) @if let Some(c) = r.cheque_number.as_ref() { "No chèque: " (c) }
                                         }
                                     }
                                 }
@@ -2560,7 +2562,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                             "Balance à recevoir:"
                         }
                         td."text-right" {
-                            (facture_data.facture_info.facture_computed.balance)
+                            (format_cents(facture_data.facture_info.facture_computed.balance))
                         }
                     }
                 }
@@ -2588,16 +2590,16 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                         }
                         td {
                             @if let Some(p) = &value.price {
-                                (p)
+                                (format_cents(*p))
                             }
                         }
                         td."details" {
                             ul."list-unstyled ml-0" {
                                 @if let Some(percent) = &value.rebate_percent.filter(|a| *a > 0) {
-                                    li { b { "Rabais de " (percent) "% appliqué sur le prix unistaire:" } (entry.item_computed.calculated_rebate) }
+                                    li { b { "Rabais de " (percent) "% appliqué sur le prix unistaire:" } (format_cents(entry.item_computed.calculated_rebate)) }
                                 }
                                 @if let Some(ex) = &value.extra_large_size {
-                                    li { b { "Frais additionnels pour taille forte: " } (ex) }
+                                    li { b { "Frais additionnels pour taille forte: " } (format_cents(*ex)) }
                                 }
                                 @if entry.product_info.types.iter().any(|pt| pt.is_dress()) && !value.floor_item {
                                     li { b { "Mesures: " } (entry.item_computed.measurements) }
@@ -2616,7 +2618,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                             }
                         }
                         td."text-right" {
-                            (entry.item_computed.total)
+                            (format_cents(entry.item_computed.total))
                         }
                     }
                 }
@@ -2630,10 +2632,10 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                         ul."list-unstyled ml-0" {
                             li { b { "Location de vêtements et d'accessoires" } }
                             @if let Some(ass) = &value.insurance {
-                                li { b { "Frais d'assurances: " } (ass) }
+                                li { b { "Frais d'assurances: " } (format_cents(*ass)) }
                             }
                             @if let Some(oc) = &value.other_costs {
-                                li { b { "Autres frais supplémentaires: " } (oc) }
+                                li { b { "Autres frais supplémentaires: " } (format_cents(*oc)) }
                             }
                             @if let Some(n) = value.notes.as_ref() {
                                 (display_notes(&n))
@@ -2647,7 +2649,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                     }
                     td {
                         @if let Some(p) = value.price {
-                            (p)
+                            (format_cents(p))
                         }
                     }
                 }
@@ -2663,13 +2665,13 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                     }
                     td {
                         @if let Some(p) = value.price {
-                            (p)
+                            (format_cents(p))
                         }
                     }
                     td."details" {
                         ul."list-unstyled ml-0" {
                             @if let Some(rebate) = &value.rebate_dollar {
-                                li { b { "Rabais appliqué sur le prix unitaire: " } (rebate) }
+                                li { b { "Rabais appliqué sur le prix unitaire: " } (format_cents(*rebate)) }
                             }
                             @if let Some(n) = value.notes.as_ref() {
                                 (display_notes(&n))
@@ -2677,7 +2679,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                         }
                     }
                     td."text-right" {
-                        (entry.item_computed.total)
+                        (format_cents(entry.item_computed.total))
                     }
                 }
             },

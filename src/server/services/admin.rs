@@ -12,6 +12,7 @@ use crate::server::models::facture_items::{FactureItemRow, FactureItemView};
 use crate::server::models::payments::{PaymentReportRow, PaymentRow, PaymentView};
 use crate::server::models::refunds::{RefundRow, RefundView};
 use crate::server::services::factures::computed_facture_fields;
+use crate::server::utils::money::format_cents;
 use crate::server::{
     database::select::Selectable,
     models::{
@@ -82,7 +83,7 @@ pub fn load_payment_reports_data(
             paper_ref: record.paper_ref,
             facture_type: record.facture_type,
             date: record.date,
-            amount: record.amount.to_string(), //TODO format as ###.## $
+            amount: format_cents(record.amount),
             payment_type: record.payment_type,
             cancelled: record.cancelled,
             transaction_url,
@@ -179,7 +180,7 @@ pub async fn load_facture_reports_data(pool: &SqlitePool) -> Result<Vec<FactureR
             facture_id,
             paper_ref: facture_view.paper_ref,
             date: facture_view.date,
-            balance: facture_computed.balance.to_string(), // Format as ###.## $
+            balance: format_cents(facture_computed.balance),
             client_name: client.name(),
         });
     }
