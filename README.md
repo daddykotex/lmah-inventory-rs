@@ -68,6 +68,22 @@ systemfd --no-pid -s http::8080 -- watchexec -r -- cargo run --bin server -- --d
 
 ## Notes
 
+### Migration
+
+Do once:
+1. google: Create bucket for SQLite litestream replica
+2. google: Authorize the app URL for lmah-qa.lamarieealhonneur.com (app.lamarieealhonneur.com) is already authorized
+
+To build database:
+1. Run the export tool from the scala project (to generate the JSON file)
+2. Create a vanilla database and run the initial migration
+3. Load the data from the json export to the SQLite database (run the `load` cli through `litestream`)
+
+To run in prod:
+1. litestream replicate --exec "lmah-rs"
+
+Once we have the database, deploying will be a matter of starting the app with litestream configured to look at a specific GCP bucket where the data will reside.
+
 ### Deployment
 
 Experimented with Fly's Sprites.
