@@ -15,8 +15,6 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: server
-            asset_name: lmah-inventory-rs-linux-x86_64
 
     runs-on: ${{ matrix.os }}
     env:
@@ -44,7 +42,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: lmah-inventory-rs
+            artifact_name: server
             asset_name: lmah-inventory-rs-linux-x86_64
 
     runs-on: ${{ matrix.os }}
