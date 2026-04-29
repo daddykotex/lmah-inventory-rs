@@ -1,10 +1,7 @@
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use axum::{Extension, Router, extract::FromRef, middleware, response::Redirect, routing::get};
 use axum_extra::extract::cookie::Key;
-use google_cloud_auth::{
-    credentials::{Credentials, service_account::Builder},
-    signer::Signer,
-};
+use google_cloud_auth::{credentials::Credentials, signer::Signer};
 use google_cloud_storage::client::Storage;
 use reqwest::Client;
 use sqlx::SqlitePool;
@@ -34,6 +31,31 @@ pub struct AppState {
     pub http_client: Client,
 }
 
+async fn build_google_components(config: &RouterConfig) -> Result<(Storage, Signer)> {
+    if let Some(key) = config.google_service_account_json_key() {
+        use google_cloud_auth::credentials::service_account::Builder;
+        let json_service_account_key: serde_json::Value = serde_json::from_str(&key)?;
+
+        let google_credentials: Credentials =
+            Builder::new(json_service_account_key.clone()).build()?;
+        let storage = Storage::builder()
+            .with_credentials(google_credentials)
+            .build()
+            .await?;
+        let signer = Builder::new(json_service_account_key.clone()).build_signer()?;
+
+        Ok((storage, signer))
+    } else {
+        use google_cloud_auth::credentials::Builder;
+        let storage = Storage::builder()
+            .with_credentials(Builder::default().build()?)
+            .build()
+            .await?;
+        let signer = Builder::default().build_signer()?;
+        Ok((storage, signer))
+    }
+}
+
 async fn prepare_app_state(db_pool: SqlitePool, config: RouterConfig) -> Result<AppState> {
     // Load Cookie Key (for signed and encrypted cookies)
     let decoded_key = hex::decode(config.cookie_key().clone().to_string())
@@ -42,17 +64,7 @@ async fn prepare_app_state(db_pool: SqlitePool, config: RouterConfig) -> Result<
     let key = key.expect("Unable to load cookie key");
 
     // Load google credentials
-    let json_service_account_key: serde_json::Value =
-        serde_json::from_str(&config.google_service_account_json_key())
-            .context("Unable to load JSON from environment variable")?;
-    let google_credentials: Credentials = Builder::new(json_service_account_key.clone()).build()?;
-    let storage = Storage::builder()
-        .with_credentials(google_credentials)
-        .build()
-        .await?;
-
-    let signer = Builder::new(json_service_account_key.clone()).build_signer()?;
-
+    let (storage, signer) = build_google_components(&config).await?;
     let http_client = Client::new();
 
     Ok(AppState {

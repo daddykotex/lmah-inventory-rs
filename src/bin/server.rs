@@ -30,9 +30,10 @@ pub struct ServerConfig {
     #[arg(long, env = "LMAH_GOOGLE_OAUTH_SECRET")]
     lmah_google_oauth_secret: String,
 
-    /// Google service account credentials (file upload)
+    /// Google service account key as json, alternatively
+    /// this application can use GOOGLE_APPLICATION_CREDENTIALS
     #[arg(long, env = "LMAH_GOOGLE_CREDENTIALS")]
-    lmah_google_credentials: String,
+    lmah_google_credentials: Option<String>,
 
     /// GCP Storage bucket name
     #[arg(long, env = "LMAH_GOOGLE_BUCKET_NAME")]
