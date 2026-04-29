@@ -34,7 +34,7 @@ pub async fn make_state(pool: SqlitePool) -> AppState {
         "".to_string(),
         "".to_string(),
         "".to_string(),
-        "".to_string(),
+        None,
         "".to_string(),
         "".to_string(),
         "".to_string(),
