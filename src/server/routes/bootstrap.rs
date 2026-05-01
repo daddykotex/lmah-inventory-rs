@@ -1,4 +1,4 @@
-use anyhow::{Result};
+use anyhow::Result;
 use axum::{Extension, Router, extract::FromRef, middleware, response::Redirect, routing::get};
 use axum_extra::extract::cookie::Key;
 use google_cloud_auth::{credentials::Credentials, signer::Signer};

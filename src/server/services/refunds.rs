@@ -55,7 +55,7 @@ async fn validate_refund_amount(
     // Calculate current refunds total, excluding the refund being updated
     let total_refunds: i64 = refunds
         .iter()
-        .filter(|r| existing_refund_id.map_or(true, |id| r.id != id))
+        .filter(|r| existing_refund_id != Some(r.id))
         .map(|r| r.amount)
         .sum();
 

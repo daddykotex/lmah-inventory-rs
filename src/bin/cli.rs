@@ -91,7 +91,7 @@ async fn verify_clients_import(pool: &SqlitePool) -> Result<()> {
 }
 
 async fn load(args: &LoadArgs) -> Result<()> {
-    assert_args(&args);
+    assert_args(args);
 
     println!("LMAH Inventory - Data Loader");
     println!("===========================");

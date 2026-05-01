@@ -642,7 +642,7 @@ fn list_the_items(facture_data: &FactureItemsData) -> Markup {
         },
     };
     html! {
-        @if facture_data.items.iter().count() > 0 {
+        @if !facture_data.items.is_empty() {
             table."table table-sm items" {
                 (header)
                 tbody {
@@ -1188,7 +1188,7 @@ fn facture_item_form(
                         span {
                             "Notes"
                         }
-                        @if note_templates.iter().count() > 0 {
+                        @if !note_templates.is_empty() {
                             div."pull-right" {
                                 select #notes-formula {
                                     option value="" {
@@ -1337,7 +1337,7 @@ fn facture_item_form(
                     @let gaine_sizes: Vec<(bool, &str)> = gaine_sizes
                         .into_iter()
                         .enumerate()
-                        .map(|(i, e)| (value.size.as_ref().map_or(i == 0, |e2| e2 == &e), e))
+                        .map(|(i, e)| (value.size.as_ref().map_or(i == 0, |e2| e2 == e), e))
                         .collect();
 
                     div."form-row form-group" {
@@ -1460,7 +1460,7 @@ fn facture_item_form(
 }
 
 fn status_history_table(state: &StateView) -> Markup {
-    let count = state.previous_states.iter().count();
+    let count = state.previous_states.len();
     html! {
         table."table table-hover table-borderless" {
             @for (idx, st) in state.previous_states.iter().enumerate() {
@@ -1572,8 +1572,13 @@ fn the_item(page_data: PageOneFactureItemData) -> Markup {
     );
     let items_url = format!("/factures/{}/items", facture_id);
     let statut_change_target_modal = format!("#state-modal-{}", facture_item_id);
-    let available_transitions = page_data.item.state.available_transitions().iter().count();
-    let statut_change_disabled = if available_transitions <= 0 {
+    let available_transitions = page_data
+        .item
+        .state
+        .available_transitions()
+        .map(|at| at.len())
+        .unwrap_or(0);
+    let statut_change_disabled = if available_transitions == 0 {
         Some(true)
     } else {
         None
@@ -1833,11 +1838,11 @@ fn select_item(facture_id: i64, products: Vec<ProductInfo>) -> Markup {
                                 @for p in products {
                                     @let add_one_item_url = format!("/factures/{}/add-item/{}", facture_id, p.product.id);
 
-                                    @let normalized_types: Vec<String> = (&p.types).iter().map(|pt|pt.normalized()).collect();
+                                    @let normalized_types: Vec<String> = p.types.iter().map(|pt|pt.normalized()).collect();
                                     @let normalized_types: Vec<&str> = normalized_types.iter().map(|pt|pt.as_str()).collect();
                                     @let normalized_types = normalized_types.join(",");
 
-                                    @let types: Vec<&str> = (&p.types).into_iter().map(|pt|pt.name.as_str()).collect();
+                                    @let types: Vec<&str> = p.types.iter().map(|pt|pt.name.as_str()).collect();
                                     @let types = types.join(", ");
 
                                     div."one-product-card col-6 col-sm-3 col-md-2" data-product-availability="true" data-product-types=(normalized_types) {
@@ -2096,7 +2101,7 @@ fn table_transaction(
         }
     }
     let body = html! {
-        @if payments.iter().count() > 0 {
+        @if !payments.is_empty() {
             table."table table-sm payments-refunds" {
                 thead {
                     tr {
@@ -2497,7 +2502,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                         }
                     }
                     tr {
-                        @if facture_data.payments.iter().count() > 0 {
+                        @if !facture_data.payments.is_empty() {
                             th {
                                 "Paiements reçus:"
                             }
@@ -2517,7 +2522,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                         }
                     }
                     tr {
-                        @if facture_data.refunds.iter().count() > 0 {
+                        @if !facture_data.refunds.is_empty() {
                             th {
                                 "Remboursements reçus:"
                             }
@@ -2583,7 +2588,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                                     li { "Modèle planché" }
                                 }
                                 @if let Some(n) = value.notes.as_ref() {
-                                    (display_notes(&n))
+                                    (display_notes(n))
                                 }
                             }
                         }
@@ -2613,7 +2618,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                                 li { b { "Autres frais supplémentaires: " } (format_cents(*oc)) }
                             }
                             @if let Some(n) = value.notes.as_ref() {
-                                (display_notes(&n))
+                                (display_notes(n))
                             }
                         }
                     }
@@ -2649,7 +2654,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                                 li { b { "Rabais appliqué sur le prix unitaire: " } (format_cents(*rebate)) }
                             }
                             @if let Some(n) = value.notes.as_ref() {
-                                (display_notes(&n))
+                                (display_notes(n))
                             }
                         }
                     }
@@ -2735,7 +2740,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
             },
         };
         html! {
-            @if facture_data.items.iter().count() > 0 {
+            @if !facture_data.items.is_empty() {
                 table."table print-items" {
                     (header)
                     tbody {

@@ -29,7 +29,7 @@ pub async fn inject_user_data(
     mut request: Request<Body>,
     next: Next,
 ) -> Result<impl IntoResponse, AppError> {
-    if let Some(_) = cookie_jar.get("user") {
+    if cookie_jar.get("user").is_some() {
         request.extensions_mut().insert(Some(UserData {}));
     }
     Ok(next.run(request).await)

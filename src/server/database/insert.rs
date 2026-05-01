@@ -84,7 +84,7 @@ impl Insertable for ClientRow {
             "INSERT INTO clients (id, first_name, last_name, street, city, phone1, phone2, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .bind(&self.id)
+        .bind(self.id)
         .bind(&self.first_name)
         .bind(&self.last_name)
         .bind(&self.street)
@@ -117,7 +117,7 @@ impl Insertable for ProductTypeRow {
             .await
             .with_context(|| format!("Failed to insert product_type: {}", self.name))?;
 
-        return Ok(None);
+        Ok(None)
     }
 }
 
@@ -164,7 +164,7 @@ impl Insertable for EventRow {
         // Get the database ID
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -179,8 +179,8 @@ impl Insertable for ProductInsert {
              VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
         .bind(&self.name)
-        .bind(&self.price)
-        .bind(&self.liquidation)
+        .bind(self.price)
+        .bind(self.liquidation)
         .bind(if self.visible_on_site { 1 } else { 0 })
         .execute(&mut **tx)
         .await
@@ -189,7 +189,7 @@ impl Insertable for ProductInsert {
         // Get the database ID
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -202,7 +202,7 @@ impl Insertable for ProductImageInsert {
             "INSERT INTO product_images (product_id, url, filename, position, created_at)
              VALUES (?, ?, ?, ?, datetime('now'))",
         )
-        .bind(&self.product_id)
+        .bind(self.product_id)
         .bind(&self.url)
         .bind(&self.filename)
         .bind(&self.position)
@@ -229,11 +229,11 @@ impl Insertable for FactureRow {
             "INSERT INTO factures (client_id, facture_type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .bind(&self.client_id)
+        .bind(self.client_id)
         .bind(&self.facture_type)
         .bind(&self.date)
-        .bind(&self.event_id)
-        .bind(&self.fixed_total)
+        .bind(self.event_id)
+        .bind(self.fixed_total)
         .bind(if self.cancelled { 1 } else { 0 })
         .bind(&self.paper_ref)
         .bind(&self.created_at)
@@ -250,7 +250,7 @@ impl Insertable for FactureRow {
         // Get the database ID
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -264,9 +264,9 @@ impl Insertable for FactureInsert {
             "INSERT INTO factures (client_id, facture_type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
              VALUES (?, ?, date('now'), ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
-        .bind(&self.client_id)
+        .bind(self.client_id)
         .bind(&self.facture_type)
-        .bind(&self.fixed_total)
+        .bind(self.fixed_total)
         .bind(if self.cancelled { 1 } else { 0 })
         .bind(&self.paper_ref)
         .execute(&mut **tx)
@@ -281,7 +281,7 @@ impl Insertable for FactureInsert {
         // Get the database ID
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -301,24 +301,24 @@ impl Insertable for FactureItemInsert {
                 created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
-        .bind(&self.facture_id)
-        .bind(&self.product_id)
+        .bind(self.facture_id)
+        .bind(self.product_id)
         .bind(&self.item_type)
-        .bind(&self.price)
+        .bind(self.price)
         .bind(&self.notes)
-        .bind(&self.quantity)
-        .bind(&self.extra_large_size)
-        .bind(&self.rebate_percent)
+        .bind(self.quantity)
+        .bind(self.extra_large_size)
+        .bind(self.rebate_percent)
         .bind(&self.size)
-        .bind(&self.chest)
-        .bind(&self.waist)
-        .bind(&self.hips)
+        .bind(self.chest)
+        .bind(self.waist)
+        .bind(self.hips)
         .bind(&self.color)
         .bind(&self.beneficiary)
         .bind(if self.floor_item { 1 } else { 0 })
-        .bind(&self.insurance)
-        .bind(&self.other_costs)
-        .bind(&self.rebate_dollar)
+        .bind(self.insurance)
+        .bind(self.other_costs)
+        .bind(self.rebate_dollar)
         .execute(&mut **tx)
         .await
         .with_context(|| {
@@ -331,7 +331,7 @@ impl Insertable for FactureItemInsert {
         // Get the database ID
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -344,8 +344,8 @@ impl Insertable for PaymentInsert {
             "INSERT INTO payments (facture_id, amount, date, payment_type, cheque_number, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
-        .bind(&self.facture_id)
-        .bind(&self.amount)
+        .bind(self.facture_id)
+        .bind(self.amount)
         .bind(&self.date)
         .bind(&self.payment_type)
         .bind(&self.cheque_number)
@@ -360,7 +360,7 @@ impl Insertable for PaymentInsert {
 
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -373,8 +373,8 @@ impl Insertable for RefundInsert {
             "INSERT INTO refunds (facture_id, amount, date, refund_type, cheque_number, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
-        .bind(&self.facture_id)
-        .bind(&self.amount)
+        .bind(self.facture_id)
+        .bind(self.amount)
         .bind(&self.date)
         .bind(&self.refund_type)
         .bind(&self.cheque_number)
@@ -389,7 +389,7 @@ impl Insertable for RefundInsert {
 
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -402,8 +402,8 @@ impl Insertable for StatutInsert {
             "INSERT INTO statuts (facture_id, facture_item_id, statut_type, date, seamstress, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
-        .bind(&self.facture_id)
-        .bind(&self.facture_item_id)
+        .bind(self.facture_id)
+        .bind(self.facture_item_id)
         .bind(&self.statut_type)
         .bind(&self.date)
         .bind(&self.seamstress)
@@ -418,6 +418,6 @@ impl Insertable for StatutInsert {
 
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }

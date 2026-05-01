@@ -41,7 +41,7 @@ pub async fn load_products_to_add(
 ) -> Result<ProductsOrRedirect> {
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
-    let facture_info = select_one(&pool, facture_id).await?;
+    let facture_info = select_one(pool, facture_id).await?;
     let facture_type = facture_info
         .facture_data
         .facture_info
@@ -167,8 +167,8 @@ pub async fn blank_facture_item(
     let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut *tx).await?;
     let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut *tx).await?;
 
-    let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
-    let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
+    let payment_views: Vec<PaymentView> = payment_rows.into_iter().map(PaymentView::from).collect();
+    let refund_views: Vec<RefundView> = refund_rows.into_iter().map(RefundView::from).collect();
     let (facture_computed, _) =
         computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
 
@@ -206,7 +206,7 @@ pub async fn blank_facture_item(
 
     let item_entry = FactureItemEntry {
         item: facture_item,
-        state: state,
+        state,
         product: ProductView::from(product_row),
     };
     let facture_info = FactureInfo {
@@ -315,8 +315,8 @@ pub async fn select_transactions(
     let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut *tx).await?;
     let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut *tx).await?;
 
-    let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
-    let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
+    let payment_views: Vec<PaymentView> = payment_rows.into_iter().map(PaymentView::from).collect();
+    let refund_views: Vec<RefundView> = refund_rows.into_iter().map(RefundView::from).collect();
     let (facture_computed, _) =
         computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
 
@@ -383,7 +383,7 @@ pub async fn select_one_facture_item(
     let item_entry = FactureItemEntry {
         item: FactureItemView::try_from(facture_item_row)?,
         product: ProductView::from(product_row),
-        state: state,
+        state,
     };
     Ok(PageOneFactureItemData {
         facture: FactureView::from(facture_row),
@@ -484,8 +484,8 @@ fn build_one_facture_data(
     let facture_items = facture_items?;
 
     let facture_view = FactureView::from(facture);
-    let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
-    let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
+    let payment_views: Vec<PaymentView> = payment_rows.into_iter().map(PaymentView::from).collect();
+    let refund_views: Vec<RefundView> = refund_rows.into_iter().map(RefundView::from).collect();
     let (facture_computed, _) =
         computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
 
@@ -543,7 +543,7 @@ fn build_facture_dashboard_data(
         )))?;
         let client = clients.swap_remove(idx);
 
-        let state_per_item = state_per_facture.remove(&facture.id).unwrap_or(Vec::new());
+        let state_per_item = state_per_facture.remove(&facture.id).unwrap_or_default();
 
         let one = FactureDashboardData {
             facture: FactureView::from(facture),
@@ -608,9 +608,9 @@ const TVQ_RATE: f64 = 9.975;
 
 pub fn computed_facture_fields(
     facture: &FactureView,
-    items: &Vec<FactureItemView>,
-    payments: &Vec<PaymentView>,
-    refunds: &Vec<RefundView>,
+    items: &[FactureItemView],
+    payments: &[PaymentView],
+    refunds: &[RefundView],
 ) -> (FactureComputed, HashMap<i64, FactureItemComputed>) {
     let computed_per_items: HashMap<i64, FactureItemComputed> = items
         .iter()
@@ -683,8 +683,8 @@ async fn load_facture_info(
     let payment_rows = PaymentRow::select_all_for_facture(facture_id, &mut **tx).await?;
     let refund_rows = RefundRow::select_all_for_facture(facture_id, &mut **tx).await?;
 
-    let payment_views = payment_rows.into_iter().map(PaymentView::from).collect();
-    let refund_views = refund_rows.into_iter().map(RefundView::from).collect();
+    let payment_views: Vec<PaymentView> = payment_rows.into_iter().map(PaymentView::from).collect();
+    let refund_views: Vec<RefundView> = refund_rows.into_iter().map(RefundView::from).collect();
 
     let (facture_computed, mut items_computed) =
         computed_facture_fields(&facture_view, &facture_items, &payment_views, &refund_views);
@@ -1066,7 +1066,7 @@ pub async fn insert_facture_item(
     let to_insert = FactureItemInsert {
         facture_id,
         product_id: form.product_id,
-        item_type: item_type,
+        item_type,
         price,
         notes: form.notes,
         quantity: form.quantity.unwrap_or(1),

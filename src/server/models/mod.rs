@@ -224,10 +224,10 @@ impl Transaction<'_> {
 
 impl MaybeTransaction<'_> {
     pub fn is_none(&self) -> bool {
-        match &self {
-            TheTransaction::Payment(None) | TheTransaction::Refund(None) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            TheTransaction::Payment(None) | TheTransaction::Refund(None)
+        )
     }
     pub fn is_refund(&self) -> bool {
         match self {
@@ -308,7 +308,7 @@ impl MaybeTransaction<'_> {
 }
 
 pub fn initial_payment_amount(f: &FactureInfo) -> PreCalculatedPayment {
-    match f.facture.facture_type.as_ref().map(|a| a.as_str()) {
+    match f.facture.facture_type.as_deref() {
         Some("Altération") => PreCalculatedPayment {
             is_alteration: true,
             amount_ratio: 50,
