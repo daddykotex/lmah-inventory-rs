@@ -11,6 +11,11 @@
     channel = "stable";
   };
 
+  git-hooks.hooks = {
+    rustfmt.enable = true;
+    clippy.enable = true;
+  };
+
   packages = [
     pkgs.cargo-insta
     pkgs.sqlite
