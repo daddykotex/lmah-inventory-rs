@@ -1147,6 +1147,7 @@ fn list_factures(factures: Vec<FactureDashboardData>) -> Markup {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn facture_item_form(
     facture_id: i64,
     url: &str,

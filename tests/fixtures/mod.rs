@@ -5,7 +5,9 @@ use google_cloud_auth::{
     signer::{Signer, SigningError, SigningProvider},
 };
 use google_cloud_storage::client::Storage;
-use lmah_inventory_rs::server::routes::{RouterConfig, bootstrap::AppState};
+use lmah_inventory_rs::server::routes::{
+    GoogleConfig, PdfRocketConfig, RouterConfig, WebConfig, bootstrap::AppState,
+};
 use reqwest::Client;
 use sqlx::SqlitePool;
 
@@ -30,16 +32,17 @@ impl SigningProvider for NoopSigner {
 }
 
 pub async fn make_state(pool: SqlitePool) -> AppState {
-    let config = RouterConfig::new(
-        "".to_string(),
-        "".to_string(),
-        "".to_string(),
-        None,
-        "".to_string(),
+    let web_config = WebConfig::new(
         "".to_string(),
         "".to_string(),
         vec!["user@test.com".to_string()],
     );
+
+    let google_config = GoogleConfig::new("".to_string(), "".to_string(), None, "".to_string());
+
+    let pdf_rocket_config = PdfRocketConfig::new("".to_string());
+
+    let config = RouterConfig::new(web_config, google_config, pdf_rocket_config);
 
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     let storage = Storage::builder()
