@@ -2,7 +2,7 @@ use axum::Router;
 use clap::Parser;
 use lmah_inventory_rs::server::{
     database::connect_to_url,
-    routes::{RouterConfig, bootstrap::setup_routes},
+    routes::{GoogleConfig, PdfRocketConfig, RouterConfig, WebConfig, bootstrap::setup_routes},
 };
 use tokio::net::TcpListener;
 
@@ -68,16 +68,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(String::from)
         .collect();
 
-    let router_config = RouterConfig::new(
+    let web_config = WebConfig::new(
         config.lmah_external_url,
+        config.lmah_cookie_key,
+        authorized_users,
+    );
+
+    let google_config = GoogleConfig::new(
         config.lmah_google_oauth_key,
         config.lmah_google_oauth_secret,
         config.lmah_google_credentials,
         config.lmah_google_bucket_name,
-        config.lmah_cookie_key,
-        config.lmah_pdf_rocket_api_key,
-        authorized_users,
     );
+
+    let pdf_rocket_config = PdfRocketConfig::new(config.lmah_pdf_rocket_api_key);
+
+    let router_config = RouterConfig::new(web_config, google_config, pdf_rocket_config);
     let app: Router = setup_routes(pool, router_config).await;
 
     let mut listenfd = listenfd::ListenFd::from_env();
