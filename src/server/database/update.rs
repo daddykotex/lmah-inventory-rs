@@ -30,7 +30,7 @@ impl Updatable for ClientRow {
         .bind(&self.city)
         .bind(&self.phone1)
         .bind(&self.phone2)
-        .bind(&self.id)
+        .bind(self.id)
         .execute(&mut **tx)
         .await
         .with_context(|| {
@@ -58,7 +58,7 @@ impl Updatable for EventRow {
         .bind(&self.name)
         .bind(&self.date)
         .bind(&self.event_type)
-        .bind(&self.id)
+        .bind(self.id)
         .execute(&mut **tx)
         .await
         .with_context(|| format!("Failed to update event: {}", self.name))?;

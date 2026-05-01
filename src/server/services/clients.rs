@@ -15,11 +15,11 @@ pub async fn insert_client(
 }
 
 pub async fn select_one(pool: &SqlitePool, id: i64) -> Result<Option<ClientRow>> {
-    Ok(ClientRow::select_one(id, pool).await?)
+    ClientRow::select_one(id, pool).await
 }
 
 pub async fn select_all(pool: &SqlitePool) -> Result<Vec<ClientRow>> {
-    Ok(ClientRow::select_all(pool).await?)
+    ClientRow::select_all(pool).await
 }
 
 pub async fn update_client(pool: &SqlitePool, id: i64, form: ClientForm) -> Result<u64> {

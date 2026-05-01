@@ -104,7 +104,7 @@ impl State<String, String> {
             State::BackOrder(date) => format!("Back Order le: {}", date),
             State::Cancelled(date) => format!("Annulé le: {}", date),
             State::ExpectingDelivery(date) => format!("Livraison attendue le:: {}", date),
-            State::FloorItem => format!("Item plancher"),
+            State::FloorItem => "Item plancher".to_string(),
             State::GivenToSeamstress(date, st) => format!("Remise à {} le:  {}", st, date),
             State::ItemOut(date) => format!("Sortie le: {}", date),
             State::LocationOut(date) => format!("Sortie le: {}", date),
@@ -191,8 +191,7 @@ pub struct StateView {
     pub item_flow: String,
 }
 
-pub const FLOOR_ITEM_INITIAL_TRANSITIONS: [&'static str; 2] =
-    ["RecordingOutDate", "TransfertToAlteration"];
+pub const FLOOR_ITEM_INITIAL_TRANSITIONS: [&str; 2] = ["RecordingOutDate", "TransfertToAlteration"];
 
 impl StateView {
     pub fn available_transitions(&self) -> Result<Vec<&str>> {

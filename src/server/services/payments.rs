@@ -53,7 +53,7 @@ async fn validate_payment_amount(
     // Calculate current payments total, excluding the payment being updated
     let total_payments: i64 = payments
         .iter()
-        .filter(|p| existing_payment_id.map_or(true, |id| p.id != id))
+        .filter(|p| existing_payment_id != Some(p.id))
         .map(|p| p.amount)
         .sum();
 

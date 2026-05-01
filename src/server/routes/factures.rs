@@ -85,10 +85,8 @@ async fn new_facture_new_client(
 ) -> Result<Markup, AppError> {
     let clients = clients::select_all(&pool).await?;
     let clients = clients.into_iter().map(ClientView::from).collect();
-    let rendered = factures::page_new_facture_new_client(
-        facture_type.facture_type.as_ref().map(|a| a.as_str()),
-        clients,
-    );
+    let rendered =
+        factures::page_new_facture_new_client(facture_type.facture_type.as_deref(), clients);
     Ok(rendered)
 }
 
@@ -98,10 +96,8 @@ async fn new_facture_the_client(
 ) -> Result<Markup, AppError> {
     let clients = clients::select_all(&pool).await?;
     let clients = clients.into_iter().map(ClientView::from).collect();
-    let rendered = factures::page_new_facture_the_client(
-        facture_type.facture_type.as_ref().map(|a| a.as_str()),
-        clients,
-    );
+    let rendered =
+        factures::page_new_facture_the_client(facture_type.facture_type.as_deref(), clients);
     Ok(rendered)
 }
 
@@ -204,7 +200,6 @@ async fn unlink_event_handler(
     State(pool): State<SqlitePool>,
     Path(facture_id): Path<i64>,
 ) -> Result<Redirect, AppError> {
-    let facture_id = facture_id;
     let mut tx = pool.begin().await.context("Failed to begin transaction")?;
 
     let maybe_facture = FactureRow::select_one(facture_id, &mut *tx).await?;
@@ -457,7 +452,7 @@ async fn generate_print_handler(
     .await
     .context("Uploading to storage failed.")?;
 
-    Ok(Json(PrintResponse { url: url }))
+    Ok(Json(PrintResponse { url }))
 }
 
 pub fn facture_router() -> Router<AppState> {

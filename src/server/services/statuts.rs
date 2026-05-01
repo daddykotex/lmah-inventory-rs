@@ -39,7 +39,7 @@ pub fn load_statuts_flow(
         let found = result.get_mut(&(statut_row.facture_id, statut_row.facture_item_id));
         match found {
             Some(state) => {
-                let new_state = apply_statut(&state, &statut_row)?;
+                let new_state = apply_statut(state, &statut_row)?;
                 result.insert(
                     (statut_row.facture_id, statut_row.facture_item_id),
                     new_state,
@@ -145,7 +145,7 @@ fn apply_statut(old_state: &StateView, statut: &StatutRow) -> Result<StateView> 
 
     Ok(StateView {
         current_state: state?,
-        previous_states: previous_states,
+        previous_states,
         ..old_state
     })
 }

@@ -45,12 +45,12 @@ impl Insertable for MigrationFactureInsert {
             "INSERT INTO factures (id, client_id, facture_type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
         )
-        .bind(&self.id)
-        .bind(&self.client_id)
+        .bind(self.id)
+        .bind(self.client_id)
         .bind(&self.facture_type)
         .bind(&self.date)
-        .bind(&self.event_id)
-        .bind(&self.fixed_total)
+        .bind(self.event_id)
+        .bind(self.fixed_total)
         .bind(if self.cancelled { 1 } else { 0 })
         .bind(&self.paper_ref)
         .execute(&mut **tx)
@@ -65,7 +65,7 @@ impl Insertable for MigrationFactureInsert {
         // Get the database ID
         let db_id = result.last_insert_rowid();
 
-        return Ok(Some(db_id));
+        Ok(Some(db_id))
     }
 }
 
@@ -211,12 +211,12 @@ pub async fn load_from_export(data: AirtableExport) -> Result<ToInsert> {
     let clients = load_clients_from_export(data.clients).await?;
     let product_types = load_product_types_from_export(data.product_types).await?;
     let events = load_events_from_export(data.events).await?;
-    return Ok(ToInsert {
+    Ok(ToInsert {
         config,
         clients,
         product_types,
         events,
-    });
+    })
 }
 
 /// Load config records
@@ -502,10 +502,10 @@ fn validate_product_fields(fields: &ProductFields) -> Result<()> {
     if fields.name.trim().is_empty() {
         anyhow::bail!("product name cannot be empty");
     }
-    if let Some(price) = fields.price {
-        if price < 0.0 {
-            anyhow::bail!("product price cannot be negative");
-        }
+    if let Some(price) = fields.price
+        && price < 0.0
+    {
+        anyhow::bail!("product price cannot be negative");
     }
     Ok(())
 }
@@ -613,10 +613,10 @@ fn validate_facture_fields(fields: &FactureFields) -> Result<()> {
     }
 
     // Validate fixed_total if present
-    if let Some(total) = fields.fixed_total {
-        if total < 0.0 {
-            anyhow::bail!("facture fixed_total cannot be negative");
-        }
+    if let Some(total) = fields.fixed_total
+        && total < 0.0
+    {
+        anyhow::bail!("facture fixed_total cannot be negative");
     }
 
     Ok(())
@@ -818,10 +818,10 @@ fn validate_facture_item_fields(fields: &FactureItemFields) -> Result<()> {
     }
 
     // Validate quantity if present
-    if let Some(qty) = fields.quantity {
-        if qty < 0 {
-            anyhow::bail!("facture_item quantity cannot be negative");
-        }
+    if let Some(qty) = fields.quantity
+        && qty < 0
+    {
+        anyhow::bail!("facture_item quantity cannot be negative");
     }
 
     Ok(())

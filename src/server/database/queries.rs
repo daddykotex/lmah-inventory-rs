@@ -251,9 +251,7 @@ impl ProductRow {
         ))
         .fetch_all(executor)
         .await
-        .context(format!(
-            "Failed to retrieve all products but location and alteration"
-        ))?;
+        .context("Failed to retrieve all products but location and alteration")?;
 
         Ok(result)
     }
@@ -377,9 +375,7 @@ impl ProductTypeRow {
         )
         .fetch_all(executor)
         .await
-        .context(format!(
-            "Failed to retrieve product_types for all products but location and alteration"
-        ))?;
+        .context("Failed to retrieve product_types for all products but location and alteration")?;
 
         Ok(result)
     }
@@ -404,9 +400,7 @@ impl ProductTypeRow {
         .bind(facture_id)
         .fetch_all(executor)
         .await
-        .context(format!(
-            "Failed to retrieve product_types for all products but location and alteration"
-        ))?;
+        .context("Failed to retrieve product_types for all products but location and alteration")?;
 
         Ok(result)
     }
@@ -415,9 +409,9 @@ impl ProductTypeRow {
     where
         E: Executor<'c, Database = Sqlite>,
     {
-        let result: ProductTypeRow = sqlx::query_as(&format!(
+        let result: ProductTypeRow = sqlx::query_as(
             "SELECT name FROM product_types LEFT JOIN product_product_types ON product_types.name = product_product_types.product_type_name where product_id = ?",
-        ))
+        )
         .bind(product_id)
         .fetch_one(executor)
         .await?;
