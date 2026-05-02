@@ -32,7 +32,7 @@ impl Selectable<ConfigRow> for ConfigRow {
         .bind(id)
         .fetch_optional(e)
         .await
-        .context(format!("Failed to retrieve one client with id {}", id))?;
+        .context(format!("Failed to retrieve one config with id {}", id))?;
 
         Ok(result)
     }
