@@ -72,7 +72,7 @@ jobs:
 
     - name: Create tar.gz
       if: startsWith(github.ref, 'refs/tags/v')
-      run: tar -czf ${{ matrix.asset_name }}.tar.gz -C dist .
+      run: tar -czf ${{ matrix.asset_name }}.tar.gz dist
 
     - name: Upload artifact
       if: startsWith(github.ref, 'refs/tags/v')
