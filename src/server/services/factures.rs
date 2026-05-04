@@ -559,29 +559,22 @@ fn build_facture_dashboard_data(
 }
 
 fn compute_item(item: &FactureItemView) -> FactureItemComputed {
-    let price = item.price().unwrap_or(0);
+    let price = item.price().unwrap_or_default();
     let calculated_rebate = match &item.value {
-        FactureItemValue::FactureItemProduct(i) => {
-            let r = i.rebate_percent.unwrap_or(0);
-            if r > 0 {
-                i.quantity * (r / 100 * price)
-            } else {
-                0
-            }
-        }
+        FactureItemValue::FactureItemProduct(i) => i.rebate_percent_applied().unwrap_or_default(),
         FactureItemValue::FactureItemLocation(_) => 0,
-        FactureItemValue::FactureItemAlteration(i) => i.rebate_dollar.unwrap_or(0),
+        FactureItemValue::FactureItemAlteration(i) => i.rebate_dollar.unwrap_or_default(),
     };
     let total = match &item.value {
         FactureItemValue::FactureItemProduct(i) => {
-            let xl = i.extra_large_size.unwrap_or(0);
+            let xl = i.extra_large_size.unwrap_or_default();
             let sub_total = (price + xl) * i.quantity;
             sub_total - calculated_rebate
         }
         FactureItemValue::FactureItemLocation(i) => {
-            price + i.other_costs.unwrap_or(0) + i.insurance.unwrap_or(0)
+            price + i.other_costs.unwrap_or_default() + i.insurance.unwrap_or_default()
         }
-        FactureItemValue::FactureItemAlteration(i) => price - i.rebate_dollar.unwrap_or(0),
+        FactureItemValue::FactureItemAlteration(i) => price - i.rebate_dollar.unwrap_or_default(),
     };
     let measurements = match &item.value {
         FactureItemValue::FactureItemProduct(i) => i

@@ -474,7 +474,7 @@ fn list_the_items_row(entry: &FactureItemEntry<FactureItemView>) -> Markup {
                     }
                     td {
                         @if let Some(ex) = value.extra_large_size {
-                            (ex)
+                            (format_cents(ex))
                         }
                     }
                     td {
@@ -1272,7 +1272,7 @@ fn facture_item_form(
                                     input id="dress-extra-large-size" disabled class="form-check-input" name="extra-large-size" value="true" type="checkbox";
                                     input type="hidden" name="extra-large-size-amount" value=(extra_amount);
                                     label for="dress-extra-large-size" {
-                                        "Taille forte (" (extra_amount) ")"
+                                        "Taille forte (" (format_cents(extra_amount)) ")"
                                     }
                                 }
                             }
@@ -2577,7 +2577,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                         td."details" {
                             ul."list-unstyled ml-0" {
                                 @if let Some(percent) = &value.rebate_percent.filter(|a| *a > 0) {
-                                    li { b { "Rabais de " (percent) "% appliqué sur le prix unistaire:" } (format_cents(entry.item_computed.calculated_rebate)) }
+                                    li { b { "Rabais de " (percent) "% appliqué sur le prix unitaire: " } (format_cents(entry.item_computed.calculated_rebate)) }
                                 }
                                 @if let Some(ex) = &value.extra_large_size {
                                     li { b { "Frais additionnels pour taille forte: " } (format_cents(*ex)) }
@@ -2942,7 +2942,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                                 tr {
                                     td."text-right" colspan="2" {
                                         b {
-                                            "Signature:"
+                                            "Signature: "
                                         }
                                         "_________________________________________"
                                     }
@@ -2959,7 +2959,7 @@ pub fn page_print(page_data: PagePrintData) -> Markup {
                                 tr."mt-3" {
                                     td."text-right" colspan="2" {
                                         b {
-                                            "Signature:"
+                                            "Signature: "
                                         }
                                         "_________________________________________"
                                     }

@@ -82,6 +82,18 @@ pub struct FactureItemProduct {
     pub beneficiary: Option<String>,
     pub floor_item: bool, // Default false
 }
+
+impl FactureItemProduct {
+    pub fn rebate_percent_applied(&self) -> Option<i64> {
+        self.price
+            .zip(self.rebate_percent)
+            .filter(|(_, r)| *r > 0)
+            .map(|(price, rebate_percent)| {
+                ((self.quantity as f64) * ((rebate_percent as f64) / 100.0 * (price as f64)))
+                    .round() as i64
+            })
+    }
+}
 pub struct FactureItemLocation {
     pub price: Option<i64>, // in cents
     pub notes: Option<String>,
@@ -262,7 +274,7 @@ pub struct FactureItemForm {
     pub beneficiary: Option<String>,
     #[serde(rename = "floor-item")]
     pub floor_item: Option<bool>,
-    #[serde(rename = "extra-large-size")]
+    #[serde(rename = "extra-large-size-amount")]
     pub extra_large_size: Option<i64>,
     #[serde(rename = "rebate-percent")]
     pub rebate_percent: Option<i64>,
