@@ -463,7 +463,7 @@ pub async fn select_all(pool: &SqlitePool) -> Result<Vec<FactureDashboardData>> 
     build_facture_dashboard_data(facture_rows, client_rows, facture_item_flows, statut_rows)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "Will reformat later.")]
 fn build_one_facture_data(
     facture: FactureRow,
     client: ClientRow,

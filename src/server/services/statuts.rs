@@ -196,7 +196,7 @@ fn test_load_statuts_flow() {
         updated_at: "2026-03-30 15:51:52".to_string(),
     }];
     let result = load_statuts_flow(facture_item_flows, statuts).unwrap();
-    let result = result.get(&(159, 2430)).unwrap();
+    let result = &result[&(159, 2430)];
     assert_eq!(
         result.current_state,
         State::ItemOut("2020-07-28".to_string())
@@ -234,7 +234,7 @@ fn test_load_statuts_flow_dress_to_order() {
         },
     ];
     let result = load_statuts_flow(facture_item_flows, statuts).unwrap();
-    let result = result.get(&(2573, 1226)).unwrap();
+    let result = &result[&(2573, 1226)];
     assert_eq!(
         result.current_state,
         State::ExpectingDelivery("2026-02-06".to_string())

@@ -5,7 +5,6 @@ use axum::http::StatusCode;
 use http::helpers::*;
 use insta::assert_snapshot;
 use lmah_inventory_rs::server::{database::insert::Insertable, routes::factures::facture_router};
-use sqlx;
 use tower::ServiceExt;
 
 use crate::fixtures::{

@@ -464,7 +464,7 @@ impl From<AirtableRecord<ProductFields>> for ProductRowWithRelated {
                 liquidation: record.fields.liquidation.unwrap_or(false),
                 visible_on_site: record.fields.visible_on_site.unwrap_or(false),
             },
-            product_types: record.fields.product_types.unwrap(),
+            product_types: record.fields.product_types.unwrap_or_default(),
             image_front: record.fields.image_front.and_then(|imgs| {
                 imgs.first().map(|img| ProductImage {
                     url: img.url.clone(),
@@ -543,8 +543,12 @@ pub struct MigrationFactureInsertWithFKs {
 
 impl From<AirtableRecord<FactureFields>> for MigrationFactureInsertWithFKs {
     fn from(record: AirtableRecord<FactureFields>) -> Self {
-        // Extract client airtable ID (required - take first element)
-        let client_airtable_id = record.fields.client.first().cloned().unwrap();
+        let client_airtable_id = record
+            .fields
+            .client
+            .first()
+            .expect("Expected one Client per facture.")
+            .clone();
 
         let facture_type = match record.fields.facture_type.as_deref() {
             Some("Produits") => "Product",
@@ -734,11 +738,18 @@ pub struct FactureItemRowWithFKs {
 
 impl From<AirtableRecord<FactureItemFields>> for FactureItemRowWithFKs {
     fn from(record: AirtableRecord<FactureItemFields>) -> Self {
-        // Extract facture airtable ID (required - take first element)
-        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
-
-        // Extract product airtable ID (required - take first element)
-        let product_airtable_id = record.fields.product.first().cloned().unwrap();
+        let facture_airtable_id = record
+            .fields
+            .facture
+            .first()
+            .expect("Expected one Facture per FactureItem.")
+            .clone();
+        let product_airtable_id = record
+            .fields
+            .product
+            .first()
+            .expect("Expected one Product per FactureItem.")
+            .clone();
 
         // Map item type from French to database values
         let item_type = match record.fields.item_type.as_str() {
@@ -899,8 +910,12 @@ pub struct PaymentRowWithFKs {
 
 impl From<AirtableRecord<PaymentFields>> for PaymentRowWithFKs {
     fn from(record: AirtableRecord<PaymentFields>) -> Self {
-        // Extract facture airtable ID (required - take first element)
-        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
+        let facture_airtable_id = record
+            .fields
+            .facture
+            .first()
+            .expect("Expected one Facture per Payment.")
+            .clone();
 
         PaymentRowWithFKs {
             airtable_id: record.id,
@@ -1018,8 +1033,12 @@ pub struct RefundRowWithFKs {
 
 impl From<AirtableRecord<RefundFields>> for RefundRowWithFKs {
     fn from(record: AirtableRecord<RefundFields>) -> Self {
-        // Extract facture airtable ID (required - take first element)
-        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
+        let facture_airtable_id = record
+            .fields
+            .facture
+            .first()
+            .expect("Expected one Facture per Refund.")
+            .clone();
 
         RefundRowWithFKs {
             airtable_id: record.id,
@@ -1142,11 +1161,18 @@ fn extract_date_from_timestamp(timestamp: &str) -> String {
 
 impl From<AirtableRecord<StatutFields>> for StatutRowWithFKs {
     fn from(record: AirtableRecord<StatutFields>) -> Self {
-        // Extract facture airtable ID (required - take first element)
-        let facture_airtable_id = record.fields.facture.first().cloned().unwrap();
-
-        // Extract facture_item airtable ID (required - take first element)
-        let facture_item_airtable_id = record.fields.facture_item.first().cloned().unwrap();
+        let facture_airtable_id = record
+            .fields
+            .facture
+            .first()
+            .expect("Expected one Facture per Statut.")
+            .clone();
+        let facture_item_airtable_id = record
+            .fields
+            .facture_item
+            .first()
+            .expect("Expected one Facture per FactureItem.")
+            .clone();
 
         StatutRowWithFKs {
             airtable_id: record.id,

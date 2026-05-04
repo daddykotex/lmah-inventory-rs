@@ -8,7 +8,6 @@ use insta::assert_snapshot;
 use lmah_inventory_rs::server::models::events::EventForm;
 use lmah_inventory_rs::server::routes::events::event_router;
 use lmah_inventory_rs::server::services::events::insert_event;
-use sqlx;
 use tower::ServiceExt;
 
 use crate::fixtures::make_state;

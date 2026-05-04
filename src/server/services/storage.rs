@@ -24,7 +24,7 @@ pub async fn bytes_to_storage(
     let req = storage
         .write_object(&bucket_name, file_name, source)
         .set_content_type(content_type.unwrap_or(default_content_type));
-    let _ = req.send_buffered().await?;
+    let _ = Box::pin(req.send_buffered()).await?;
 
     let url = SignedUrlBuilder::for_object(&bucket_name, file_name)
         .with_method(http::Method::GET)

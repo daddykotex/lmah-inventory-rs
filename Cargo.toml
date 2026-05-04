@@ -39,7 +39,7 @@ tower-http-util = "0.1.0"
 
 # Source: https://emschwartz.me/your-clippy-config-should-be-stricter/#my-configs
 # and: https://billylevin.dev/posts/clippy-config/
-[workspace.lints.clippy]
+[lints.clippy]
 # Don't Panic - prevent panics from unwraps and unsafe slicing or indexing
 string_slice = "warn"
 indexing_slicing = "warn"

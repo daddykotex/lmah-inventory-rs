@@ -441,14 +441,14 @@ async fn generate_print_handler(
     let pdf_bytes = print_to_pdf(&http_client, &pdf_rocket_api_key, rendered).await?;
     let now = OffsetDateTime::now_utc();
     let file_name = pdf_name_for(facture_id, &now);
-    let url = bytes_to_storage(
+    let url = Box::pin(bytes_to_storage(
         &storage,
         &signer,
         &bucket_name,
         &file_name,
         pdf_bytes,
         Some("application/pdf"),
-    )
+    ))
     .await
     .context("Uploading to storage failed.")?;
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use anyhow::Context;
 use axum::{
@@ -82,7 +82,9 @@ async fn do_sign_in(
         .set_pkce_challenge(pkce_code_challenge)
         .url();
 
-    let expires_in = OffsetDateTime::now_utc() + Duration::from_mins(5);
+    let expires_in = OffsetDateTime::now_utc()
+        .checked_add(time::Duration::minutes(5))
+        .ok_or(anyhow::Error::msg("Adding a duration to `now` failed."))?;
     let state_cookie = make_auth_cookie(
         "state".to_string(),
         csrf_state.secret().to_string(),
@@ -168,20 +170,23 @@ async fn complete_sign_in(
                 .context("OAuth: reqwest received invalid userinfo")?;
             let mut body: serde_json::Value = serde_json::from_str(body.as_str())
                 .context("OAuth: Serde failed to parse userinfo")?;
-            let email = body["email"]
+            let email = body
+                .get_mut("email")
+                .ok_or(anyhow::Error::msg("Missing `email` from returned json."))?
                 .take()
                 .as_str()
                 .ok_or(anyhow::Error::msg(
                     "OAuth: Serde failed to parse email address",
                 ))?
                 .to_owned();
-            let verified_email =
-                body["verified_email"]
-                    .take()
-                    .as_bool()
-                    .ok_or(anyhow::Error::msg(
-                        "OAuth: Serde failed to parse verified_email",
-                    ))?;
+            let verified_email = body
+                .get_mut("verified_email")
+                .ok_or(anyhow::Error::msg("Missing `email` from returned json."))?
+                .take()
+                .as_bool()
+                .ok_or(anyhow::Error::msg(
+                    "OAuth: Serde failed to parse verified_email",
+                ))?;
             if !verified_email {
                 return Ok((
                     StatusCode::UNAUTHORIZED,
@@ -192,7 +197,9 @@ async fn complete_sign_in(
 
             config.check_if_users_is_authorized(&email)?;
 
-            let expires_in = OffsetDateTime::now_utc() + Duration::from_hours(24);
+            let expires_in = OffsetDateTime::now_utc()
+                .checked_add(time::Duration::hours(24))
+                .ok_or(anyhow::Error::msg("Adding a duration to `now` failed."))?;
             let add_user_cookie =
                 make_auth_cookie("user".to_string(), email.to_string(), Some(expires_in));
             cookie_jar = cookie_jar.add(add_user_cookie);

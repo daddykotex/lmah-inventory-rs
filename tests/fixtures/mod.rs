@@ -44,6 +44,10 @@ pub async fn make_state(pool: SqlitePool) -> AppState {
 
     let config = RouterConfig::new(web_config, google_config, pdf_rocket_config);
 
+    #[expect(
+        clippy::let_underscore_must_use,
+        reason = "Test file so we can ignore if provider setup is already done."
+    )]
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     let storage = Storage::builder()
         .with_credentials(AnonymousCredentials::new().build())
