@@ -261,15 +261,15 @@ pub struct FactureItemComputed {
 pub struct FactureItemForm {
     #[serde(rename = "product-id")]
     pub product_id: i64,
-    pub quantity: Option<i64>,
+    pub quantity: Option<String>,
     pub price: Option<String>,
     pub notes: Option<String>,
 
     // Product-specific
     pub size: Option<String>,
-    pub chest: Option<i64>,
-    pub waist: Option<i64>,
-    pub hips: Option<i64>,
+    pub chest: Option<String>,
+    pub waist: Option<String>,
+    pub hips: Option<String>,
     pub color: Option<String>,
     pub beneficiary: Option<String>,
     #[serde(rename = "floor-item")]
@@ -277,7 +277,7 @@ pub struct FactureItemForm {
     #[serde(rename = "extra-large-size-amount")]
     pub extra_large_size: Option<i64>,
     #[serde(rename = "rebate-percent")]
-    pub rebate_percent: Option<i64>,
+    pub rebate_percent: Option<String>,
 
     // Location-specific
     pub insurance: Option<String>,

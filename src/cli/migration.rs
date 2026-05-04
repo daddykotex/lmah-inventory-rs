@@ -706,7 +706,7 @@ pub struct FactureItemFields {
     #[serde(rename = "Total extra taille forte")]
     extra_large_size: Option<f64>, // Will convert to cents
     #[serde(rename = "Rabais")]
-    rebate_percent: Option<i64>,
+    rebate_percent: Option<f64>,
     #[serde(rename = "Grandeur")]
     size: Option<String>,
     #[serde(rename = "Buste")]
@@ -777,7 +777,7 @@ impl From<AirtableRecord<FactureItemFields>> for FactureItemRowWithFKs {
                 notes: record.fields.notes,
                 quantity: record.fields.quantity.unwrap_or(1),
                 extra_large_size: record.fields.extra_large_size.map(dollars_to_cents),
-                rebate_percent: record.fields.rebate_percent,
+                rebate_percent: record.fields.rebate_percent.map(|r| r.round() as i64),
                 size: record.fields.size,
                 chest: record.fields.chest,
                 waist: record.fields.waist,

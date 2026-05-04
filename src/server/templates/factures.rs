@@ -273,6 +273,37 @@ fn item_form_scripts() -> Markup {
                     // hidden when other type of product
                     var floorItemHidden = $('form input[name="floor-item"][type="hidden"]').val() === 'true';
                     toggleFloorItemFields(floorItemHidden || checked);
+
+                    function checkExtraLarge(value) {
+                        $('.form-check-input[name="extra-large-size"]').prop("checked", value);
+                        $('#extra-large-size-override').val(value);
+                    }
+
+                    function validateExtraLarge(floorItem, chestValue, waistValue, hipsValue) {
+                        var chestCheck = parseInt(chestValue, 10) >= 43;
+                        var waistCheck = parseInt(waistValue, 10) >= 34.5;
+                        var hipsCheck = parseInt(hipsValue, 10) >= 46;
+
+                        if (!floorItem && (chestCheck || waistCheck || hipsCheck)) {
+                            checkExtraLarge(true);
+                        } else if (floorItem || (!chestCheck && !waistCheck && !hipsCheck)) {
+                            checkExtraLarge(false);
+                        }
+                    }
+
+                    function runValidation() {
+                        validateExtraLarge(
+                            $('.form-check-input[name="floor-item"]').prop("checked"),
+                            $('.form-row.form-group input[name="chest"]').val(),
+                            $('.form-row.form-group input[name="waist"]').val(),
+                            $('.form-row.form-group input[name="hips"]').val()
+                        );
+                    }
+
+                    $('.form-check-input[name="floor-item"], .form-row.form-group input[name="chest"], .form-row.form-group input[name="waist"], .form-row.form-group input[name="hips"]').bind("keyup change", function (e) {
+                        runValidation();
+                    });
+                    runValidation();
                 });
             "#))
         }
@@ -1246,7 +1277,7 @@ fn facture_item_form(
                         label for="rebatePercent" {
                             "Rabais (%)"
                         }
-                        input."form-control" id="rebate-percent" name="rebate-percent" type="number" min="0" value=[value.rebate_percent] step="0.01" max="100";
+                        input."form-control" id="rebate-percent" name="rebate-percent" type="number" min="0" value=[value.rebate_percent] step="1" max="100";
                     }
                 }
 
@@ -1267,8 +1298,7 @@ fn facture_item_form(
                         div."form-row form-group" {
                             div."col-12" {
                                 div."form-check" {
-                                    input type="hidden" value="false" name="extra-large-size";
-                                    input #extra-large-size-override name="extra-large-size" type="hidden" value="false";
+                                    input id="extra-large-size-override" name="extra-large-size" type="hidden" value="false";
                                     input id="dress-extra-large-size" disabled class="form-check-input" name="extra-large-size" value="true" type="checkbox";
                                     input type="hidden" name="extra-large-size-amount" value=(extra_amount);
                                     label for="dress-extra-large-size" {
@@ -1282,11 +1312,10 @@ fn facture_item_form(
                         div."col-12" {
                             div."form-check" {
                                 @let checked = if value.floor_item { Some(true) } else { None };
-                                input value="false" type="hidden" name="floor-item";
-                                input."form-check-input" id="dress-floor-item" type="checkbox" value="true" name="floor-item" checked=[checked];
-                                label for="dress-floor-item" {
-                                    "Modèle planché"
-                                }
+                                    input."form-check-input" id="dress-floor-item" type="checkbox" value="true" name="floor-item" checked=[checked];
+                                    label for="dress-floor-item" {
+                                        "Modèle planché"
+                                    }
                             }
                         }
                     }

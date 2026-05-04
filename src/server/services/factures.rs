@@ -1032,6 +1032,13 @@ pub async fn insert_facture_item(
         .facture_type
         .unwrap_or_else(|| "Product".to_string());
 
+    let quantity: Option<i64> = form
+        .quantity
+        .as_deref()
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
     let price = form
         .price
         .as_deref()
@@ -1057,19 +1064,51 @@ pub async fn insert_facture_item(
         .transpose()
         .map_err(anyhow::Error::msg)?;
 
+    let rebate_percent: Option<i64> = form
+        .rebate_dollar
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
+    let chest: Option<i64> = form
+        .chest
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
+    let waist: Option<i64> = form
+        .waist
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
+    let hips: Option<i64> = form
+        .hips
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
     let to_insert = FactureItemInsert {
         facture_id,
         product_id: form.product_id,
         item_type,
         price,
         notes: form.notes,
-        quantity: form.quantity.unwrap_or(1),
+        quantity: quantity.unwrap_or(1),
         extra_large_size: form.extra_large_size,
-        rebate_percent: form.rebate_percent,
+        rebate_percent,
         size: form.size,
-        chest: form.chest,
-        waist: form.waist,
-        hips: form.hips,
+        chest,
+        waist,
+        hips,
         color: form.color,
         beneficiary: form.beneficiary,
         floor_item: form.floor_item.unwrap_or(false),
@@ -1125,6 +1164,12 @@ pub async fn update_facture_item(
 
     let floor_item = form.floor_item.unwrap_or(false);
 
+    let quantity: Option<i64> = form
+        .quantity
+        .as_deref()
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
     let price = form
         .price
         .as_deref()
@@ -1150,11 +1195,43 @@ pub async fn update_facture_item(
         .transpose()
         .map_err(anyhow::Error::msg)?;
 
+    let rebate_percent: Option<i64> = form
+        .rebate_dollar
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
+    let chest: Option<i64> = form
+        .chest
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
+    let waist: Option<i64> = form
+        .waist
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
+    let hips: Option<i64> = form
+        .hips
+        .as_deref()
+        .filter(|r| !r.is_empty())
+        .map(|r| r.parse())
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+
     // If floor_item changes to true, sanitize detail fields
     let (size, chest, waist, hips, color) = if floor_item {
         (None, None, None, None, None)
     } else {
-        (form.size, form.chest, form.waist, form.hips, form.color)
+        (form.size, chest, waist, hips, form.color)
     };
 
     let result = sqlx::query(
@@ -1167,7 +1244,7 @@ pub async fn update_facture_item(
          WHERE id = ?",
     )
     .bind(form.product_id)
-    .bind(form.quantity.unwrap_or(1))
+    .bind(quantity.unwrap_or(1))
     .bind(price)
     .bind(form.notes)
     .bind(size)
@@ -1178,7 +1255,7 @@ pub async fn update_facture_item(
     .bind(form.beneficiary)
     .bind(if floor_item { 1 } else { 0 })
     .bind(form.extra_large_size)
-    .bind(form.rebate_percent)
+    .bind(rebate_percent)
     .bind(insurance)
     .bind(other_costs)
     .bind(rebate_dollar)
