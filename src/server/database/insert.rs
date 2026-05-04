@@ -261,11 +261,12 @@ impl Insertable for FactureInsert {
     ) -> Result<Option<i64>> {
         // Insert facture
         let result = sqlx::query(
-            "INSERT INTO factures (client_id, facture_type, date, event_id, fixed_total, cancelled, paper_ref, created_at, updated_at)
-             VALUES (?, ?, date('now'), ?, ?, ?, ?, datetime('now'), datetime('now'))",
+            "INSERT INTO factures (client_id, facture_type, event_id, fixed_total, cancelled, paper_ref, date, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, date('now'), datetime('now'), datetime('now'))",
         )
         .bind(self.client_id)
         .bind(&self.facture_type)
+        .bind(self.event_id)
         .bind(self.fixed_total)
         .bind(if self.cancelled { 1 } else { 0 })
         .bind(&self.paper_ref)

@@ -713,7 +713,7 @@ fn facture_info_client(facture: &FactureView, client: &ClientView) -> Markup {
                 b {
                     "Ville: "
                 }
-                @if let Some(c) = &client.street {
+                @if let Some(c) = &client.city {
                     (c)
                 }
             }

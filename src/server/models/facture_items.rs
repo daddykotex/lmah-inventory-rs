@@ -133,7 +133,7 @@ impl FactureItemView {
         product_name: &str,
     ) -> FactureItemValue<FactureItemLocation, FactureItemAlteration, FactureItemProduct> {
         match product_name {
-            "Alteration" => FactureItemValue::FactureItemAlteration(FactureItemAlteration {
+            "Altération" => FactureItemValue::FactureItemAlteration(FactureItemAlteration {
                 price: None,
                 notes: None,
                 quantity: 1,
