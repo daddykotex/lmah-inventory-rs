@@ -227,7 +227,13 @@ async fn load_config_from_export(data: AirtableRecords<ConfigFields>) -> Result<
             format!("Invalid config type in record {} (id: {})", idx, record.id)
         })?;
 
-        let row = WithId::<ConfigInsert>::from(record).row;
+        let mut row = WithId::<ConfigInsert>::from(record).row;
+
+        // extra taille forte are dollar amounts, we add two trailing 0s to
+        // make them cents
+        if &row.config_type == "extra-taille-forte" {
+            row.value = format!("{}00", row.value);
+        }
 
         rows.push(row);
     }
