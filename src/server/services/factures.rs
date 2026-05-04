@@ -1063,14 +1063,16 @@ pub async fn insert_facture_item(
         .map(parse_money)
         .transpose()
         .map_err(anyhow::Error::msg)?;
-
     let rebate_percent: Option<i64> = form
-        .rebate_dollar
+        .rebate_percent
         .as_deref()
         .filter(|r| !r.is_empty())
         .map(|r| r.parse())
         .transpose()
         .map_err(anyhow::Error::msg)?;
+    let extra_large_size = form
+        .extra_large_size
+        .filter(|_| form.extra_large_size_checked.unwrap_or(false));
 
     let chest: Option<i64> = form
         .chest
@@ -1079,7 +1081,6 @@ pub async fn insert_facture_item(
         .map(|r| r.parse())
         .transpose()
         .map_err(anyhow::Error::msg)?;
-
     let waist: Option<i64> = form
         .waist
         .as_deref()
@@ -1087,7 +1088,6 @@ pub async fn insert_facture_item(
         .map(|r| r.parse())
         .transpose()
         .map_err(anyhow::Error::msg)?;
-
     let hips: Option<i64> = form
         .hips
         .as_deref()
@@ -1103,7 +1103,7 @@ pub async fn insert_facture_item(
         price,
         notes: form.notes,
         quantity: quantity.unwrap_or(1),
-        extra_large_size: form.extra_large_size,
+        extra_large_size,
         rebate_percent,
         size: form.size,
         chest,
@@ -1194,14 +1194,16 @@ pub async fn update_facture_item(
         .map(parse_money)
         .transpose()
         .map_err(anyhow::Error::msg)?;
-
     let rebate_percent: Option<i64> = form
-        .rebate_dollar
+        .rebate_percent
         .as_deref()
         .filter(|r| !r.is_empty())
-        .map(|r| r.parse())
+        .map(|r| r.parse::<i64>())
         .transpose()
         .map_err(anyhow::Error::msg)?;
+    let extra_large_size = form
+        .extra_large_size
+        .filter(|_| form.extra_large_size_checked.unwrap_or(false));
 
     let chest: Option<i64> = form
         .chest
@@ -1254,7 +1256,7 @@ pub async fn update_facture_item(
     .bind(color)
     .bind(form.beneficiary)
     .bind(if floor_item { 1 } else { 0 })
-    .bind(form.extra_large_size)
+    .bind(extra_large_size)
     .bind(rebate_percent)
     .bind(insurance)
     .bind(other_costs)

@@ -274,6 +274,8 @@ pub struct FactureItemForm {
     pub beneficiary: Option<String>,
     #[serde(rename = "floor-item")]
     pub floor_item: Option<bool>,
+    #[serde(rename = "extra-large-size")]
+    pub extra_large_size_checked: Option<bool>,
     #[serde(rename = "extra-large-size-amount")]
     pub extra_large_size: Option<i64>,
     #[serde(rename = "rebate-percent")]
