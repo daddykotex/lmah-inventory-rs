@@ -6,6 +6,7 @@ use lmah_inventory_rs::cli::migration::{
     load_and_insert_product_view_orderings, load_and_insert_products, load_and_insert_refunds,
     load_and_insert_statuts, load_data, load_records, sort_export_by_created_time,
 };
+use lmah_inventory_rs::cli::sync_site::{SyncSiteOptions, run as sync_site_run};
 use lmah_inventory_rs::server::database::connect_to_url;
 use lmah_inventory_rs::server::models::clients::ClientInsert;
 use lmah_inventory_rs::server::models::config::ConfigInsert;
@@ -28,6 +29,8 @@ struct Cli {
 enum Commands {
     /// Load the data from the JSON file into the SQLite database
     Load(LoadArgs),
+    /// Export product data as JSON for the marieealhonneur Hugo site
+    SyncSite(SyncSiteArgs),
 }
 /// Options for the load command
 #[derive(Args, Debug)]
@@ -47,6 +50,18 @@ struct LoadArgs {
     /// Location of the SQLite database
     #[arg(short, long, env = "DATABASE_URL")]
     target: String,
+}
+
+/// Options for the sync-site command
+#[derive(Args, Debug)]
+struct SyncSiteArgs {
+    /// Location of the SQLite database
+    #[arg(long, env = "DATABASE_URL")]
+    db_url: String,
+
+    /// Directory where the JSON files will be written
+    #[arg(short, long)]
+    out: PathBuf,
 }
 
 fn assert_args(args: &LoadArgs) {
@@ -168,12 +183,21 @@ async fn load(args: &LoadArgs) -> Result<()> {
     Ok(())
 }
 
+async fn sync_site(args: &SyncSiteArgs) -> Result<()> {
+    sync_site_run(SyncSiteOptions {
+        db_url: &args.db_url,
+        out_dir: &args.out,
+    })
+    .await
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Load(load_args) => load(load_args).await?,
+        Commands::SyncSite(args) => sync_site(args).await?,
     }
 
     Ok(())
