@@ -414,6 +414,26 @@ BEGIN
   UPDATE statuts SET updated_at = datetime('now') WHERE id = OLD.id;
 END;
 
+CREATE TABLE robes_de_mariees (
+    position INTEGER PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE robes_de_bal (
+    position INTEGER PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE robes_de_meres (
+    position INTEGER PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_robes_de_mariees_product ON robes_de_mariees(product_id);
+CREATE INDEX idx_robes_de_bal_product ON robes_de_bal(product_id);
+CREATE INDEX idx_robes_de_meres_product ON robes_de_meres(product_id);
+
+
 -- ============================================================================
 -- VERIFICATION QUERIES (uncomment to test schema)
 -- ============================================================================

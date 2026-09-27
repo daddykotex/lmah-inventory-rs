@@ -24,6 +24,9 @@ pub enum Table {
     Payments,
     Refunds,
     Statuts,
+    RobesDeMariees,
+    RobesDeBal,
+    RobesDeMeres,
 }
 
 pub trait TableName {
@@ -43,6 +46,9 @@ impl TableName for Table {
             Table::Payments => "payments",
             Table::Refunds => "refunds",
             Table::Statuts => "statuts",
+            Table::RobesDeMariees => "robes_de_mariees",
+            Table::RobesDeBal => "robes_de_bal",
+            Table::RobesDeMeres => "robes_de_meres",
         }
     }
 }
@@ -142,6 +148,9 @@ impl Display for Table {
             Table::Payments => write!(f, "payments"),
             Table::Refunds => write!(f, "refunds"),
             Table::Statuts => write!(f, "statuts"),
+            Table::RobesDeMariees => write!(f, "robes_de_mariees"),
+            Table::RobesDeBal => write!(f, "robes_de_bal"),
+            Table::RobesDeMeres => write!(f, "robes_de_meres"),
         }
     }
 }
