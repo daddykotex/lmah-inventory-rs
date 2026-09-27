@@ -3,8 +3,8 @@ use clap::{Args, Parser, Subcommand};
 use lmah_inventory_rs::cli::migration::{
     ClientFields, ConfigFields, EventFields, ProductTypeFields, check_counts,
     load_and_insert_facture_items, load_and_insert_factures, load_and_insert_payments,
-    load_and_insert_products, load_and_insert_refunds, load_and_insert_statuts, load_data,
-    load_records, sort_export_by_created_time,
+    load_and_insert_product_view_orderings, load_and_insert_products, load_and_insert_refunds,
+    load_and_insert_statuts, load_data, load_records, sort_export_by_created_time,
 };
 use lmah_inventory_rs::server::database::connect_to_url;
 use lmah_inventory_rs::server::models::clients::ClientInsert;
@@ -150,6 +150,10 @@ async fn load(args: &LoadArgs) -> Result<()> {
     // ===== INSERT STATUTS (with FK resolution) =====
     println!("\nStep 13: Inserting statuts with foreign key resolution...");
     load_and_insert_statuts(&pool, export.statuts).await?;
+
+    // ===== INSERT PRODUCT VIEW ORDERINGS (with FK resolution) =====
+    println!("\nStep 13b: Inserting product view orderings...");
+    load_and_insert_product_view_orderings(&pool, export.product_view_orderings).await?;
 
     // ===== VERIFY IMPORTS =====
     println!("\nStep 14: Verifying imports...");

@@ -94,6 +94,7 @@ pub struct AirtableExport {
     pub payments: AirtableRecords<PaymentFields>,
     pub refunds: AirtableRecords<RefundFields>,
     pub statuts: AirtableRecords<StatutFields>,
+    pub product_view_orderings: AirtableRecords<ProductViewOrderingFields>,
 }
 
 /// Table in the JSON
@@ -183,6 +184,10 @@ pub fn sort_export_by_created_time(mut export: AirtableExport) -> AirtableExport
         .sort_by(|a, b| a.created_time.cmp(&b.created_time));
     export
         .statuts
+        .records
+        .sort_by(|a, b| a.created_time.cmp(&b.created_time));
+    export
+        .product_view_orderings
         .records
         .sort_by(|a, b| a.created_time.cmp(&b.created_time));
     export
@@ -1296,6 +1301,9 @@ pub async fn check_counts(pool: &SqlitePool) -> Result<()> {
         Table::Payments,
         Table::Refunds,
         Table::Statuts,
+        Table::RobesDeMariees,
+        Table::RobesDeBal,
+        Table::RobesDeMeres,
     ];
     for t in tables {
         count_check(pool, t).await?;
@@ -1467,6 +1475,62 @@ async fn insert_product_with_related(
         image_row.insert_one(tx).await?;
     }
 
+    Ok(())
+}
+
+/// Product view ordering fields from Airtable JSON export.
+/// The record id identifies the target table (robes_de_mariees, robes_de_bal, robes_de_meres)
+/// and `productIds` is the ordered list of Airtable product ids.
+#[derive(Debug, Deserialize)]
+pub struct ProductViewOrderingFields {
+    #[serde(rename = "productIds")]
+    product_ids: Vec<String>,
+}
+
+/// Load and insert product view orderings, resolving airtable product ids to db ids.
+pub async fn load_and_insert_product_view_orderings(
+    pool: &SqlitePool,
+    data: AirtableRecords<ProductViewOrderingFields>,
+) -> Result<()> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    for record in data.records {
+        let table = match record.id.as_str() {
+            "robes_de_mariees" => Table::RobesDeMariees,
+            "robes_de_bal" => Table::RobesDeBal,
+            "robes_de_meres" => Table::RobesDeMeres,
+            other => anyhow::bail!("Unknown product_view_ordering id: '{}'", other),
+        };
+
+        for (position, airtable_id) in record.fields.product_ids.iter().enumerate() {
+            let product_id = resolve_airtable_id(pool, Table::Products, airtable_id)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to resolve product for {} at position {}",
+                        table, position
+                    )
+                })?;
+
+            sqlx::query(&format!(
+                "INSERT INTO {} (position, product_id) VALUES (?, ?)",
+                table.table_name()
+            ))
+            .bind(position as i64)
+            .bind(product_id)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| format!("Failed to insert into {}", table))?;
+        }
+
+        println!(
+            "Loaded {} product ids into table {}",
+            record.fields.product_ids.len(),
+            table
+        );
+    }
+
+    tx.commit().await.context("Failed to commit transaction")?;
     Ok(())
 }
 
