@@ -4,10 +4,12 @@ use serde_json::Value;
 use sqlx::SqlitePool;
 use std::path::Path;
 
+/// (ordering table, output file stem). The ordering table drives both
+/// membership and display order (ORDER BY position ASC).
 const OUTPUTS: &[(&str, &str)] = &[
-    ("Robe de mariée", "robes_de_mariees"),
-    ("Robe de bal", "robes_de_bals"),
-    ("Robe de mère de la mariée", "robes_de_meres"),
+    ("robes_de_mariees", "robes_de_mariees"),
+    ("robes_de_bal", "robes_de_bals"),
+    ("robes_de_meres", "robes_de_meres"),
 ];
 
 /// One row returned by the SQL query below.
@@ -59,9 +61,9 @@ pub async fn run(opts: SyncSiteOptions<'_>) -> Result<()> {
 
     let pool = crate::server::database::connect_to_url(&opts.db_url.to_string()).await?;
 
-    for (product_type, file_stem) in OUTPUTS {
-        println!("→ {} → {}.json", product_type, file_stem);
-        let rows = query_rows(&pool, product_type).await?;
+    for (order_table, file_stem) in OUTPUTS {
+        println!("→ {} → {}.json", order_table, file_stem);
+        let rows = query_rows(&pool, order_table).await?;
         let entries = build_entries(rows);
         write_json(opts.out_dir, file_stem, &entries)?;
         println!("  wrote {} entries", entries.len());
@@ -70,8 +72,10 @@ pub async fn run(opts: SyncSiteOptions<'_>) -> Result<()> {
     Ok(())
 }
 
-async fn query_rows(pool: &SqlitePool, product_type: &str) -> Result<Vec<ProductImageRow>> {
-    let rows: Vec<ProductImageRow> = sqlx::query_as(
+async fn query_rows(pool: &SqlitePool, order_table: &str) -> Result<Vec<ProductImageRow>> {
+    // The table name is a compile-time constant from OUTPUTS, so string
+    // interpolation here is safe.
+    let sql = format!(
         r#"
         SELECT p.id       AS product_id,
                p.name     AS name,
@@ -79,19 +83,17 @@ async fn query_rows(pool: &SqlitePool, product_type: &str) -> Result<Vec<Product
                p.liquidation AS liquidation,
                pi.id      AS image_id,
                pi.url     AS image_url
-        FROM products p
-        JOIN product_product_types ppt ON ppt.product_id = p.id
+        FROM {order_table} o
+        JOIN products p ON p.id = o.product_id
         LEFT JOIN product_images pi ON pi.product_id = p.id
-        WHERE p.visible_on_site = 1
-          AND ppt.product_type_name = ?
-        ORDER BY p.id ASC,
+        ORDER BY o.position ASC,
                  CASE pi.position WHEN 'front' THEN 0 WHEN 'back' THEN 1 ELSE 2 END
-        "#,
-    )
-    .bind(product_type)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("Failed to query products for type {}", product_type))?;
+        "#
+    );
+    let rows: Vec<ProductImageRow> = sqlx::query_as(&sql)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("Failed to query products from {}", order_table))?;
 
     Ok(rows)
 }
