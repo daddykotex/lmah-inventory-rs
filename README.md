@@ -12,7 +12,11 @@ Direnv will load the environment through devenv. This will get you the right rus
 ## Environment variables
 
 You need a .env before you can go through the rest of this README.
-Copy the `.env.example` into `.env` and update has necessary.
+Copy the `.env.example` into `.env` and update as necessary.
+
+> To generate the value for the `LMAH_GOOGLE_CREDENTIALS`, use the following command:
+`jq -c '. | tostring' < key.json`. The format will look like `LMAH_GOOGLE_CREDENTIALS='{"key":"value..."}'`
+
 
 ## Database
 
