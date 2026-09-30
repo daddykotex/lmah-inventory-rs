@@ -15,6 +15,7 @@ use crate::server::routes::{
     factures::facture_router,
     middleware::{check_auth, inject_user_data},
     misc::misc_router,
+    products::product_router,
 };
 
 async fn redirect_to_factures() -> Redirect {
@@ -88,6 +89,7 @@ pub async fn setup_routes(db_pool: SqlitePool, config: RouterConfig) -> Router {
         .merge(client_router())
         .merge(event_router())
         .merge(facture_router())
+        .merge(product_router())
         .route("/", get(redirect_to_factures))
         .route_layer(middleware::from_fn(check_auth));
 

@@ -248,7 +248,7 @@ impl Selectable<ProductRow> for ProductRow {
     {
         let table = ProductRow::table();
         let result: Vec<ProductRow> = sqlx::query_as(&format!(
-            "SELECT * FROM {} ORDER BY facture_id DESC, facture_item_id DESC",
+            "SELECT * FROM {} ORDER BY name ASC",
             table.table_name()
         ))
         .fetch_all(e)
