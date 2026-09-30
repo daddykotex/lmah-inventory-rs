@@ -114,7 +114,7 @@ async fn upload_images(
     }
     let filename = file_name.unwrap_or_else(|| format!("{position}.bin"));
 
-    let bucket_name = config.google_bucket_name();
+    let bucket_name = config.google_public_bucket_name();
     upload_product_image(
         &pool,
         &storage,

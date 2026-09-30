@@ -435,7 +435,7 @@ async fn generate_print_handler(
     let page_data = load_print_data(&pool, facture_id).await?;
     let rendered = factures::page_print(page_data);
 
-    let bucket_name = config.google_bucket_name();
+    let bucket_name = config.google_internal_files_bucket_name();
     let pdf_rocket_api_key = config.pdf_rocket_api_key();
 
     let pdf_bytes = print_to_pdf(&http_client, &pdf_rocket_api_key, rendered).await?;
