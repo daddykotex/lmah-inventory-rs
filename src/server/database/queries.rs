@@ -17,7 +17,7 @@ use crate::server::{
         factures::FactureRow,
         payments::{PaymentReportRow, PaymentRow},
         product_types::ProductTypeRow,
-        products::ProductRow,
+        products::{ProductImageRow, ProductRow},
         refunds::RefundRow,
         statuts::StatutRow,
     },
@@ -534,4 +534,85 @@ impl ItemFactureFlowType {
 
         Ok(result)
     }
+}
+
+// === PRODUCT IMAGE QUERIES ===
+
+impl ProductImageRow {
+    pub async fn select_all_for_product<'c, E>(
+        product_id: i64,
+        executor: E,
+    ) -> Result<Vec<ProductImageRow>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        let result: Vec<ProductImageRow> =
+            sqlx::query_as("SELECT * FROM product_images WHERE product_id = ? ORDER BY position")
+                .bind(product_id)
+                .fetch_all(executor)
+                .await
+                .context("Failed to retrieve product images")?;
+
+        Ok(result)
+    }
+
+    pub async fn delete_for_product_position(
+        product_id: i64,
+        position: &str,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    ) -> Result<u64> {
+        let result =
+            sqlx::query("DELETE FROM product_images WHERE product_id = ? AND position = ?")
+                .bind(product_id)
+                .bind(position)
+                .execute(&mut **tx)
+                .await
+                .context("Failed to delete existing product image")?;
+
+        Ok(result.rows_affected())
+    }
+}
+
+// === PRODUCT/PRODUCT_TYPE JUNCTION QUERIES ===
+
+pub async fn select_type_names_for_product<'c, E>(
+    product_id: i64,
+    executor: E,
+) -> Result<Vec<String>>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT product_type_name FROM product_product_types WHERE product_id = ? ORDER BY product_type_name",
+    )
+    .bind(product_id)
+    .fetch_all(executor)
+    .await
+    .context("Failed to load product type assignments")?;
+
+    Ok(rows.into_iter().map(|(n,)| n).collect())
+}
+
+pub async fn replace_product_types(
+    product_id: i64,
+    type_names: &[String],
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<()> {
+    sqlx::query("DELETE FROM product_product_types WHERE product_id = ?")
+        .bind(product_id)
+        .execute(&mut **tx)
+        .await
+        .context("Failed to clear product type assignments")?;
+
+    for name in type_names {
+        sqlx::query(
+            "INSERT INTO product_product_types (product_id, product_type_name) VALUES (?, ?)",
+        )
+        .bind(product_id)
+        .bind(name)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| format!("Failed to insert product type {name}"))?;
+    }
+    Ok(())
 }

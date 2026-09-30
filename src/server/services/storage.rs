@@ -34,3 +34,26 @@ pub async fn bytes_to_storage(
 
     Ok(url)
 }
+
+/// Upload bytes and return the public object URL.
+/// Assumes the bucket (or object) is publicly readable.
+pub async fn bytes_to_public_storage(
+    storage: &Storage,
+    bucket_name: &str,
+    file_name: &str,
+    bytes: impl Stream<Item = RequestResult<Bytes>> + Send + Sync + 'static,
+    content_type: Option<&str>,
+) -> Result<String> {
+    let bucket_path = format!("projects/_/buckets/{}", bucket_name);
+    let source = ReqwestStreamSource::new(Box::pin(bytes));
+    let default_content_type = "application/octet-stream";
+    let req = storage
+        .write_object(&bucket_path, file_name, source)
+        .set_content_type(content_type.unwrap_or(default_content_type));
+    let _ = Box::pin(req.send_buffered()).await?;
+
+    Ok(format!(
+        "https://storage.googleapis.com/{}/{}",
+        bucket_name, file_name
+    ))
+}

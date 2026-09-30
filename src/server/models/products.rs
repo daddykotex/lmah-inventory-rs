@@ -98,3 +98,54 @@ pub struct ProductForm {
     #[serde(rename = "visible-on-site")]
     pub visible_on_site: Option<bool>,
 }
+
+/// Admin form for creating and editing products from /admin/products.
+/// `types` collects every checked box (same field name repeated).
+#[derive(Deserialize, Debug)]
+pub struct ProductAdminForm {
+    pub name: String,
+    pub price: Option<String>,
+    #[serde(default)]
+    pub liquidation: Option<String>,
+    #[serde(default, rename = "visible-on-site")]
+    pub visible_on_site: Option<String>,
+    #[serde(default)]
+    pub types: Vec<String>,
+}
+
+impl ProductAdminForm {
+    pub fn is_visible(&self) -> bool {
+        self.visible_on_site.as_deref() == Some("on")
+    }
+
+    pub fn is_liquidation(&self) -> bool {
+        self.liquidation.as_deref() == Some("on")
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ProductAdminListEntry {
+    pub id: i64,
+    pub name: String,
+    pub visible_on_site: bool,
+    pub types: Vec<String>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ProductImageView {
+    pub id: i64,
+    pub url: String,
+    pub filename: String,
+    pub position: String,
+}
+
+impl From<ProductImageRow> for ProductImageView {
+    fn from(value: ProductImageRow) -> Self {
+        ProductImageView {
+            id: value.id,
+            url: value.url,
+            filename: value.filename,
+            position: value.position,
+        }
+    }
+}

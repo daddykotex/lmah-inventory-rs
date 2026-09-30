@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::server::models::{clients::ClientRow, events::EventRow};
+use crate::server::models::{clients::ClientRow, events::EventRow, products::ProductRow};
 
 pub trait Updatable {
     fn update_one(
@@ -62,6 +62,31 @@ impl Updatable for EventRow {
         .execute(&mut **tx)
         .await
         .with_context(|| format!("Failed to update event: {}", self.name))?;
+
+        Ok(result.rows_affected())
+    }
+}
+
+impl Updatable for ProductRow {
+    async fn update_one(&self, tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<u64> {
+        let result = sqlx::query(
+            "UPDATE products
+                 SET
+                     name = ?,
+                     price = ?,
+                     liquidation = ?,
+                     visible_on_site = ?,
+                     updated_at = datetime('now')
+                 WHERE id = ?",
+        )
+        .bind(&self.name)
+        .bind(self.price)
+        .bind(if self.liquidation { 1 } else { 0 })
+        .bind(if self.visible_on_site { 1 } else { 0 })
+        .bind(self.id)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| format!("Failed to update product: {}", self.name))?;
 
         Ok(result.rows_affected())
     }

@@ -10,6 +10,7 @@ pub mod events;
 pub mod factures;
 pub mod middleware;
 pub mod misc;
+pub mod products;
 pub mod redirect;
 
 #[derive(Clone)]
