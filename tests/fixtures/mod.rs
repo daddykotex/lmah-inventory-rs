@@ -38,7 +38,13 @@ pub async fn make_state(pool: SqlitePool) -> AppState {
         vec!["user@test.com".to_string()],
     );
 
-    let google_config = GoogleConfig::new("".to_string(), "".to_string(), None, "".to_string());
+    let google_config = GoogleConfig::new(
+        "".to_string(),
+        "".to_string(),
+        None,
+        "".to_string(),
+        "".to_string(),
+    );
 
     let pdf_rocket_config = PdfRocketConfig::new("".to_string());
 

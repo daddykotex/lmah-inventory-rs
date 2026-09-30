@@ -50,7 +50,8 @@ pub struct GoogleConfig {
     oauth_client_key: Arc<str>,
     oauth_client_secret: Arc<str>,
     service_account_json_key: Option<Arc<str>>,
-    bucket_name: Arc<str>,
+    internal_files_bucket_name: Arc<str>,
+    public_bucket_name: Arc<str>,
 }
 
 impl GoogleConfig {
@@ -58,13 +59,15 @@ impl GoogleConfig {
         oauth_client_key: String,
         oauth_client_secret: String,
         service_account_json_key: Option<String>,
-        bucket_name: String,
+        internal_files_bucket_name: String,
+        public_bucket_name: String,
     ) -> Self {
         Self {
             oauth_client_key: Arc::from(oauth_client_key),
             oauth_client_secret: Arc::from(oauth_client_secret),
             service_account_json_key: service_account_json_key.map(Arc::from),
-            bucket_name: Arc::from(bucket_name),
+            internal_files_bucket_name: Arc::from(internal_files_bucket_name),
+            public_bucket_name: Arc::from(public_bucket_name),
         }
     }
 
@@ -80,8 +83,12 @@ impl GoogleConfig {
         self.service_account_json_key.clone()
     }
 
-    pub fn bucket_name(&self) -> Arc<str> {
-        Arc::clone(&self.bucket_name)
+    pub fn internal_files_bucket_name(&self) -> Arc<str> {
+        Arc::clone(&self.internal_files_bucket_name)
+    }
+
+    pub fn public_bucket_name(&self) -> Arc<str> {
+        Arc::clone(&self.public_bucket_name)
     }
 }
 
@@ -130,8 +137,12 @@ impl RouterConfig {
         self.google.service_account_json_key()
     }
 
-    pub fn google_bucket_name(&self) -> Arc<str> {
-        self.google.bucket_name()
+    pub fn google_internal_files_bucket_name(&self) -> Arc<str> {
+        self.google.internal_files_bucket_name()
+    }
+
+    pub fn google_public_bucket_name(&self) -> Arc<str> {
+        self.google.public_bucket_name()
     }
 
     pub fn external_url(&self) -> Arc<str> {

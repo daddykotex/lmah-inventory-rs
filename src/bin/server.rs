@@ -35,9 +35,13 @@ pub struct ServerConfig {
     #[arg(long, env = "LMAH_GOOGLE_CREDENTIALS")]
     lmah_google_credentials: Option<String>,
 
-    /// GCP Storage bucket name
-    #[arg(long, env = "LMAH_GOOGLE_BUCKET_NAME")]
-    lmah_google_bucket_name: String,
+    /// GCP Storage bucket for internal files (PDFs, etc.)
+    #[arg(long, env = "LMAH_GOOGLE_INTERNAL_FILES_BUCKET_NAME")]
+    lmah_google_internal_files_bucket_name: String,
+
+    /// GCP Storage bucket for publicly-served files (product images)
+    #[arg(long, env = "LMAH_GOOGLE_PUBLIC_BUCKET_NAME")]
+    lmah_google_public_bucket_name: String,
 
     /// OAuth secret for Google OAuth2 flow
     #[arg(long, env = "LMAH_EXTERNAL_URL")]
@@ -78,7 +82,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.lmah_google_oauth_key,
         config.lmah_google_oauth_secret,
         config.lmah_google_credentials,
-        config.lmah_google_bucket_name,
+        config.lmah_google_internal_files_bucket_name,
+        config.lmah_google_public_bucket_name,
     );
 
     let pdf_rocket_config = PdfRocketConfig::new(config.lmah_pdf_rocket_api_key);
