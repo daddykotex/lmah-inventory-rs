@@ -10,16 +10,49 @@ use google_cloud_storage::client::Storage;
 use maud::Markup;
 use sqlx::SqlitePool;
 
+use serde::Deserialize;
+
 use crate::server::{
     models::products::ProductAdminForm,
     routes::{RouterConfig, bootstrap::AppState, errors::AppError},
     services::products::{
         create_admin_product, list_admin_products, load_all_product_type_names,
-        load_product_for_edit, load_product_images_page, update_admin_product,
-        upload_product_image,
+        load_ordering_cards, load_product_for_edit, load_product_images_page,
+        ordering_table_for_slug, save_ordering, update_admin_product, upload_product_image,
     },
     templates::products,
 };
+
+#[derive(Deserialize, Debug)]
+struct OrderingForm {
+    #[serde(default)]
+    ids: Vec<i64>,
+}
+
+async fn ordering_page(
+    State(pool): State<SqlitePool>,
+    Path(slug): Path<String>,
+) -> Result<Markup, AppError> {
+    let (table, url_slug, label) = ordering_table_for_slug(&slug)
+        .ok_or_else(|| anyhow::anyhow!("Unknown ordering table: {slug}"))?;
+    let cards = load_ordering_cards(&pool, table).await?;
+    Ok(products::page_admin_product_ordering(
+        url_slug, label, cards,
+    ))
+}
+
+async fn save_ordering_handler(
+    State(pool): State<SqlitePool>,
+    Path(slug): Path<String>,
+    Form(form): Form<OrderingForm>,
+) -> Result<Redirect, AppError> {
+    let (table, url_slug, _) = ordering_table_for_slug(&slug)
+        .ok_or_else(|| anyhow::anyhow!("Unknown ordering table: {slug}"))?;
+    save_ordering(&pool, table, &form.ids).await?;
+    Ok(Redirect::to(&format!(
+        "/admin/products/order/{url_slug}?success=true"
+    )))
+}
 
 async fn list_products(State(pool): State<SqlitePool>) -> Result<Markup, AppError> {
     let entries = list_admin_products(&pool).await?;
@@ -138,6 +171,10 @@ pub fn product_router() -> Router<AppState> {
         .route(
             "/admin/products/add-product",
             get(new_product_form).post(create_product),
+        )
+        .route(
+            "/admin/products/order/{slug}",
+            get(ordering_page).post(save_ordering_handler),
         )
         .route(
             "/admin/products/{id}",

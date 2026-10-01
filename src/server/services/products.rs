@@ -4,6 +4,100 @@ use futures_util::stream;
 use google_cloud_storage::client::Storage;
 use sqlx::SqlitePool;
 
+/// Ordering tables that drive the Hugo site output (see `cli::sync_site`).
+/// (`table_name`, url slug, human-readable label).
+pub const ORDERING_TABLES: &[(&str, &str, &str)] = &[
+    ("robes_de_mariees", "robes_de_mariees", "Robes de mariées"),
+    ("robes_de_bal", "robes_de_bal", "Robes de bal"),
+    ("robes_de_meres", "robes_de_meres", "Robes de mères"),
+];
+
+pub fn ordering_table_for_slug(
+    slug: &str,
+) -> Option<&'static (&'static str, &'static str, &'static str)> {
+    ORDERING_TABLES.iter().find(|(_, s, _)| *s == slug)
+}
+
+#[derive(Debug)]
+pub struct OrderingCard {
+    pub product_id: i64,
+    pub name: String,
+    pub price_cents: Option<i64>,
+    pub liquidation: bool,
+    pub image_url: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct OrderingRow {
+    product_id: i64,
+    name: String,
+    price: Option<i64>,
+    liquidation: bool,
+    image_url: Option<String>,
+}
+
+pub async fn load_ordering_cards(pool: &SqlitePool, table: &str) -> Result<Vec<OrderingCard>> {
+    // `table` comes from a compile-time allowlist (see `ORDERING_TABLES`), so
+    // interpolating it here is safe.
+    let sql = format!(
+        r#"
+        SELECT p.id       AS product_id,
+               p.name     AS name,
+               p.price    AS price,
+               p.liquidation AS liquidation,
+               (
+                   SELECT pi.url
+                   FROM product_images pi
+                   WHERE pi.product_id = p.id
+                   ORDER BY CASE pi.position WHEN 'front' THEN 0 WHEN 'back' THEN 1 ELSE 2 END
+                   LIMIT 1
+               ) AS image_url
+        FROM {table} o
+        JOIN products p ON p.id = o.product_id
+        ORDER BY o.position ASC
+        "#
+    );
+    let rows: Vec<OrderingRow> = sqlx::query_as(&sql)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("Failed to load ordering rows from {table}"))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| OrderingCard {
+            product_id: r.product_id,
+            name: r.name,
+            price_cents: r.price,
+            liquidation: r.liquidation,
+            image_url: r.image_url,
+        })
+        .collect())
+}
+
+pub async fn save_ordering(pool: &SqlitePool, table: &str, product_ids: &[i64]) -> Result<()> {
+    let mut tx = pool.begin().await.context("Failed to begin transaction")?;
+
+    let delete_sql = format!("DELETE FROM {table}");
+    sqlx::query(&delete_sql)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("Failed to clear {table}"))?;
+
+    let insert_sql = format!("INSERT INTO {table} (position, product_id) VALUES (?, ?)");
+    for (idx, product_id) in product_ids.iter().enumerate() {
+        let position = (idx as i64) + 1;
+        sqlx::query(&insert_sql)
+            .bind(position)
+            .bind(product_id)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| format!("Failed to insert into {table} (product {product_id})"))?;
+    }
+
+    tx.commit().await.context("Failed to commit transaction")?;
+    Ok(())
+}
+
 use crate::server::{
     database::{
         insert::Insertable,
