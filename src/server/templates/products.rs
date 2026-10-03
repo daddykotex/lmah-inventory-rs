@@ -21,7 +21,7 @@ fn page(title: &str, body: Markup) -> Markup {
 
 fn shell(content: Markup, scripts: Vec<Markup>) -> Markup {
     html! {
-        (navbar(MenuConstants::Admin))
+        (navbar(MenuConstants::Products))
         main role="main" {
             div."container-fluid" {
                 (content)

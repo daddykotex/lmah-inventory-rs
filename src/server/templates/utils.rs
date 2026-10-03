@@ -212,6 +212,7 @@ pub enum MenuConstants {
     Evenements,
     Help,
     Admin,
+    Products,
 }
 
 pub fn navbar_item(is_active: bool, url: &str, label: &str) -> Markup {
@@ -223,6 +224,10 @@ pub fn navbar_item(is_active: bool, url: &str, label: &str) -> Markup {
             }
         }
     }
+}
+
+pub fn is_admin(current_menu: &MenuConstants) -> bool {
+    return *current_menu == MenuConstants::Products || *current_menu == MenuConstants::Admin;
 }
 
 pub fn navbar(current_menu: MenuConstants) -> Markup {
@@ -239,6 +244,10 @@ pub fn navbar(current_menu: MenuConstants) -> Markup {
                     (navbar_item(current_menu == MenuConstants::Clients, "/clients", "Clients"))
                     (navbar_item(current_menu == MenuConstants::Factures, "/factures", "Factures"))
                     (navbar_item(current_menu == MenuConstants::Evenements, "/events", "Événements"))
+                    @if is_admin(&current_menu) {
+                        (navbar_item(current_menu == MenuConstants::Products, "/admin/products", "Produits"))
+                        (navbar_item(current_menu == MenuConstants::Admin, "/admin", "Administration"))
+                    }
                 }
                 ul."navbar-nav flex-row" {
                     li."nav-item" {
