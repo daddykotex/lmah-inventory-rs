@@ -12,7 +12,6 @@ use crate::server::models::statuts::StatutInsert;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::SqlitePool;
-use std::fs;
 
 /// Migration-specific: Image data extracted from Airtable attachment
 /// This struct is used during migration and will be removed after migration is complete
@@ -191,17 +190,6 @@ pub fn sort_export_by_created_time(mut export: AirtableExport) -> AirtableExport
         .records
         .sort_by(|a, b| a.created_time.cmp(&b.created_time));
     export
-}
-
-/// Load data from JSON file
-pub async fn load_data(json_path: &std::path::Path) -> Result<AirtableExport> {
-    let json_content = fs::read_to_string(json_path)
-        .with_context(|| format!("Failed to read JSON file: {}", json_path.display()))?;
-
-    let export: AirtableExport =
-        serde_json::from_str(&json_content).context("Failed to parse JSON")?;
-
-    Ok(export)
 }
 
 pub struct ToInsert {
