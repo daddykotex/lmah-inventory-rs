@@ -44,6 +44,7 @@ fn extract_first(html: &str, pattern: &str) -> Option<String> {
         if let Some(id) = extract_id(href, prefix, suffix)
             && !id.is_empty()
             && !id.contains('/')
+            && !is_action_segment(id)
         {
             return Some(id.to_string());
         }
@@ -56,6 +57,10 @@ fn split_pattern(pattern: &str) -> Option<(&str, &str)> {
     let prefix = pattern.get(..idx)?;
     let suffix = pattern.get(idx + "{id}".len()..)?;
     Some((prefix, suffix))
+}
+
+fn is_action_segment(id: &str) -> bool {
+    matches!(id, "new" | "create" | "edit" | "search")
 }
 
 fn extract_id<'a>(href: &'a str, prefix: &str, suffix: &str) -> Option<&'a str> {
