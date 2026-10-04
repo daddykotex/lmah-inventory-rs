@@ -110,7 +110,7 @@ pub fn page_admin(page_data: PageAdmin) -> Markup {
                         p {
                             "Ce rapport contient l'information de toutes les transactions. Il n'inclut pas les factures sans paiements."
                         }
-                        a href="/admin/rapport-paiements" {
+                        a href="/admin/paiements-report" {
                             "Télécharger le fichier CSV"
                         }
                     }
@@ -121,7 +121,7 @@ pub fn page_admin(page_data: PageAdmin) -> Markup {
                         p {
                             "Ce rapport contient toutes factures. Il n'inclut pas les paiements."
                         }
-                        a href="/admin/rapport-factures" {
+                        a href="/admin/factures-report" {
                             "Télécharger le fichier CSV"
                         }
                     }
@@ -191,7 +191,6 @@ pub fn page_admin(page_data: PageAdmin) -> Markup {
         (footer())
         script type="text/javascript" {
             (sort_table_script)
-            (generate_print_js())
         }
         (generate_print_js())
     };
