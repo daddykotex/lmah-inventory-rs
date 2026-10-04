@@ -10,7 +10,7 @@ use super::session::AuthedSession;
 ///
 /// Keeps tests data-agnostic: we don't hardcode ids, and if the listing is
 /// empty we return `None` so the caller can skip rather than fail.
-pub async fn first_detail_path(
+pub async fn first_id(
     client: &Client,
     session: &AuthedSession,
     base: &Url,
@@ -45,7 +45,7 @@ fn extract_first(html: &str, pattern: &str) -> Option<String> {
             && !id.is_empty()
             && !id.contains('/')
         {
-            return Some(pattern.replace("{id}", &id));
+            return Some(id.to_string());
         }
     }
     None
@@ -81,7 +81,7 @@ mod tests {
         "#;
         assert_eq!(
             extract_first(html, "/factures/{id}/items").as_deref(),
-            Some("/factures/abc-1/items")
+            Some("abc-1")
         );
     }
 
@@ -95,7 +95,7 @@ mod tests {
         "#;
         assert_eq!(
             extract_first(html, "/clients/{id}").as_deref(),
-            Some("/clients/rec123")
+            Some("rec123")
         );
     }
 

@@ -11,15 +11,17 @@ use anyhow::Result;
 use url::Url;
 
 use live::browser::{TestBrowser, assert_page_loads_cleanly};
-use live::discover::first_detail_path;
+use live::discover::first_id;
 use live::session::{AuthedSession, login};
 
-/// Load a listing page then a representative detail page, asserting both
-/// return 2xx and load cleanly in a browser (no JS errors).
+/// Load a listing page then one or more representative detail pages that
+/// share a single discovered id, asserting each returns 2xx and loads cleanly
+/// in a browser (no JS errors).
 ///
-/// The detail page is discovered by scraping the listing — tests don't depend
-/// on specific ids, keeping them resilient to evolving data.
-async fn assert_listing_and_detail_load(list_path: &str, detail_pattern: &str) -> Result<()> {
+/// The id is scraped from the listing using the first pattern in
+/// `detail_patterns`; the same id is substituted into every pattern. Tests
+/// stay data-agnostic.
+async fn assert_pages_load(list_path: &str, detail_patterns: &[&str]) -> Result<()> {
     let base = live::base_url();
     let (client, session) = login(&base).await?;
     let browser = TestBrowser::launch().await?;
@@ -28,15 +30,20 @@ async fn assert_listing_and_detail_load(list_path: &str, detail_pattern: &str) -
     check_http_ok(&client, &session, &list_url).await?;
     assert_page_loads_cleanly(&browser, &base, &session, &list_url).await?;
 
-    let Some(detail_path) =
-        first_detail_path(&client, &session, &base, list_path, detail_pattern).await?
-    else {
-        eprintln!("skipping detail check: {list_path} listing is empty");
+    let Some(discovery_pattern) = detail_patterns.first() else {
         return Ok(());
     };
-    let detail_url = base.join(&detail_path)?;
-    check_http_ok(&client, &session, &detail_url).await?;
-    assert_page_loads_cleanly(&browser, &base, &session, &detail_url).await?;
+    let Some(id) = first_id(&client, &session, &base, list_path, discovery_pattern).await? else {
+        eprintln!("skipping detail checks: {list_path} listing is empty");
+        return Ok(());
+    };
+
+    for pattern in detail_patterns {
+        let path = pattern.replace("{id}", &id);
+        let url = base.join(&path)?;
+        check_http_ok(&client, &session, &url).await?;
+        assert_page_loads_cleanly(&browser, &base, &session, &url).await?;
+    }
 
     Ok(())
 }
@@ -54,17 +61,21 @@ async fn check_http_ok(client: &reqwest::Client, session: &AuthedSession, url: &
 #[tokio::test]
 #[ignore = "requires live Scala app at LMAH_BASE_URL (default http://localhost:8080)"]
 async fn factures_pages_load() -> Result<()> {
-    assert_listing_and_detail_load("/factures", "/factures/{id}/items").await
+    assert_pages_load(
+        "/factures",
+        &["/factures/{id}/items", "/factures/{id}/transactions"],
+    )
+    .await
 }
 
 #[tokio::test]
 #[ignore = "requires live Scala app at LMAH_BASE_URL (default http://localhost:8080)"]
 async fn clients_pages_load() -> Result<()> {
-    assert_listing_and_detail_load("/clients", "/clients/{id}").await
+    assert_pages_load("/clients", &["/clients/{id}"]).await
 }
 
 #[tokio::test]
 #[ignore = "requires live Scala app at LMAH_BASE_URL (default http://localhost:8080)"]
 async fn events_pages_load() -> Result<()> {
-    assert_listing_and_detail_load("/events", "/events/{id}").await
+    assert_pages_load("/events", &["/events/{id}"]).await
 }
