@@ -58,6 +58,42 @@ async fn check_http_ok(client: &reqwest::Client, session: &AuthedSession, url: &
     Ok(())
 }
 
+/// Download a CSV report and sanity-check it: 2xx, text/csv content type, and
+/// a body that parses as CSV with at least a header row.
+async fn check_csv_download(
+    client: &reqwest::Client,
+    session: &AuthedSession,
+    url: &Url,
+) -> Result<()> {
+    let resp = session.apply(client.get(url.clone())).send().await?;
+    anyhow::ensure!(
+        resp.status().is_success(),
+        "GET {url} returned {}",
+        resp.status()
+    );
+    let ct = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    anyhow::ensure!(
+        ct.starts_with("text/csv"),
+        "GET {url} returned non-CSV content-type: {ct:?}"
+    );
+    let body = resp.bytes().await?;
+    anyhow::ensure!(!body.is_empty(), "GET {url} returned empty body");
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(body.as_ref());
+    let header = rdr
+        .records()
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("GET {url}: CSV had no rows"))??;
+    anyhow::ensure!(!header.is_empty(), "GET {url}: CSV header row was empty");
+    Ok(())
+}
+
 #[tokio::test]
 #[ignore = "requires live Scala app at LMAH_BASE_URL (default http://localhost:8080)"]
 async fn factures_pages_load() -> Result<()> {
@@ -78,4 +114,23 @@ async fn clients_pages_load() -> Result<()> {
 #[ignore = "requires live Scala app at LMAH_BASE_URL (default http://localhost:8080)"]
 async fn events_pages_load() -> Result<()> {
     assert_pages_load("/events", &["/events/{id}"]).await
+}
+
+#[tokio::test]
+#[ignore = "requires live Scala app at LMAH_BASE_URL (default http://localhost:8080)"]
+async fn admin_pages_load() -> Result<()> {
+    let base = live::base_url();
+    let (client, session) = login(&base).await?;
+    let browser = TestBrowser::launch().await?;
+
+    let admin_url = base.join("/admin")?;
+    check_http_ok(&client, &session, &admin_url).await?;
+    assert_page_loads_cleanly(&browser, &base, &session, &admin_url).await?;
+
+    for report in ["/admin/paiements-report", "/admin/factures-report"] {
+        let url = base.join(report)?;
+        check_csv_download(&client, &session, &url).await?;
+    }
+
+    Ok(())
 }
