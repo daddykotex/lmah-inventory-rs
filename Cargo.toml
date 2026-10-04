@@ -22,7 +22,7 @@ listenfd = "1.0.2" # file descriptor listen (paired with systemfd)
 oauth2 = "5.0.0"
 hex = "0.4.3"
 time = "0.3.47"
-reqwest = { version = "0.13.2", features = ["stream", "form"] }
+reqwest = { version = "0.13.2", features = ["stream", "form", "cookies"] }
 futures-core = "0.3.32"
 google-cloud-auth = { version = "1.9.0", features = ["default-rustls-provider"] }
 google-cloud-storage = { version = "1.11.0", features = ["default-rustls-provider"] }
@@ -36,6 +36,10 @@ axum-streams = { version = "0.25.0", features = ["csv"] }
 insta = "1.47.0"
 tower = "0.5.3"
 tower-http-util = "0.1.0"
+chromiumoxide = { version = "0.7", default-features = false, features = ["tokio-runtime"] }
+scraper = "0.20"
+url = "2.5"
+once_cell = "1.19"
 
 # Source: https://emschwartz.me/your-clippy-config-should-be-stricter/#my-configs
 # and: https://billylevin.dev/posts/clippy-config/
