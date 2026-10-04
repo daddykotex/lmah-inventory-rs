@@ -36,6 +36,7 @@ pub async fn make_state(pool: SqlitePool) -> AppState {
         "".to_string(),
         "".to_string(),
         vec!["user@test.com".to_string()],
+        false,
     );
 
     let google_config = GoogleConfig::new(

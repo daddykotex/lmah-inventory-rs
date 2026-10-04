@@ -112,6 +112,24 @@ async fn complete_sign_in(
     State(config): State<RouterConfig>,
     mut cookie_jar: PrivateCookieJar,
 ) -> Result<impl IntoResponse, AppError> {
+    // TEST_MODE: skip the real OAuth flow when the client hits
+    // /signin/complete?state=dummy&code=dummy. Mirrors the Scala original's
+    // dummy authenticator used by its integration test suite.
+    if config.test_mode()
+        && params.get("state").map(String::as_str) == Some("dummy")
+        && params.get("code").map(String::as_str) == Some("dummy")
+    {
+        let expires_in = OffsetDateTime::now_utc()
+            .checked_add(time::Duration::hours(24))
+            .ok_or(anyhow::Error::msg("Adding a duration to `now` failed."))?;
+        let user_cookie = make_auth_cookie(
+            "user".to_string(),
+            "test-mode@local".to_string(),
+            Some(expires_in),
+        );
+        return Ok((cookie_jar.add(user_cookie), Redirect::to("/")).into_response());
+    }
+
     let current_state = cookie_jar.get("state");
     let pkce_verifier = cookie_jar.get("pkce_verifier");
     let redirect_url = cookie_jar.get("redirect_url");

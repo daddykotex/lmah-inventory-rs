@@ -18,15 +18,26 @@ pub struct WebConfig {
     url: Arc<str>,
     cookie_key: Arc<str>,
     authorized_users: Arc<Vec<String>>,
+    test_mode: bool,
 }
 
 impl WebConfig {
-    pub fn new(url: String, cookie_key: String, authorized_users: Vec<String>) -> Self {
+    pub fn new(
+        url: String,
+        cookie_key: String,
+        authorized_users: Vec<String>,
+        test_mode: bool,
+    ) -> Self {
         Self {
             url: Arc::from(url),
             cookie_key: Arc::from(cookie_key),
             authorized_users: Arc::from(authorized_users),
+            test_mode,
         }
+    }
+
+    pub fn test_mode(&self) -> bool {
+        self.test_mode
     }
 
     pub fn url(&self) -> Arc<str> {
@@ -159,5 +170,9 @@ impl RouterConfig {
 
     pub fn check_if_users_is_authorized(&self, email: &str) -> Result<()> {
         self.web.check_if_users_is_authorized(email)
+    }
+
+    pub fn test_mode(&self) -> bool {
+        self.web.test_mode()
     }
 }
