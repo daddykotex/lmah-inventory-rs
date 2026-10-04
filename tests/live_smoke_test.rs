@@ -1,9 +1,12 @@
 //! Live smoke tests against a running instance of the original Scala app.
 //!
+//! This target is gated behind the `live-tests` Cargo feature, so CI's plain
+//! `cargo test` doesn't build chromiumoxide or run these.
+//!
 //! Run with:
-//!   cargo test --test live_smoke_test -- --ignored --nocapture
+//!   cargo test --features live-tests --test live_smoke_test -- --ignored --nocapture
 //! Point at a different host with:
-//!   LMAH_BASE_URL=http://host:port cargo test --test live_smoke_test -- --ignored
+//!   LMAH_BASE_URL=http://host:port cargo test --features live-tests --test live_smoke_test -- --ignored
 
 mod live;
 

@@ -55,6 +55,9 @@ jobs:
     - name: Install devenv.sh
       run: nix profile add nixpkgs#devenv
 
+    # Live smoke tests (tests/live_smoke_test.rs) require the `live-tests`
+    # feature and a running copy of the original Scala app; they are
+    # intentionally skipped on CI.
     - name: Cargo test
       run: devenv shell cargo test
 
