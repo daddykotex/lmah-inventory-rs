@@ -22,6 +22,7 @@
     pkgs.systemfd
     pkgs.watchexec
     pkgs.litestream
+    pkgs.google-chrome
   ];
 
   # See full reference at https://devenv.sh/reference/options/
