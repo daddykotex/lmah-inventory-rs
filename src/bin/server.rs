@@ -32,7 +32,7 @@ pub struct ServerConfig {
 
     /// Google service account key as json, alternatively
     /// this application can use GOOGLE_APPLICATION_CREDENTIALS
-    #[arg(long, env = "LMAH_GOOGLE_CREDENTIALS")]
+    #[arg(long, env = "LMAH_GOOGLE_CREDENTIALS", hide_env_values = true)]
     lmah_google_credentials: Option<String>,
 
     /// GCP Storage bucket for internal files (PDFs, etc.)
