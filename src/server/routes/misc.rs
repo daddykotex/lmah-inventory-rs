@@ -54,6 +54,6 @@ pub fn misc_router() -> Router<AppState> {
         .route("/wait", get(wait))
         .route("/help", get(help))
         .route("/admin", get(admin))
-        .route("/admin/rapport-paiements", get(payment_report))
-        .route("/admin/rapport-factures", get(factures_report))
+        .route("/admin/paiements-report", get(payment_report))
+        .route("/admin/factures-report", get(factures_report))
 }
