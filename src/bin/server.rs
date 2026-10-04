@@ -54,6 +54,11 @@ pub struct ServerConfig {
     /// Authorized users: email1@test.com,email2@test.com
     #[arg(long, env = "LMAH_AUTHORIZED_USERS")]
     lmah_authorized_users: String,
+
+    /// Enable test mode: bypasses Google OAuth so `/signin/complete?state=dummy&code=dummy`
+    /// mints a session directly. Must NEVER be enabled in production.
+    #[arg(long, env = "TEST_MODE", default_value_t = false)]
+    test_mode: bool,
 }
 
 #[tokio::main]
@@ -72,10 +77,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(String::from)
         .collect();
 
+    if config.test_mode {
+        eprintln!(
+            "WARNING: TEST_MODE is enabled — Google OAuth is bypassed. Do not use in production."
+        );
+    }
+
     let web_config = WebConfig::new(
         config.lmah_external_url,
         config.lmah_cookie_key,
         authorized_users,
+        config.test_mode,
     );
 
     let google_config = GoogleConfig::new(
