@@ -78,7 +78,7 @@ async fn prepare_app_state(db_pool: SqlitePool, config: RouterConfig) -> Result<
     })
 }
 
-pub async fn setup_routes(db_pool: SqlitePool, config: RouterConfig) -> Router {
+pub async fn setup_routes(db_pool: SqlitePool, config: RouterConfig, static_dir: String) -> Router {
     let app_state = prepare_app_state(db_pool, config)
         .await
         .expect("Unable to prepare AppState");
@@ -95,7 +95,7 @@ pub async fn setup_routes(db_pool: SqlitePool, config: RouterConfig) -> Router {
 
     let unauthed_routes = Router::new()
         .merge(auth_router())
-        .nest_service("/static", ServeDir::new("static"));
+        .nest_service("/static", ServeDir::new(static_dir));
 
     let router = Router::new().merge(authed_routes).merge(unauthed_routes);
     router

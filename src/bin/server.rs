@@ -59,6 +59,10 @@ pub struct ServerConfig {
     /// mints a session directly. Must NEVER be enabled in production.
     #[arg(long, env = "TEST_MODE", default_value_t = false)]
     test_mode: bool,
+
+    /// Directory served under `/static`
+    #[arg(long, env = "LMAH_STATIC_DIR", default_value = "static")]
+    lmah_static_dir: String,
 }
 
 #[tokio::main]
@@ -101,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pdf_rocket_config = PdfRocketConfig::new(config.lmah_pdf_rocket_api_key);
 
     let router_config = RouterConfig::new(web_config, google_config, pdf_rocket_config);
-    let app: Router = setup_routes(pool, router_config).await;
+    let app: Router = setup_routes(pool, router_config, config.lmah_static_dir).await;
 
     let mut listenfd = listenfd::ListenFd::from_env();
     match listenfd.take_tcp_listener(0)? {
