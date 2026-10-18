@@ -15,6 +15,7 @@ use crate::server::routes::{
     factures::facture_router,
     middleware::{check_auth, inject_user_data},
     misc::misc_router,
+    monitoring::monitoring_router,
     products::product_router,
 };
 
@@ -95,6 +96,7 @@ pub async fn setup_routes(db_pool: SqlitePool, config: RouterConfig, static_dir:
 
     let unauthed_routes = Router::new()
         .merge(auth_router())
+        .merge(monitoring_router())
         .nest_service("/static", ServeDir::new(static_dir));
 
     let router = Router::new().merge(authed_routes).merge(unauthed_routes);
